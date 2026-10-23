@@ -154,6 +154,14 @@ if pci:
                        ("card digits in ESL DTMF events (one per digit)", "dtmf_events_on_B")):
         bad = sum(1 for o in keyed if has(o.get(key)))
         summary.append(("5 PCI leak", label, len(keyed) - bad, len(keyed)))
+    if os.path.exists(R + "/p11-evidence.txt"):
+        p("P11 outside a call (`p11-evidence.sh`: `runner/luasec_eof.lua`, the script's tokenize socket calls, "
+          "against the mock CRM in drop mode):")
+        p("")
+        p("```")
+        p(open(R + "/p11-evidence.txt").read().rstrip())
+        p("```")
+        p("")
     for name in ("pci-grep.txt", "pci-grep-after-experiments.txt"):
         if os.path.exists(R + "/" + name):
             p("Leak sweep (`pci-grep.sh`, %s):" % name)
