@@ -6,7 +6,7 @@
        play_<file>[__tag]   answer, play /lab/audio/far/<file>.wav, then listen
        cust[_tag]           answer, loop the customer's voice (keypad digits are
                             sent from the lab runner with uuid_send_dtmf)
-       agent[_tag]          answer, loop the agent's voice
+       agent[_tag]          answer, loop the agent's voice (key "1" sets lab_heard_dtmf)
      and records everything it hears under /results/far-rec/. -->
 <document type="freeswitch/xml">
   <X-PRE-PROCESS cmd="set" data="lab_net=10.88.231.0/24"/>
@@ -80,6 +80,10 @@
           <action application="answer"/>
           <action application="set" data="RECORD_STEREO=true"/>
           <action application="record_session" data="/results/far-rec/agent-${uuid}.wav"/>
+          <!-- P27: did a key the customer pressed after secure entry reach
+               the agent's phone? (sets lab_heard_dtmf=1 on this channel) -->
+          <action application="bind_digit_action" data="lab,1,exec:set,lab_heard_dtmf=1"/>
+          <action application="digit_action_set_realm" data="lab"/>
           <action application="endless_playback" data="/lab/audio/far/agent_voice.wav"/>
         </condition>
       </extension>

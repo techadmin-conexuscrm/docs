@@ -291,6 +291,15 @@ def check(results):
             expect(name, r["closed"].get(n), "connection %d never closed" % n)
         # FreeSWITCH logs keys, fires DTMF events and fills digits_dialed
         # unless sensitive_dtmf is set before the first key is read
+        # ...and is unset again when the entry ends, before the customer is
+        # bridged back: left on, every key they press for the rest of the
+        # call is dropped at the bridge (switch_core_session_send_dtmf)
+        if name != "customer_hangup_mid_card":
+            calls = [c for _, c in api(r)]
+            unset = [i for i, c in enumerate(calls) if c.strip().endswith(" sensitive_dtmf") and c.startswith("uuid_setvar ")]
+            bridge = [i for i, c in enumerate(calls) if c.startswith("uuid_bridge")]
+            expect(name, unset, "sensitive_dtmf never unset at the end of the entry")
+            expect(name, not bridge or (unset and unset[0] < bridge[0]), "customer bridged back with sensitive_dtmf still set")
         reads = [e for e in r["log"] if e["kind"] == "getDigits"]
         expect(name, all(e["b"] == "true" for e in reads),
                "a key was read while sensitive_dtmf was not true on the channel")

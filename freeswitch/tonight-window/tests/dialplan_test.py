@@ -33,6 +33,13 @@ else:
         lua = [i for i, a in enumerate(actions) if a.get("application") == "lua"]
         if not lua:
             fails.append("no lua action")
+        apps = [(a.get("application"), a.get("data")) for a in actions]
+        # no digit action (app.py's queue callback "0") may see the card
+        if ("clear_digit_action", "all") not in apps or (lua and apps.index(("clear_digit_action", "all")) > lua[0]):
+            fails.append("no clear_digit_action all before the lua action")
+        # the fallback gives the customer their keys back before reconnecting
+        if lua and ("unset", "sensitive_dtmf") not in apps[lua[0]:]:
+            fails.append("fallback never unsets sensitive_dtmf (keys would be dropped at the bridge)")
         for a in actions:
             if a.get("application") == "set" and (a.get("data") or "").startswith("sensitive_dtmf=") \
                     and a.get("data") != "sensitive_dtmf=true":

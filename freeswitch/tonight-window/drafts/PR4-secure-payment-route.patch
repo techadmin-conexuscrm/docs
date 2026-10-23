@@ -24,10 +24,10 @@ index a127afc..0ea9289 100644
          <action application="python" data="api.app"/>
 diff --git a/dialplan/default/10_secure_payment.xml b/dialplan/default/10_secure_payment.xml
 new file mode 100644
-index 0000000..3d7f15e
+index 0000000..4f8645f
 --- /dev/null
 +++ b/dialplan/default/10_secure_payment.xml
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,77 @@
 +<include>
 +  <!--
 +    Silent secure keypad entry (customer leg only).
@@ -54,8 +54,10 @@ index 0000000..3d7f15e
 +    and all keys joined into digits_dialed at hang-up, which reaches the json
 +    CDR and CHANNEL_HANGUP_COMPLETE (the API's ESL listens to it). With it, no
 +    key is logged, no DTMF event fires and digits_dialed stays "none" (lab
-+    experiment X01). It stays set for the rest of the call. Never run the box
-+    at DEBUG while secure entry is on.
++    experiment X01). It is unset again when the entry ends (the script's
++    last step, and the fallback below): left on, FreeSWITCH would drop every
++    key the customer presses across a bridge for the rest of the call. Never
++    run the box at DEBUG while secure entry is on.
 +
 +    Installed from ConexusCRM-BE docs/dialer/freeswitch/ (keep in sync).
 +    Script: scripts/secure_payment.lua. Apply with `reloadxml`.
@@ -67,6 +69,14 @@ index 0000000..3d7f15e
 +         that dials "secure_payment" any other way goes nowhere. -->
 +    <condition field="${secure_payment_session}" expression="^[0-9a-f]{48}$">
 +      <action application="set" data="sensitive_dtmf=true"/>
++      <!-- No digit action may see the card. An inbound queue caller still
++           carries scripts/api/app.py's callback binding (bind_digit_action
++           queue,0,... on this channel, cleared only on a queue timeout):
++           every key goes through it before the script, and the first "0"
++           would run the callback opt-in (prompt, hang-up) in the middle of
++           the card; the other keys are copied into last_non_matching_digits
++           (CDR, CHANNEL_HANGUP). Lab P26. -->
++      <action application="clear_digit_action" data="all"/>
 +      <!-- After the reconnect, the customer leg ends when the agent hangs up. -->
 +      <action application="set" data="hangup_after_bridge=true"/>
 +      <action application="set" data="park_after_bridge=false"/>
@@ -76,7 +86,7 @@ index 0000000..3d7f15e
 +        itself: the file is missing or doesn't compile, it died before its
 +        pcall, or its uuid_bridge failed. (When the script reconnects with
 +        uuid_bridge, or hangs up, this channel leaves the dialplan and these
-+        two actions never run.)
++        actions never run.)
 +        1. Tell the CRM the entry is over, the same CUSTOM event the script
 +           sends (ids only; reason "setup", because the script never got to
 +           the customer), so it restores the agent leg and unmasks the
@@ -87,6 +97,8 @@ index 0000000..3d7f15e
 +        Verify on staging: docs/dialer/secure-payment-verification.md, drill
 +        "Script fails to load".
 +      -->
++      <!-- The keys are the customer's again (see the end of the script). -->
++      <action application="unset" data="sensitive_dtmf"/>
 +      <action application="event" data="Event-Name=CUSTOM,Event-Subclass=secure_payment::progress,Secure-Payment-Call-Id=${secure_payment_call_id},Secure-Payment-Session=${secure_payment_session},Secure-Payment-State=failed,Secure-Payment-Reason=setup"/>
 +      <action application="intercept" data="${secure_payment_agent_uuid}"/>
 +      <anti-action application="hangup" data="CALL_REJECTED"/>
@@ -95,10 +107,10 @@ index 0000000..3d7f15e
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..97d1985
+index 0000000..fa304bc
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,579 @@
+@@ -0,0 +1,588 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -672,6 +684,15 @@ index 0000000..97d1985
 +if not ok then
 +  log("err", "unhandled error in secure_payment (details withheld)")
 +  result, reason = "failed", "error"
++end
++-- The entry is over: the customer's keys are theirs again. sensitive_dtmf
++-- left on would stay for the rest of the call, and FreeSWITCH drops every
++-- sensitive key it would pass across a bridge (switch_core_session_send_dtmf),
++-- so "press 1 to confirm" on an outside line the agent transfers them to
++-- would never be heard. (uuid_setvar with no value unsets; it works in any
++-- channel state, also after a transfer away.)
++if not hung_up then
++  api:executeString("uuid_setvar " .. CUSTOMER_UUID .. " sensitive_dtmf")
 +end
 +if not hung_up and not transferred then
 +  final(result or "failed", reason)
