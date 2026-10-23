@@ -163,7 +163,12 @@ def amd_one(rec, case, run):
     r = {"case": case, "run": run, "uuid": u, "originate": reply.strip()[:60],
          "amd_event_name": amd_ev.get("Event-Name") if amd_ev else None,
          "verdict": (hup or {}).get("variable_amd_result"), "cause": (hup or {}).get("variable_amd_cause"),
-         "t_verdict": round(ts(amd_ev) - t0, 3) if amd_ev and t0 else None,
+         # amd::info has no Event-Date-Timestamp (it is fired as a CLONE event),
+         # so the verdict time is when it reached the ESL socket
+         "t_verdict": round(amd_ev["_rx"] - t0, 3) if amd_ev and t0 else None,
+         "amd_info_via_CUSTOM_sub": bool(SUBS["custom"].find(lambda x: uid(x) == u and x.get("Event-Subclass") == "amd::info")),
+         "avmd_beep_via_CUSTOM_sub": bool(SUBS["custom"].find(lambda x: uid(x) == u and x.get("Event-Subclass") == "avmd::beep")),
+         "amd_info_via_CLONE_sub": bool(SUBS["clone"].find(lambda x: uid(x) == u and x.get("Event-Subclass") == "amd::info")),
          "avmd_detect": (hup or {}).get("variable_avmd_detect"),
          "t_beep": round(ts(beep) - t0, 3) if beep and t0 else None,
          "beep_event_freq": beep.get("Frequency") if beep else None,
@@ -179,9 +184,17 @@ def amd_one(rec, case, run):
     return r
 
 
+SUBS = {}
+
+
 def suite_amd(runs=3, parallel=4):
     rec = recorder("amd")
     rec.start()
+    # what an API-style subscriber would ask for (CUSTOM + subclasses), and CLONE
+    SUBS["custom"] = Recorder(*FS, "CUSTOM amd::info avmd::beep", f"{RES}/esl/amd-sub-custom.txt")
+    SUBS["clone"] = Recorder(*FS, "CLONE", f"{RES}/esl/amd-sub-clone.txt")
+    for r in SUBS.values():
+        r.start()
     jobs = [(c, r) for r in range(1, runs + 1) for c in AMD_EXPECT]
     results, lock = [], threading.Lock()
 
@@ -350,6 +363,10 @@ PCI_CASES = {
     "P19_script_missing_fallback": (None, "ok", "failed", 0),          # dialplan fallback path
     "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")], "ok", "completed", 1),
     "P21_secret_file_missing": (GOOD, "ok", "failed", 0),
+    # experiments, NOT the drafts: what would close the digit leak / what the
+    # runbook's "fsctl loglevel debug" rollback does to keypad digits
+    "X01_sensitive_dtmf_experiment": (GOOD, "ok", "completed", 1),
+    "X02_global_debug_experiment": (GOOD, "ok", "completed", 1),
 }
 FINAL = {"completed", "cancelled", "failed", "customer_hangup"}
 
@@ -416,6 +433,8 @@ class Entry:
         self.say("hold_agent", c.api("uuid_setvar %s hangup_after_bridge false" % self.A) + c.api("uuid_setvar %s park_after_bridge true" % self.A))
         self.say("set_vars", c.api("uuid_setvar_multi %s secure_payment_session=%s;secure_payment_call_id=%s;secure_payment_agent_uuid=%s"
                                    % (self.B, self.session, self.call_id, self.A)))
+        if getattr(self, "sensitive", False):
+            self.say("sensitive_dtmf", c.api("uuid_setvar %s sensitive_dtmf true" % self.B))
         self.t_transfer = time.time()
         self.say("transfer", c.api("uuid_transfer %s secure_payment XML default" % self.B))
 
@@ -488,8 +507,12 @@ def run_pci_case(rec, name):
     if name == "P21_secret_file_missing":
         os.rename("/etc/freeswitch/secure_payment.secret", "/etc/freeswitch/secure_payment.secret.lab-moved")
         restore.append(lambda: os.rename("/etc/freeswitch/secure_payment.secret.lab-moved", "/etc/freeswitch/secure_payment.secret"))
+    if name == "X02_global_debug_experiment":
+        c.api("fsctl loglevel debug")
+        restore.append(lambda: ESL(*FS).api("fsctl loglevel info"))
     start_idx = len(rec.events)
     e = Entry(rec, name)
+    e.sensitive = name == "X01_sensitive_dtmf_experiment"
     out = {"case": name, "mode": mode, "call_id": e.call_id, "A": e.A, "B": e.B}
     try:
         e.originate()
@@ -557,8 +580,8 @@ def run_pci_case(rec, name):
             f()
     evs = [x for x in rec.events[start_idx:]]
     prog = [x for x in evs if progress_pred(x, e.call_id)]
-    out["progress"] = [(x.get("Secure-Payment-State"), x.get("Secure-Payment-Field"), x.get("Secure-Payment-Entered"),
-                        x.get("Secure-Payment-Of"), x.get("Secure-Payment-Attempt")) for x in prog]
+    out["progress"] = [(round(x["_rx"] - e.t_transfer, 2), x.get("Secure-Payment-State"), x.get("Secure-Payment-Field"),
+                        x.get("Secure-Payment-Entered"), x.get("Secure-Payment-Of"), x.get("Secure-Payment-Attempt")) for x in prog]
     out["final_state"] = final_ev.get("Secure-Payment-State") if final_ev else None
     finals = [x.get("Secure-Payment-State") for x in prog if x.get("Secure-Payment-State") in FINAL]
     out["final_states_seen"] = finals
@@ -639,10 +662,11 @@ def judge(name, o, want_state, want_requests):
 
 
 def suite_pci(names):
+    names = names or [n for n in PCI_CASES if not n.startswith("X")]
     rec = recorder("pci")
     rec.start()
     allres = []
-    for n in names or list(PCI_CASES):
+    for n in names:
         try:
             o = run_pci_case(rec, n)
         except Exception:
