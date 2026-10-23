@@ -1,8 +1,13 @@
 <include>
   <!-- Event-socket (ESL) password, from the container environment
        (FS_ESL_PASSWORD, in the git-ignored .env next to docker-compose.yml).
-       Never written in this repository. -->
-  <X-PRE-PROCESS cmd="env-set" data="esl_password=$FS_ESL_PASSWORD"/>
+       Never written in this repository.
+       Fails closed: started without the variable (a plain `docker run`, any
+       path around compose), or with it empty, the password is 48 random hex
+       digits nobody knows, so ESL refuses everyone. An empty esl_password
+       would make mod_event_socket fall back to its built-in "ClueCon" and
+       accept it (lab E8). -->
+  <X-PRE-PROCESS cmd="exec-set" data="esl_password=printenv FS_ESL_PASSWORD | grep . || od -An -N24 -tx1 /dev/urandom | tr -d ' \n'"/>
 
   <X-PRE-PROCESS cmd="set" data="default_password=REDACTED-see-freeswitch-conf"/>
   <X-PRE-PROCESS cmd="set" data="disable_system_api_commands=false"/>
