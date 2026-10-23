@@ -62,14 +62,37 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    greeting, 4.9 s in on the 19 s one; the drop was heard from 2.9 s and
    5.2 s), so the message plays while the greeting is still going and the
    mailbox records only what is left after the beep. The runbook's F3
-   `droptest` does the same (its `avmd_start` changes nothing). With PR1's
-   modules the right order works: AMD says MACHINE, wait for the avmd beep
-   event, then play: the drop started 0.01-0.06 s after the beep ended, every
-   run (6/6). A greeting with no beep gets no drop in that flow (0/3: it waits
-   25 s for a beep that never comes); an automatic drop needs a fallback for
-   it (e.g. silence after a MACHINE verdict). BE-17 is a button the agent
-   presses, so it has no human guard: on "Hello?" it played the message to
-   the person (9.7 s in).
+   `droptest` does the same (its `avmd_start` changes nothing). BE-17 is a
+   button the agent presses, so it has no human guard: on "Hello?" it played
+   the message to the person (9.7 s in).
+
+   **Playing on the avmd beep event plays over the beep.** An earlier version
+   of these notes said the drop "started 0.01-0.06 s after the beep ended".
+   That was a measurement artifact: it was timed by when the far end first
+   heard the file loud, and `default_voicemail.wav` starts with 0.24 s of
+   near-silence. Timed from `PLAYBACK_START`, and with a drop file that has
+   no lead-in: the beep event arrives about 0.2 s into the beep, so a drop
+   sent on it starts 0.2-0.25 s before a 0.5 s or 0.25 s beep ends and 0.95 s
+   before a 1.2 s beep ends (0/6 runs after the beep). A mailbox that starts
+   recording at the end of the beep loses the first words. Fix (lab flow,
+   and what BE-12 must send): on the beep event, `wait_for_silence:200 10 0
+   5000` (10 quiet frames, then FreeSWITCH's own 0.5 s countdown, 5 s at
+   most) before `playback`: the drop then starts 0.7 s after the beep ends,
+   on every beep length (results.md, section 4).
+
+   **A greeting with no beep gets no automatic drop, and must not.** After a
+   MACHINE verdict with no beep, nothing in the audio tells the mailbox from
+   a long-talking person who has stopped to listen (in the first run of the
+   lab, that person was MACHINE 5/5 and went quiet at 3.8 s; silence
+   detection fired 4.5 s in on exactly that audio). An earlier version of
+   these notes suggested "silence after a MACHINE verdict" as the fallback:
+   that would play the recorded message to every such person. The
+   human-safe outcome for MACHINE without a beep is to hand the call to an
+   agent (who can still press BE-17), never a recording and never a hang-up.
+   Holding the line for a beep is itself not human-safe: in the first run
+   the long talker was held 25 s in dead air and then hung up (an abandoned
+   call, far past the 2-second connect window); the lab now counts that as a
+   failure.
 4. **BE-17 plays an https link, and `playback:https://...` needs mod_httapi,
    which does not load with this repo's config** (no `httapi.conf.xml`:
    "open of httapi.conf failed"). In the lab the https drop failed to play.

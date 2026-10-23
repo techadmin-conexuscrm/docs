@@ -237,10 +237,36 @@ def suite_amd(runs=3, parallel=4):
 
 
 # ── 4. voicemail drop ───────────────────────────────────────────────────────
+DROP_NOLEAD = "/lab/audio/drop/drop_nolead.wav"   # the same message with its ~0.24 s lead-in cut
+# The amdbeep flow (what BE-12's automatic drop would send) once the avmd beep
+# event has arrived. The beep event fires a quarter of a second into the beep,
+# so playing at once plays over the rest of it (and a mailbox that starts
+# recording at the end of the beep loses the first words): wait for the line
+# to go quiet first (10 quiet 20 ms frames, then wait_for_silence's own
+# 0.5 s countdown; 5 s at most).
+AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:200 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
+BEEP_WAIT_S = 25
+ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
+
+
 def drop_steps_be17(target):
     # ConexusCRM-BE campaign-be17/pr13 voicemail-drop.ts dropSteps(): no AMD,
     # "silence after the greeting, 8 s at most" (link -> local file here)
     return "wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING" % target
+
+
+_LEADIN = {}
+
+
+def lead_in(path):
+    """Seconds before the drop file itself gets loud (same onset rule as the far-end analysis)."""
+    if path not in _LEADIN:
+        try:
+            rate, ch = load_wav(path)
+            _LEADIN[path] = onset(frames(ch[0], rate), 0.0) or 0.0
+        except Exception:
+            _LEADIN[path] = None
+    return _LEADIN[path]
 
 
 def drop_one(rec, flow, case, run):
@@ -252,66 +278,93 @@ def drop_one(rec, flow, case, run):
                   "sofia/gateway/kamailio/play_%s@%s '%s' inline" % (u, tag, DOMAIN, inline))
     ans = rec.wait_for(lambda e: e.get("Event-Name") == "CHANNEL_ANSWER" and uid(e) == u, 10)
     t0 = ts(ans) if ans else time.time()
-    action, sent_at, verdict = None, None, None
+    action, sent_at, verdict, t_verdict, t_route, drop_file = None, None, None, None, None, DROP_NOLEAD
     if flow in ("be17", "runbook", "be17https"):
         # the agent hears the greeting start and presses the button ~1.5 s in
         time.sleep(max(0, t0 + 1.5 - time.time()))
-        target = "https://api.lab.test:8443/vm/drop.wav" if flow == "be17https" else DROP_FILE
+        target = "https://api.lab.test:8443/vm/drop.wav" if flow == "be17https" else DROP_NOLEAD
+        if flow == "be17https":
+            drop_file = DROP_FILE
         steps = drop_steps_be17(target)
         if flow == "runbook":   # RUNBOOK F3 droptest
             steps = "avmd_start," + steps
         action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
         sent_at = time.time() - t0
     else:
-        # what BE-12 would need: AMD verdict, then wait for the beep, then drop
+        # what BE-12 would need: AMD verdict; a person goes to an agent at
+        # once; a machine waits for the beep, then the drop
         amd = rec.wait_for(lambda e: e.get("Event-Subclass") == "amd::info" and uid(e) == u, 10)
         verdict = amd.get("variable_amd_result") if amd else None
+        t_verdict = round(amd["_rx"] - t0, 3) if amd else None
         if verdict == "MACHINE":
-            beep = rec.wait_for(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u, 25)
+            beep = rec.wait_for(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u, BEEP_WAIT_S)
             if beep:
-                action = c.api("uuid_transfer %s 'playback:%s,hangup:NORMAL_CLEARING' inline" % (u, DROP_FILE)).strip()
+                action = c.api("uuid_transfer %s '%s' inline" % (u, AMDBEEP_PLAY % DROP_NOLEAD)).strip()
                 sent_at = time.time() - t0
             else:
-                action = "no beep within 25 s: no drop"
+                # no beep: nothing tells this greeting from a long-talking
+                # person who has stopped to listen. No drop; the line has been
+                # held since the verdict.
+                action = "no beep within %d s: no drop; held since the verdict (the human-safe end is an agent; the lab hangs up)" % BEEP_WAIT_S
                 c.api("uuid_kill %s NORMAL_CLEARING" % u)
         else:
-            action = "verdict %s: no drop (would go to an agent)" % verdict
+            action = "verdict %s: to an agent at once, no drop" % verdict
+            t_route = t_verdict
             time.sleep(3)
             c.api("uuid_kill %s NORMAL_CLEARING" % u)
     hup = wait_gone(rec, u, 60)
     c.close()
     evs = rec.find(lambda e: uid(e) == u)
     pb = [e for e in evs if e.get("Event-Name") == "CHANNEL_EXECUTE_COMPLETE" and e.get("Application") == "playback"]
+    pbs = [e for e in evs if e.get("Event-Name") == "PLAYBACK_START"]
     wfs = [e for e in evs if e.get("Event-Name") == "CHANNEL_EXECUTE_COMPLETE" and e.get("Application") == "wait_for_silence"]
     beep = next((e for e in evs if e.get("Event-Subclass") == "avmd::beep"), None)
+    t_hup = ts(hup) - t0 if hup else None
     time.sleep(1.0)
-    path = next((p for p in sorted(os.listdir(RES + "/far-rec")) if p.startswith("play-%s-" % tag)), None)
+    # newest file for this tag (a partial re-run reuses tags)
+    cands = [p for p in os.listdir(RES + "/far-rec") if p.startswith("play-%s-" % tag)]
+    path = max(cands, key=lambda p: os.path.getmtime(RES + "/far-rec/" + p)) if cands else None
     r = {"flow": flow, "case": case, "run": run, "uuid": u, "originate": reply.strip()[:40], "verdict": verdict,
-         "action": action, "sent_at": round(sent_at, 3) if sent_at else None,
+         "t_verdict": t_verdict, "t_route": t_route, "action": action, "sent_at": round(sent_at, 3) if sent_at else None,
          "wait_for_silence_done": round(ts(wfs[0]) - t0, 3) if wfs else None,
+         "playback_start": round(ts(pbs[0]) - t0, 3) if pbs else None,
          "playback_response": pb[0].get("Application-Response") if pb else None,
-         "t_beep_detected": round(ts(beep) - t0, 3) if beep else None,
+         "t_beep_detected": round(ts(beep) - t0, 3) if beep else None, "t_hangup": round(t_hup, 3) if t_hup else None,
+         "drop_file": drop_file, "drop_file_lead_in": lead_in(drop_file),
          "hangup_cause": (hup or {}).get("Hangup-Cause"), "facts": FACTS[case], "far_recording": path}
+    f = FACTS[case]
     if path:
         rate, ch = load_wav(RES + "/far-rec/" + path)
         heard = frames(ch[0], rate)           # left = what the far end received from FreeSWITCH
         played = frames(ch[1], rate)          # right = what the far end played (greeting, beep)
-        r["drop_onset"] = onset(heard, 0.0)
+        r["drop_heard_onset"] = onset(heard, 0.0)
         r["far_played_onset"] = onset(played, 0.0)
-        f = FACTS[case]
-        if r["drop_onset"] is not None:
-            r["drop_over_greeting"] = "greeting_end" in f and r["drop_onset"] < f["greeting_end"]
-            r["drop_before_beep_end"] = "beep_end" in f and r["drop_onset"] < f["beep_end"]
+        if r["drop_heard_onset"] is not None:
             r["drop_heard_s"] = round(sum(1 for _, x in heard if x > 300) * 0.02, 2)
+    # Where the drop really starts: the PLAYBACK_START event. (The far end
+    # "hears" a file only once it gets loud, i.e. playback start + the file's
+    # own lead-in: 0.24 s for default_voicemail.wav, which hid a drop that
+    # started on the beep.)
+    r["drop_onset"] = r["playback_start"]
+    if r["drop_onset"] is not None:
+        r["drop_over_greeting"] = "greeting_end" in f and r["drop_onset"] < f["greeting_end"]
+        r["drop_before_beep_end"] = "beep_end" in f and r["drop_onset"] < f["beep_end"]
     played_ok = (r["playback_response"] or "").startswith("FILE PLAYED")
-    human = case.startswith("human")
-    if human:
-        r["pass"] = r.get("drop_onset") is None and not pb
-    elif "beep_end" in FACTS[case]:
-        r["pass"] = played_ok and r.get("drop_onset") is not None and not r.get("drop_before_beep_end") \
+    human = case.startswith("human") or case == "silent_then_hello"
+    if human and flow == "amdbeep":
+        # a person must get no recording AND be on the way to an agent within
+        # ROUTE_WITHIN_S of the verdict, not held for a beep that never comes
+        r["held_s"] = round((t_route if t_route is not None else (t_hup or 99)) - (t_verdict or 0), 2)
+        r["pass"] = not pb and r.get("drop_heard_onset") is None and t_route is not None \
+            and r["held_s"] <= ROUTE_WITHIN_S
+    elif human:
+        r["pass"] = not pb and r.get("drop_heard_onset") is None
+    elif "beep_end" in f:
+        r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_before_beep_end"] \
+            and r.get("drop_heard_onset") is not None and r["drop_heard_onset"] >= f["beep_end"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
     else:  # greeting with no beep: at least not over the greeting
-        r["pass"] = played_ok and r.get("drop_onset") is not None and not r.get("drop_over_greeting") \
+        r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_over_greeting"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
     return r
 
@@ -320,13 +373,16 @@ def suite_drop(runs=2):
     rec = recorder("drop")
     rec.start()
     plan = []
-    for case in ("vm_beep_short", "vm_beep_long", "vm_nobeep", "human_hello", "human_long"):
+    for case in ("vm_beep_short", "vm_beep_long", "vm_beep_1200ms", "vm_nobeep", "human_hello", "human_long", "silent_then_hello"):
         for run in range(1, runs + 2):
             plan.append(("amdbeep", case, run))
         for run in range(1, runs + 1):
             plan.append(("be17", case, run))
         plan.append(("runbook", case, 1))
     plan.append(("be17https", "vm_beep_short", 1))
+    # quick re-runs of part of the suite (the full matrix sets neither)
+    fl, cs = os.environ.get("LAB_DROP_FLOWS"), os.environ.get("LAB_DROP_CASES")
+    plan = [j for j in plan if (not fl or j[0] in fl.split(",")) and (not cs or j[1] in cs.split(","))]
     results, lock = [], threading.Lock()
 
     def worker():
@@ -341,7 +397,7 @@ def suite_drop(runs=2):
                 r = {"flow": job[0], "case": job[1], "run": job[2], "error": traceback.format_exc()[-400:], "pass": False}
             with lock:
                 results.append(r)
-            print(json.dumps({k: r.get(k) for k in ("flow", "case", "run", "verdict", "sent_at", "drop_onset", "playback_response", "pass")}), flush=True)
+            print(json.dumps({k: r.get(k) for k in ("flow", "case", "run", "verdict", "t_verdict", "held_s", "sent_at", "drop_onset", "drop_heard_onset", "playback_response", "pass")}), flush=True)
 
     ts_ = [threading.Thread(target=worker) for _ in range(3)]
     for t in ts_:

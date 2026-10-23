@@ -1,0 +1,7 @@
+# lab.py drop 1, amdbeep, beep cases, the fixed flow (wait_for_silence:200 10 0 5000 after the beep event)
+{"flow": "amdbeep", "case": "vm_beep_short", "run": 1, "verdict": "MACHINE", "t_verdict": 2.309, "held_s": null, "sent_at": 7.729, "drop_onset": 8.68, "drop_heard_onset": 8.94, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "amdbeep", "case": "vm_beep_short", "run": 2, "verdict": "MACHINE", "t_verdict": 2.31, "held_s": null, "sent_at": 7.729, "drop_onset": 8.68, "drop_heard_onset": 8.94, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "amdbeep", "case": "vm_beep_long", "run": 1, "verdict": "MACHINE", "t_verdict": 2.753, "held_s": null, "sent_at": 19.474, "drop_onset": 20.38, "drop_heard_onset": 20.64, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "amdbeep", "case": "vm_beep_1200ms", "run": 1, "verdict": "MACHINE", "t_verdict": 2.286, "held_s": null, "sent_at": 7.705, "drop_onset": 9.38, "drop_heard_onset": 9.64, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "amdbeep", "case": "vm_beep_long", "run": 2, "verdict": "MACHINE", "t_verdict": 2.73, "held_s": null, "sent_at": 19.467, "drop_onset": 20.36, "drop_heard_onset": 20.76, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "amdbeep", "case": "vm_beep_1200ms", "run": 2, "verdict": "MACHINE", "t_verdict": 2.331, "held_s": null, "sent_at": 7.743, "drop_onset": 9.399, "drop_heard_onset": 9.64, "playback_response": "FILE PLAYED", "pass": true}
