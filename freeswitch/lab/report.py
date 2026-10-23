@@ -54,7 +54,8 @@ if amd:
     p("## 3. Voicemail detection (mod_amd + mod_avmd, runbook F1 steps at answer)")
     p("")
     p("`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the file. "
-      "Time = seconds from answer. Beep times in the files: short greeting 7.47-7.97 s, long greeting 19.43-19.68 s, beep only 1.00-1.50 s.")
+      "Time = seconds from answer. Beep times in the files: short greeting 7.47-7.97 s (1.2 s beep: to 8.67 s), long greeting 19.43-19.68 s, beep only 1.00-1.50 s. "
+      "A person (silence, noise, a silent caller) must never be MACHINE.")
     p("")
     p("| case | runs | amd_result (cause) | time to verdict s | avmd beep detected | beep detected at s | wanted | pass |")
     p("|---|---|---|---|---|---|---|---|")
@@ -63,8 +64,9 @@ if amd:
     for r in amd:
         by.setdefault(r["case"], []).append(r)
     want = {"human_hello": "HUMAN, no beep", "human_long": "HUMAN, no beep", "vm_beep_short": "MACHINE + beep",
-            "vm_beep_long": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep", "beep_only": "(any) + beep",
-            "silence": "(any), no beep", "noise": "(any), no beep"}
+            "vm_beep_long": "MACHINE + beep", "vm_beep_1200ms": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep",
+            "beep_only": "(any) + beep", "silence": "not MACHINE, no beep", "noise": "not MACHINE, no beep",
+            "silent_then_hello": "not MACHINE, no beep"}
     for case, rs in by.items():
         v = Counter("%s (%s)" % (r.get("verdict"), r.get("cause")) for r in rs)
         beeps = sum(1 for r in rs if r.get("t_beep"))
@@ -86,14 +88,18 @@ drop = load(R + "/drop/results.json", [])
 if drop:
     p("## 4. Voicemail drop")
     p("")
-    p("Flows: **amdbeep** = AMD verdict, then wait for the avmd beep, then play (what an automatic drop needs); "
-      "**be17** = the steps BE-17/PR13 `dropSteps()` sends today (`wait_for_silence:200 15 10 8000,playback:...`), "
-      "sent 1.5 s after answer as if the agent pressed the button; **runbook** = RUNBOOK F3 `droptest` (`avmd_start,` + the same); "
-      "**be17https** = BE-17 with an https link, as BE-17 really plays it. Drop = `default_voicemail.wav` (6.9 s). "
-      "Drop start = when the far end first hears it.")
+    steps = open(R + "/drop-steps.txt").read().strip().replace("\n", "; ") if os.path.exists(R + "/drop-steps.txt") else "-"
+    p("Flows: **amdbeep** = what BE-12's automatic drop would do: AMD verdict; HUMAN/NOTSURE go to an agent at once; "
+      "MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:200 10 0 5000`), then plays. "
+      "**be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if "
+      "the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with "
+      "an https link (mod_httapi), as BE-17 really plays it. Steps used: %s. Drop = `drop_nolead.wav` "
+      "(`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). "
+      "Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only "
+      "if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict." % steps)
     p("")
-    p("| flow | case | runs | verdict | drop sent at s | drop starts at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
-    p("|---|---|---|---|---|---|---|---|---|---|---|")
+    p("| flow | case | runs | verdict (at s) | held s | drop sent at s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
+    p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     from collections import OrderedDict
     by = OrderedDict()
     for r in drop:
@@ -102,9 +108,10 @@ if drop:
         f = rs[0].get("facts", {})
         ends = "%s / %s" % (f.get("greeting_end", "-"), f.get("beep_end", "-"))
         ok = sum(1 for r in rs if r.get("pass"))
-        p("| %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %d/%d |" % (
-            flow, case, len(rs), ",".join(sorted({str(r.get("verdict") or "-") for r in rs})),
-            rng([r.get("sent_at") for r in rs]), rng([r.get("drop_onset") for r in rs]), ends,
+        p("| %s | %s | %d | %s (%s) | %s | %s | %s | %s | %s | %s | %s | %s | %d/%d |" % (
+            flow, case, len(rs), ",".join(sorted({str(r.get("verdict") or "-") for r in rs})), rng([r.get("t_verdict") for r in rs]),
+            rng([r.get("held_s") for r in rs]),
+            rng([r.get("sent_at") for r in rs]), rng([r.get("drop_onset") for r in rs]), rng([r.get("drop_heard_onset") for r in rs]), ends,
             ",".join(sorted({str(r.get("drop_over_greeting")) for r in rs})),
             ",".join(sorted({str(r.get("playback_response") or "-")[:22] for r in rs})),
             ",".join(sorted({str(r.get("hangup_cause")) for r in rs})), ok, len(rs)))
@@ -121,10 +128,11 @@ if pci:
       "the ESL steps of `start-secure-entry.ts` / `end-secure-entry.ts`; digits keyed from the far end with "
       "`uuid_send_dtmf` after each prompt. Recording check = the call recording's samples while masked "
       "(non-zero 20 ms frames; 0 = digital silence), voice before and after. Agent check = loudest sample the agent's phone "
-      "received during entry.")
+      "received during entry. Stored = what upload-audio uploaded to the mock CRM: seconds stored / seconds of the call "
+      "(customer leg answer to hang-up), uploads, and when (after hang-up).")
     p("")
-    p("| case | final state | tokenize requests (mock) | prompts | masked frames non-zero | agent max peak during | unmasked | back with agent | entry s | pass |")
-    p("|---|---|---|---|---|---|---|---|---|---|")
+    p("| case | final state | tokenize requests (mock) | prompts | masked frames non-zero | agent max peak during | unmasked | back with agent | entry s | stored recording | pass |")
+    p("|---|---|---|---|---|---|---|---|---|---|---|")
     for o in pci:
         if "error" in o:
             p("| %s | ERROR | | | | | | | | FAIL |" % o["case"])
@@ -133,10 +141,12 @@ if pci:
         rec = o.get("recording", {})
         ah = o.get("agent_heard", {}).get("during_entry", {})
         pr = [x.replace(".wav", "") for x in o.get("prompts", [])]
-        p("| %s | %s | %d | %s | %s/%s | %s | %s | %s | %s | %s |" % (
+        sr = o.get("stored_recording") or {}
+        stored = "%s/%s s, %s upload(s), +%s s" % (sr.get("stored_s"), sr.get("wall_s"), sr.get("uploads"), sr.get("uploaded_after_hangup_s")) if sr else "-"
+        p("| %s | %s | %d | %s | %s/%s | %s | %s | %s | %s | %s | %s |" % (
             o["case"], o.get("final_state") or ",".join(o.get("final_states_seen") or []) or o.get("crm_end", {}).get("effective"),
             o.get("mock_requests", 0), " > ".join(pr), rec.get("masked", {}).get("nonzero_frames"), rec.get("masked", {}).get("frames"),
-            ah.get("max_peak"), yn(o.get("unmasked")), yn(o.get("back_with_agent")), o.get("finished_after_s"), yn(o.get("pass"))))
+            ah.get("max_peak"), yn(o.get("unmasked")), yn(o.get("back_with_agent")), o.get("finished_after_s"), stored, yn(o.get("pass"))))
         summary.append(("5 PCI" if not o["case"].startswith("X") else "5 experiment", o["case"], 1 if o.get("pass") else 0, 1))
     p("")
     p("Keypad digits FreeSWITCH itself exposed, per call (customer leg):")

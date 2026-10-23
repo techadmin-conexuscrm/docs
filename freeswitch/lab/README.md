@@ -26,7 +26,9 @@ Steps it runs (each can be run alone):
 | `audio/make-audio.sh` | test audio (espeak-ng + ffmpeg, 8 kHz mono): human "Hello?", a long talker, 7 s and 19 s greetings with a beep, a greeting with no beep, beep only, silence, pink noise; and the 13 secure-entry prompts from `prompts.txt` (espeak stands in for Polly) |
 | `mock-crm/make-pki.sh` | throwaway root, intermediate and leaf for `api.lab.test` (+ a leaf for another name); a random test shared secret |
 | `up.sh <wt> <run>` | test-only `.env` (FS_ESL_PASSWORD) and `secure_payment.secret`, then `docker compose -f <wt>/docker-compose.yml -f compose.lab.yml up` |
-| `runner/lab.py amd\|drop\|pci` | the call matrix, run inside the lab FreeSWITCH container (the repo's ESL ACL only admits 127.0.0.1) |
+| `runner/lab.py amd\|drop\|pci` | the call matrix, run inside the lab FreeSWITCH container (the repo's ESL ACL only admits 127.0.0.1). `LAB_AMD_CASES`, `LAB_DROP_FLOWS`, `LAB_DROP_CASES` run part of a suite; `run-matrix.sh` passes BE-17's `dropSteps()` (read from the top campaign branch, `BE_REPO`/`BE_BRANCH`) and the runbook's F3 `droptest` as `LAB_BE17_STEPS`/`LAB_RUNBOOK_STEPS` |
+| `amd-sim.py` | mod_amd's own algorithm in Python on the lab audio (used to pick PR1's `amd.conf.xml`; the real calls decide) |
+| `failfirst/` | the runs that show each fix's test failing on the drafts before the fix, and passing after |
 | `pci-grep.sh` | searches console, freeswitch.log, CDRs (json + csv), the core DB, the event-listener's log and every ESL event for the test card numbers and CVVs |
 | `esl-checks.sh` | section 6: ESL password from the environment, the old one refused, log hardening |
 | `p11-evidence.sh` | P11 outside a call: `runner/luasec_eof.lua` (the script's tokenize socket calls) against the mock in drop mode, FreeSWITCH CPU before / during / after a restart |
@@ -38,5 +40,5 @@ Steps it runs (each can be run alone):
 - `sip_profiles/external.xml` → `overlay/external.xml`: same profile, context, codecs, NAT and timer settings; lab IP; no TLS/WSS/DTLS; the `kamailio` gateway points at the far-end container. Dial strings use `@10.88.231.20` where the API uses its Kamailio domain.
 - Three globals are set at runtime with `global_setvar` before each keypad call, because the drafts' `vars.xml` values point at the real API: `crm_secure_payment_tokenize_url` → `https://api.lab.test:8443/...`, `crm_secure_payment_tls_pins` → the lab intermediate's SHA-256, `crm_secure_payment_ca_file` → the lab root. Case P16 puts the drafts' Let's Encrypt pins back to show they refuse a non-LE certificate.
 - The 13 prompts are espeak-ng, not Polly.
-- voicemail-api and upload-audio are not started (the drafts don't touch them; upload-audio would reach AWS).
-- The CRM is a mock (`mock-crm/server.py`, same request/response contract as `secure-payment-controller.ts`); the CRM's ESL side (mask, park the agent, transfer, end-of-entry restore) is replayed step for step by `runner/lab.py` (`Entry.start` / `Entry.finish`).
+- voicemail-api is not started. upload-audio runs unmodified: its URL is hard-coded to the API's real name, which on the lab's internal network (no route out) is an alias of the mock CRM, with a lab-CA certificate for that name (`REQUESTS_CA_BUNDLE`); every PCI case checks what it stored.
+- The CRM is a mock (`mock-crm/server.py`, same request/response contract as `secure-payment-controller.ts`, including the 401-then-400 answer to the script's no-card probe and a Caddy-style 502 mode); the CRM's ESL side (mask, park the agent, transfer, end-of-entry restore) is replayed step for step by `runner/lab.py` (`Entry.start` / `Entry.finish`).
