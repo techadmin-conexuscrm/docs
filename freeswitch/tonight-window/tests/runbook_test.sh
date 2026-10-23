@@ -20,8 +20,12 @@ block_after() {
     found == 2 { print }' "$RB"
 }
 # Everything from the heading matching $1 to the next heading of any level.
+# (Lines starting with # inside ``` fences are shell comments, not headings.)
 section() {
-  awk -v pat="$1" '$0 ~ pat { on = 1; print; next } on && /^#/ { exit } on { print }' "$RB"
+  awk -v pat="$1" '/^```/ { fence = !fence }
+    !fence && $0 ~ pat { on = 1; print; next }
+    on && !fence && /^#/ { exit }
+    on { print }' "$RB"
 }
 
 # Stand-ins. `docker exec <name> cat .../freeswitch.log` and `docker logs
@@ -34,6 +38,9 @@ sudo() { "\$@"; }
 sleep() { :; }
 logfile() { case "\$1" in
   *base*) cat "\$FX/e4-base.freeswitch.log" ;;
+  fs) # the live box after the swap: same start, but SIP comes up (network)
+      grep -v 'sofia.c:33[01][0-9] Error Creating SIP UA' "\$FX/e4-next.freeswitch.log"
+      [ -f "\$TMP/inject" ] && cat "\$TMP/inject" ;;
   *) cat "\$FX/e4-next.freeswitch.log"; [ -f "\$TMP/inject" ] && cat "\$TMP/inject" ;;
   esac; }
 docker() {
@@ -71,6 +78,7 @@ if [ -z "$E4CHK" ]; then
 fi
 # helper functions from Step 0 (pasted once per terminal)
 HELPERS=$(block_after '^### Step 0' | sed -n '/^errset() {/,/^}/p')
+[ -n "$E4CHK" ] || bad "E4: no error-check command found"
 run_e4() { (cd "$TMP" && HOME="$TMP" bash -c ". '$TMP/stubs.sh'; $HELPERS
 $E4CHK" 2>&1); }
 rm -f "$TMP/inject"
@@ -88,6 +96,7 @@ W7=$(section '^### W7\.')
 W7CHK=$(printf '%s\n' "$W7" | awk '/W7 error check/ { f = 1 } f && /^```bash/ { g = 1; next } g && /^```/ { exit } g { print }')
 [ -n "$W7CHK" ] || W7CHK=$(block_after '^### W7\.' | grep -E 'ERR\|CRIT')
 rm -f "$TMP/inject"; run_e4 > /dev/null     # E4 leaves its two sets behind
+[ -n "$W7CHK" ] || bad "W7: no error-check command found"
 run_w7() { (cd "$TMP" && HOME="$TMP" bash -c ". '$TMP/stubs.sh'; $HELPERS
 SWAP='2026-10-23 00:00:00'
 $W7CHK" 2>&1); }
@@ -99,6 +108,17 @@ printf '%s\n' "$NEWLINE" > "$TMP/inject"
 out=$(run_w7)
 printf '%s\n' "$out" | grep -q 'mod_amd.so' && ok "W7: a new CRIT line is reported" \
   || bad "W7: a new CRIT line is not reported"
+# a SIP profile failure on the live box must show, although both sealed
+# starts (no network) logged the same line
+grep 'sofia.c:3313' "$FX/e4-next.freeswitch.log" | head -1 > "$TMP/inject"
+out=$(run_w7)
+printf '%s\n' "$out" | grep -q 'sofia.c:3313' && ok "W7: a SIP profile failure after the swap is reported" \
+  || bad "W7: a SIP profile failure after the swap is hidden"
+# lines from before the swap are not this start's
+printf '%s\n' '2026-10-22 23:59:59.000000 0.00% [CRIT] switch_core.c:1 an old line from yesterday' > "$TMP/inject"
+out=$(run_w7)
+printf '%s\n' "$out" | grep -q 'old line' && bad "W7: shows a line logged before the swap" \
+  || ok "W7: ignores lines from before the swap"
 
 # ── §4: no rollback row that turns DEBUG logging on while keys can be typed ──
 S4=$(section '^## 4\. Rollback')

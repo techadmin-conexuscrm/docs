@@ -77,11 +77,19 @@ all worked.
 ```bash
 cd /home/admin/freeswitch-conf
 fsx() { sudo docker exec fs sh -c 'P="${FS_ESL_PASSWORD:-}"; [ -n "$P" ] || P=$(sed -n "s/.*name=\"password\" value=\"\([^\"]*\)\".*/\1/p" /etc/freeswitch/autoload_configs/event_socket.conf.xml); exec /usr/local/freeswitch/bin/fs_cli -p "$P" -x "$1"' fsx "$1"; }
+errset() {
+  sudo docker exec "$1" cat /var/log/freeswitch/freeswitch.log \
+    | awk -v s="${2:-0}" 'match($0, /20[0-9][0-9]-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]/) && substr($0, RSTART, RLENGTH) >= s' \
+    | grep -E '\[(ERR|CRIT)\]' | sed -E 's/^.*\[(ERR|CRIT)\] /[\1] /' | sort -u
+}
 fsx 'version'          # expect: FreeSWITCH Version 1.10.12...
 ```
 
 `fsx` runs one console command. It finds the password inside the container
-and never shows it.
+and never shows it. `errset <container> [since]` lists the distinct ERR and
+CRIT lines in that container's FreeSWITCH log (from `since` on, a UTC time),
+without their timestamps, so two starts can be compared line by line (E4,
+W7).
 
 ### E1. Read-only checks (15 min)
 
@@ -175,10 +183,15 @@ time sudo DOCKER_BUILDKIT=0 docker build --cpu-shares 128 -f docker/Dockerfile -
 ### E4. Sealed test of the new image (no network, can't take calls) → GO / NO-GO
 
 ```bash
-sudo docker run -d --name fs-smoke --network none -e FS_ESL_PASSWORD=smoke-only \
+sudo docker run -d --name fs-smoke --network none --cpu-shares 128 -e FS_ESL_PASSWORD=smoke-only \
   -v /home/admin/fs-next:/etc/freeswitch:ro \
   --tmpfs /var/lib/freeswitch --tmpfs /var/log/freeswitch --tmpfs /var/run/freeswitch \
   conexus-fs:next
+# the same sealed start with TODAY's image and TODAY's config, to compare errors against
+sudo docker run -d --name fs-smoke-base --network none --cpu-shares 128 \
+  -v /home/admin/freeswitch-conf:/etc/freeswitch:ro \
+  --tmpfs /var/lib/freeswitch --tmpfs /var/log/freeswitch --tmpfs /var/run/freeswitch \
+  conexus-fs:latest
 sleep 30
 S() { sudo docker exec fs-smoke /usr/local/freeswitch/bin/fs_cli -p smoke-only -x "$1"; }
 S 'version'
@@ -194,18 +207,29 @@ S 'lua /tmp/luacheck.lua'       # Lua 5.2 socket=true ssl=true ssl.https=true
 S 'xml_locate dialplan context name default' | grep -c 'extension name="secure_payment"'   # 1
 S 'global_getvar crm_secure_payment_tls_pins' | tr ',' '\n' | wc -l                       # 16
 S 'global_getvar esl_password' | wc -c                                                    # more than 1 (value not shown)
-sudo docker logs fs-smoke 2>&1 | grep -E '\[(ERR|CRIT)\]' | grep -v -E 'mod_signalwire|mod_spandsp|sofia|[Bb]ind|Socket' | head -30
-sudo docker rm -f fs-smoke
+```
+
+**E4 error check** (the Step 0 helpers must be pasted in this terminal):
+
+```bash
+errset fs-smoke-base > ~/fs-err-base.txt
+errset fs-smoke > ~/fs-err-next.txt
+comm -13 ~/fs-err-base.txt ~/fs-err-next.txt     # NEW error lines only: GO = nothing printed
+sudo docker rm -f fs-smoke fs-smoke-base
 ```
 
 - **GO:**
-  - every line as commented;
-  - no unexpected ERR/CRIT lines.
-- **Expected noise:**
-  - `mod_signalwire` and `mod_spandsp` fail to load. They were never built;
-    that is true today too.
-  - The SIP profile fails, because the test has no network.
-- **NO-GO:** anything else. Send me the output and we stop for tonight.
+  - every line in the first block as commented;
+  - the error check prints nothing.
+- **Why a comparison:** today's FreeSWITCH already logs about 16 ERR/CRIT
+  lines at every start, and the sealed test adds the SIP profile failing for
+  lack of network: config files this repository never had (verto,
+  conference, voicemail, httapi, shout, python, enum, db), `mod_signalwire`
+  and `mod_spandsp` (never built). Both containers log those, so only what
+  the new image or config adds is printed. `~/fs-err-base.txt` holds today's
+  list (`wc -l ~/fs-err-*.txt` to see both); W7 uses both files.
+- **NO-GO:** any line printed by the error check. Send me the output and we
+  stop for tonight.
 
 ### E5. The 13 secure-entry prompts (15 min; no effect until the route is live)
 
@@ -372,7 +396,7 @@ sudo docker image tag conexus-fs:next conexus-fs:latest
 
 ```bash
 cd /home/admin/freeswitch-conf
-date; sudo docker compose up -d --no-build --force-recreate; date
+SWAP=$(date -u '+%Y-%m-%d %H:%M:%S'); echo "$SWAP"; sudo docker compose up -d --no-build --force-recreate; date -u
 sudo docker compose ps      # 4 containers Up: fs, fs-event-listener, fs-voicemail-api, fs-upload-audio
 ```
 
@@ -423,8 +447,20 @@ stream:write(string.format("%s socket=%s ssl=%s ssl.https=%s\n", _VERSION, tostr
 EOF
 fsx 'lua /tmp/luacheck.lua'          # all true
 sudo docker compose logs --since 5m event-listener | grep -E 'Connected to FreeSWITCH ESL|Failed|Error' | tail -5   # Connected
-sudo docker compose logs --since 10m freeswitch | grep -E '\[(ERR|CRIT)\]' | grep -v -E 'mod_signalwire|mod_spandsp' | head -20
 ```
+
+**W7 error check** (same terminal as W5, which set `SWAP`; uses E4's two
+files):
+
+```bash
+errset fs "$SWAP" | comm -13 <(sort -u ~/fs-err-base.txt ~/fs-err-next.txt | grep -v 'sofia\.c') -    # nothing printed = good
+```
+
+It prints only ERR/CRIT lines since the swap that neither sealed start had.
+SIP profile (`sofia.c`) lines are always shown, because the sealed starts
+failed SIP for lack of network. If a `sofia.c` line shows but `sofia status`
+above says RUNNING and A3 works, it is not a reason to roll back; send it
+to me. Anything else: send it to me before §5.
 
 ### W8. Verify the API reconnected to FreeSWITCH
 
