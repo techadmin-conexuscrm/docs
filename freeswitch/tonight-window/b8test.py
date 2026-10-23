@@ -11,7 +11,9 @@ MAX_ATTEMPTS, FIRST_DIGIT_MS, INTER_DIGIT_MS, PROMPT_DIR = 3, 10000, 5000, "/p"
 Q, PROMPTS = {}, {}
 session = { ready=function() return true end,
   streamFile=function(self, f) PROMPTS[#PROMPTS+1]=f end,
-  getDigits=function(self, n, t, ms) if #Q==0 then return "" end local d=table.remove(Q,1) if d=="T" then return "" end return d end }
+  -- Q holds the keys pressed after each prompt has ended. A short read is
+  -- the script dropping keys queued while the prompt played: none here.
+  getDigits=function(self, n, t, ms) if ms < 100 or #Q==0 then return "" end local d=table.remove(Q,1) if d=="T" then return "" end return d end }
 function progress() end
 function log() end
 """)

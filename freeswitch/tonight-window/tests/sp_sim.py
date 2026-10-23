@@ -85,9 +85,32 @@ function make_session()
   function s:hangup(cause) rec("hangup", cause); S.gone = true end
   function s:streamFile(path)
     local name = path:match("([^/]+)$")
+    local dur = S.cfg.prompt_s[name] or 3
     rec("play", name)
     S.heard = true
-    S.t = S.t + (S.cfg.prompt_s[name] or 3)
+    S.t = S.t + dur
+    -- A prompt is not interruptible (streamFile has no input callback), so
+    -- the keys the customer goes on pressing while it plays are queued on
+    -- the channel: the ones that don't wait for a prompt (typed-ahead or
+    -- extra keys) are already there when it ends ("during").
+    local budget = dur
+    for _, k in ipairs(S.keys) do
+      if k.gate then break end
+      if k.delay <= budget then
+        budget = budget - k.delay; k.delay = 0; k.during = true
+      else
+        k.delay = k.delay - budget; break
+      end
+    end
+  end
+  -- FreeSWITCH's switch_channel_flush_dtmf copies every key it drops into
+  -- the log queue, sensitive or not, so they reach digits_dialed (json CDR,
+  -- CHANNEL_HANGUP_COMPLETE). The script must never call it.
+  function s:flushDigits()
+    rec("flushDigits")
+    while S.keys[1] and S.keys[1].during do
+      table.remove(S.keys, 1); S.digits_dialed = S.digits_dialed + 1
+    end
   end
   function s:getDigits(n, term, ms)
     if S.gone then return "" end
@@ -103,7 +126,9 @@ function make_session()
       return ""
     end
     table.remove(S.keys, 1)
-    S.heard = false
+    -- a key already queued while the prompt played is not the customer's
+    -- answer to it: the next field key still waits for that prompt
+    if not k.during then S.heard = false end
     S.t = S.t + k.delay
     if k.key == "X" then          -- someone else's uuid_transfer of this leg
       S.gone = true; rec("transferred"); fire_hook("transfer"); return ""
@@ -117,7 +142,7 @@ end
 
 function run(cfg, src)
   S = { cfg = cfg, t = 0, log = {}, sent = {}, closed = {}, conns = 0, reads = 0,
-        read_after_error = 0, gone = false, cust = "c0000000-0000-4000-8000-000000000001" }
+        read_after_error = 0, digits_dialed = 0, gone = false, cust = "c0000000-0000-4000-8000-000000000001" }
   S.chan = {
     secure_payment_session = string.rep("ab", 24),
     secure_payment_call_id = "a0000000-0000-4000-8000-000000000002",
@@ -145,7 +170,8 @@ function run(cfg, src)
   if not chunk then return { error = "compile: " .. tostring(err) } end
   local ok, e = pcall(chunk)
   return { error = (not ok) and tostring(e) or nil, log = S.log, t = S.t,
-           read_after_error = S.read_after_error, closed = S.closed, conns = S.conns }
+           read_after_error = S.read_after_error, closed = S.closed, conns = S.conns,
+           sent = S.sent, digits_dialed = S.digits_dialed }
 end
 """
 
@@ -216,6 +242,26 @@ SCENARIOS = {
     # holding another secret (401): refused before the customer keys anything
     "probe_app_down_502": dict(keys=GOOD_FAST, replies=[OK], probe=["HTTP/1.1 502 Bad Gateway", "Content-Length: 0", "", ""]),
     "probe_secret_refused_401": dict(keys=GOOD_FAST, replies=[OK], probe=reply(401, '{"error":{"status":401}}')),
+    # Extra keys stay queued on the channel. A 4-digit year at the expiry
+    # prompt (12 2030): "1220" is expired, and the leftover "30" must not
+    # start the retry, which is keyed right (1230).
+    "extra_expiry_keys_fast": dict(keys=keys(VISA + "#") + keys("122030") + keys("1230") + keys("123") + keys("78704"),
+                                   replies=[OK], want=dict(expiry="1230")),
+    "extra_expiry_keys_human": dict(keys=human(VISA) + human("122030") + human("1230") + human("123") + human("78704"),
+                                    replies=[OK], want=dict(expiry="1230")),
+    # a 4-digit code at the 3-digit CVV prompt: the 4th key must not become
+    # the first digit of the ZIP (a wrong ZIP goes to the gateway)
+    "cvv_extra_key_human": dict(keys=human(VISA) + human("1230") + human("1234") + human("78704"),
+                                replies=[OK], want=dict(cvv="123", zip="78704")),
+    # expiry keys typed during the 5 s wait after a 16-digit card: they join
+    # the card (19 digits, invalid); the leftover "0" must not start the
+    # retry (a leading 0 still passes Luhn, so "0" + card would be accepted)
+    "expiry_typed_in_card_wait": dict(
+        keys=keys(VISA) + [("1", 1.0, False), ("2", 0.3, False), ("3", 0.3, False), ("0", 0.3, False)]
+        + keys(VISA + "#") + keys("1230") + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA, expiry="1230")),
+    # "*" pressed while a prompt plays still goes back to the agent
+    "star_during_prompt": dict(keys=keys(VISA + "#") + [("*", 2.0, False)], replies=[]),
 }
 
 WATCHDOG_S = 180     # the CRM's SECURE_ENTRY_MAX_MS, counted from before the transfer
@@ -262,7 +308,9 @@ def run_all(script_path, secret_path):
                 if e["kind"] == "event":
                     a = dict(a.items())
                 log.append({"t": e["t"], "kind": e["kind"], "a": a, "b": e["b"]})
-        results[name] = {"error": out["error"], "log": log, "t": out["t"],
+        sent = [out["sent"][i] for i in range(1, len(out["sent"]) + 1)] if out["sent"] else []
+        results[name] = {"error": out["error"], "log": log, "t": out["t"], "sent": sent,
+                         "digits_dialed": out["digits_dialed"], "want": sc.get("want"),
                          "read_after_error": out["read_after_error"], "conns": out["conns"],
                          "closed": dict(out["closed"].items()) if out["closed"] else {}}
     return results
@@ -309,6 +357,9 @@ def check(results):
             bridge = [i for i, c in enumerate(calls) if c.startswith("uuid_bridge")]
             expect(name, unset, "sensitive_dtmf never unset at the end of the entry")
             expect(name, not bridge or (unset and unset[0] < bridge[0]), "customer bridged back with sensitive_dtmf still set")
+        expect(name, not any(e["kind"] == "flushDigits" for e in r["log"]),
+               "session:flushDigits() called: FreeSWITCH copies the dropped keys into digits_dialed "
+               "(switch_channel_flush_dtmf ignores sensitive_dtmf); %d key(s) would reach the CDR" % r["digits_dialed"])
         reads = [e for e in r["log"] if e["kind"] == "getDigits"]
         expect(name, all(e["b"] == "true" for e in reads),
                "a key was read while sensitive_dtmf was not true on the channel")
@@ -350,6 +401,16 @@ def check(results):
                "customer was asked for the card although the API could not take it: plays=%r" % plays(r))
         expect(n, state(n)[1:] == want, "want %r, got %r" % (want, state(n)))
         expect(n, r["conns"] == 1, "tokenize ran after a failed probe: %d connections" % r["conns"])
+    # what reached tokenize (the last request sent; test cards only)
+    for n, r in results.items():
+        if not r["want"]:
+            continue
+        expect(n, state(n)[1] == "completed", "not completed: %r" % (state(n),))
+        body = r["sent"][-1] if r["sent"] else ""
+        for k, v in r["want"].items():
+            expect(n, '"%s":"%s"' % (k, v) in body, "tokenize got the wrong %s (want %s)" % (k, v))
+    expect("star_during_prompt", state("star_during_prompt")[1] == "cancelled",
+           "'*' pressed during a prompt did not go back to the agent: %r" % (state("star_during_prompt"),))
     s = results["secret_file_missing"]
     expect("secret_file_missing", "payment_intro.wav" not in plays(s) and "enter_card_number.wav" not in plays(s),
            "customer was asked for the card with no usable secret: plays=%r" % plays(s))
