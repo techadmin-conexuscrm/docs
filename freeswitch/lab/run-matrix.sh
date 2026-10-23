@@ -33,7 +33,7 @@ $R pci   | tee "$LABRUN/pci.log"
 "$LAB/pci-grep.sh" "$WT" "$LABRUN" pci
 # P11 can leave a channel spinning inside the script: start the next suites clean
 docker exec fslab-far /usr/local/freeswitch/bin/fs_cli -p lab-far-only -x hupall >/dev/null
-docker restart fslab-fs >/dev/null && sleep 10 && docker restart fslab-event-listener >/dev/null && sleep 3
+docker restart fslab-fs >/dev/null && sleep 10 && docker restart fslab-event-listener fslab-upload-audio >/dev/null && sleep 3
 $R amd 5 | tee "$LABRUN/amd.log"
 # the drop steps as they are today: BE-17's dropSteps() on the top campaign
 # branch, and the runbook's F3 droptest ("%s" = the recording)

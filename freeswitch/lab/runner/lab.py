@@ -257,10 +257,16 @@ RUNBOOK_STEPS = os.environ.get("LAB_RUNBOOK_STEPS") or "avmd_start,wait_for_sile
 
 
 def drop_steps_be17(target):
-    # %(link)s = the recording's URL; %(host_and_path)s = the same without "https://"
-    if "%(" in BE17_STEPS:
-        return BE17_STEPS % {"link": target, "host_and_path": target.split("://", 1)[-1]}
-    return BE17_STEPS % target
+    # %(link)s = the recording's URL; %(host_and_path)s = the same without "https://".
+    # The be17/runbook flows play a local file in place of the link: BE-17's
+    # https-only wrapping (mod_httapi's "https://(nohead=true)") then gives
+    # way to the plain path; be17https plays the real https link.
+    steps = BE17_STEPS
+    if not target.startswith("https://"):
+        steps = re.sub(r"https://(\([^)]*\))?%\(host_and_path\)s", "%(link)s", steps)
+    if "%(" in steps:
+        return steps % {"link": target, "host_and_path": target.split("://", 1)[-1]}
+    return steps % target
 
 
 _LEADIN = {}
