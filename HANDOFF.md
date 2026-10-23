@@ -85,3 +85,11 @@ Every bug fix needs a test that fails without the fix. Merge with squash. After 
 - `/api/v1/health` shows the database and Redis up;
 - the specific change works;
 - if telephony was touched, a test call goes through.
+
+## Container restart (2026-10-23, about 01:30 UTC): what survived
+- **Warm transfer fix:** LOST. Nothing was pushed, so restart it from scratch. Bug, from the break-it test: after a 3-way handoff, the first agent hanging up marks the call ended, so the colleague can't take the order, the payment or a transfer. Consider building it on `claude/one-phone-transfers-and-listen` (BE 11304b81).
+- **DID purchase:** BE is done and pushed (`claude/did-purchase-assign-to-client` 80d72f5f): the owner org pays, a purchase log, API keys can buy, carriers never named. Verify its gates and migration number before relying on it.
+  - The FE is unfinished. The work in progress is saved, untested, on `claude/did-purchase-fe-wip` (0521796e), on top of a0832e04.
+- **Wallboard all-companies:** being finished (gates).
+- **API-key watch mode:** `claude/api-key-no-system-user` be323790, built and gates green.
+- **Graceful shutdown:** `claude/api-graceful-shutdown`, with the review fix (5 s job grace) pushed. It makes deploys safer, not shorter.
