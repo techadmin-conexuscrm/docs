@@ -1,0 +1,44 @@
+<!-- LAB ONLY: bind-mounted over sip_profiles/external.xml in the lab
+     container. Same profile name, context, codecs, NAT, timers and jitter
+     settings as the repo's file; the differences, all about reaching the
+     network: no real addresses (the lab IP 10.88.231.10; local_ip_v4 is 127.0.0.1 on a network with no default route), no TLS/WSS/DTLS
+     (no certificates needed), and the "kamailio" gateway points at the lab
+     far-end container instead of the real Kamailio. No real trunk is
+     reachable: the lab network is a docker internal network. -->
+<profile name="external">
+  <gateways>
+    <gateway name="kamailio">
+      <param name="proxy" value="10.88.231.20:5060;transport=tcp"/>
+      <param name="register" value="false"/>
+      <param name="caller-id-in-from" value="true"/>
+      <param name="extension-in-contact" value="true"/>
+      <param name="ping" value="30"/>
+    </gateway>
+  </gateways>
+  <domains>
+    <domain name="all" alias="true" parse="true"/>
+  </domains>
+  <settings>
+    <param name="sip-ip" value="10.88.231.10"/>
+    <param name="rtp-ip" value="10.88.231.10"/>
+    <param name="sip-port" value="5061"/>
+    <param name="context" value="public"/>
+    <param name="dialplan" value="XML"/>
+    <param name="disable-register" value="true"/>
+    <param name="auth-calls" value="false"/>
+    <param name="inbound-codec-prefs" value="OPUS,G722,PCMU,PCMA"/>
+    <param name="outbound-codec-prefs" value="OPUS,G722,PCMU,PCMA"/>
+    <param name="inbound-zrtp-passthru" value="true"/>
+    <param name="inbound-codec-negotiation" value="generous"/>
+    <param name="inbound-late-negotiation" value="true"/>
+    <param name="aggressive-nat-detection" value="true"/>
+    <param name="apply-nat-acl" value="rfc1918.auto"/>
+    <param name="NDLB-force-rport" value="true"/>
+    <param name="rtp-timeout-sec" value="30"/>
+    <param name="rtp-hold-timeout-sec" value="60"/>
+    <param name="session-timeout" value="1800"/>
+    <param name="jitterbuffer-msec" value="60:120:20"/>
+    <param name="rtp-timer-name" value="soft"/>
+    <param name="inbound-bypass-media" value="false"/>
+  </settings>
+</profile>
