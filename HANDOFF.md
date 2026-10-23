@@ -47,6 +47,18 @@ is merged. Your job:
 > Both workflow scripts now **halt** on an agent failure instead of skipping. Resumed: the battle-test run `wf_fa2d2f5c-37e` (FreeSWITCH first) and the warm-transfer finish.
 > **Parked until FreeSWITCH is clean:** the build run `wf_7b95e61b-3fb`. Resume it with `Workflow({scriptPath: ".../build-and-battle-test-wf_7b95e61b-3fb.js", resumeFromRunId: "wf_7b95e61b-3fb"})`.
 
+
+> **Eric's rule (2026-10-23 18:20 UTC): 100% passing before production.** Every item loops attack, verify, fix and full gates for up to 10 rounds. If it isn't at 100% after that, the run halts for a human decision instead of moving on.
+> - FS lab first full run: 44 of 63 rows passing. The failures:
+>   - a human long-talker judged a machine (0/5);
+>   - the be17 campaign voicemail-drop path failing in every case;
+>   - no drop on a no-beep greeting;
+>   - card digits in logs/CDRs (fix: `sensitive_dtmf=true`);
+>   - a CRM disconnect mid-payment hanging the call and spinning a CPU core (P11);
+>   - ESL accepting `ClueCon` when the env is missing (E8).
+> - The lab may fix campaign BE branches where the failure lies there.
+> - Warm transfer: **CLEAN** (`battle-tests/01-warm-transfer.md`; BE d6ec6696, FE 2e258c21).
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
