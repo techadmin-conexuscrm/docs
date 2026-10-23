@@ -3,7 +3,7 @@
 Status 2026-10-23: built and gated on both repos, **not merged, not deployed**.
 
 - BE: `claude/did-purchase-assign-to-client` (merged with `main`, 7226f6a8)
-- FE: `claude/did-purchase-assign-to-client` (on top of `master` 21c1dffd)
+- FE: `claude/did-purchase-assign-to-client` (e60b6367, on top of `master` 21c1dffd)
 
 ## Eric's decisions, as built
 
@@ -46,8 +46,11 @@ increases. Adds the owner column and the permanent purchase log table.
 
 - BE: `tsc --noEmit` clean; full vitest 374 files / 5455 tests passed
   (5 files skipped); `drizzle-kit generate`: "No schema changes".
-- FE: see the commit; lint, `tsc -p tsconfig.app.json`, build, full
-  Playwright e2e. `e2e/did-purchase.spec.ts` 8 tests; 6 of them fail
+- FE (e60b6367): lint 49 warnings (= baseline), `tsc -p tsconfig.app.json`
+  clean, build OK, Playwright all 420 passed (report-day-labels "Fulfilment
+  Summary By Day" in America/Los_Angeles failed once, passed re-run alone:
+  flaky, unrelated). The only carrier-name text in the FE diff is the e2e
+  regex that asserts none is shown. `e2e/did-purchase.spec.ts` 8 tests; 6 of them fail
   against the old FE (a0832e04), as they should.
 
 ## Test live (after Eric approves a merge, floor quiet)
