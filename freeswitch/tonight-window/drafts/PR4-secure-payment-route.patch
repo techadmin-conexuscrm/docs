@@ -94,10 +94,10 @@ index 0000000..d77dd51
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..c603f09
+index 0000000..6b33cbe
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,507 @@
+@@ -0,0 +1,520 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -420,22 +420,30 @@ index 0000000..c603f09
 +  return conn
 +end
 +
++-- Every read below stops at the first failed receive and never reads that
++-- connection again. After a failed read (e.g. the API restarts mid-request
++-- and the TLS connection ends with no close_notify), the next LuaSec read
++-- spins at 100% CPU and ignores settimeout: the channel could then never be
++-- freed, not even by uuid_kill (lab P11).
 +local function receive_body(conn, headers)
 +  local length = tonumber(headers["content-length"] or "")
-+  if length then return conn:receive(length) end
++  if length then return (conn:receive(length)) end
 +  if (headers["transfer-encoding"] or ""):lower():match("chunked") then
 +    local parts = {}
 +    while true do
 +      local size_line = conn:receive("*l")
-+      local size = size_line and tonumber(size_line:match("^%x+"), 16)
++      if not size_line then return nil end
++      local size = tonumber(size_line:match("^%x+") or "", 16)
 +      if not size then return nil end
 +      if size == 0 then break end
-+      parts[#parts + 1] = conn:receive(size)
-+      conn:receive("*l")
++      local part = conn:receive(size)
++      if not part then return nil end
++      parts[#parts + 1] = part
++      if not conn:receive("*l") then return nil end
 +    end
 +    return table.concat(parts)
 +  end
-+  return conn:receive("*a")
++  return (conn:receive("*a"))
 +end
 +
 +-- Checked before the customer is asked for anything: API reachable and its
@@ -480,21 +488,26 @@ index 0000000..c603f09
 +  request = nil
 +  if not sent then conn:close(); log("err", "tokenize send failed (transport)"); return false, "transport", false end
 +  -- Never log the request. The reply holds no card data.
-+  local status_line = conn:receive("*l")
-+  local code = status_line and tonumber(status_line:match("^HTTP/1%.[01] (%d%d%d)"))
-+  local headers = {}
-+  while true do
-+    local line = conn:receive("*l")
-+    if not line or line == "" then break end
-+    local name, value = line:match("^([^:]+):%s*(.*)$")
-+    if name then headers[name:lower()] = value end
-+  end
-+  local reply = code and receive_body(conn, headers) or nil
-+  conn:close()
-+  if not code or not reply then
++  local function unreadable()
++    conn:close()
 +    log("err", "tokenize reply unreadable (transport)")
 +    return false, "transport", false
 +  end
++  local status_line = conn:receive("*l")
++  if not status_line then return unreadable() end
++  local code = tonumber(status_line:match("^HTTP/1%.[01] (%d%d%d)") or "")
++  if not code then return unreadable() end
++  local headers = {}
++  while true do
++    local line = conn:receive("*l")
++    if not line then return unreadable() end
++    if line == "" then break end
++    local name, value = line:match("^([^:]+):%s*(.*)$")
++    if name then headers[name:lower()] = value end
++  end
++  local reply = receive_body(conn, headers)
++  if not reply then return unreadable() end
++  conn:close()
 +  if code == 200 and reply:match('"success"%s*:%s*true') then
 +    return true, reply:match('"last4"%s*:%s*"(%d%d%d%d)"')
 +  end
