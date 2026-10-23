@@ -542,6 +542,11 @@ The last two empty the FreeSWITCH log file and the container's console log
 (all calls, not only the test). Older rotated logs (`freeswitch.log.1` and
 up) are from before the window.
 
+Time limit (not a test): the script takes no key after 2½ minutes, and
+after a declined card it only asks again if about a minute is left. Then
+you hear "unable to take your card details right now" and go back to the
+agent, before the CRM's own 3-minute limit cuts in without a word.
+
 If any of B1, B4, B7, B9 or B10 is NOT OK, switch secure entry off with the
 no-downtime rollback in §4. Leave everything else.
 

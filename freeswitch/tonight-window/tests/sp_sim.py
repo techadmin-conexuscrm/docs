@@ -204,6 +204,9 @@ SCENARIOS = {
         keys=(keys(VISA, 5, 1.2) + keys("1230", 5, 1.2) + keys("123", 5, 1.2) + keys("78704", 5, 1.2)) * 3,
         replies=[DECLINE, OK, OK]),
     "human_pace_ok": dict(keys=GOOD_HUMAN, replies=[OK]),
+    # a key every 4.5 s (just inside the 5 s inter-digit wait), a card that
+    # fails the Luhn check three times: no field ever times out
+    "dribbling_invalid_cards": dict(keys=keys("4111111111111112", 4.5, 4.5) * 3, replies=[]),
     "secret_file_missing": dict(keys=GOOD_FAST, replies=[OK], secret=False),
 }
 
@@ -311,7 +314,8 @@ def check(results):
            "want failed/transfer, got %r" % (state("transferred_mid_card"),))
     expect("transferred_mid_card", not any("uuid_bridge" in c for _, c in api(t)),
            "script pulled a transferred customer back to the agent")
-    for n in ("two_declines_human_pace", "slow_typist_one_decline", "human_pace_ok"):
+    for n in ("two_declines_human_pace", "slow_typist_one_decline", "human_pace_ok",
+              "dribbling_invalid_cards"):
         r = results[n]
         tf = state(n)[0]
         expect(n, tf is not None and tf <= WATCHDOG_S - TRANSFER_MARGIN_S,

@@ -95,10 +95,10 @@ index 0000000..3d7f15e
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..5920a0f
+index 0000000..97d1985
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,555 @@
+@@ -0,0 +1,579 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -201,6 +201,7 @@ index 0000000..5920a0f
 +--   transport  API unreachable, TLS check failed, connection dropped
 +--   declined   the gateway refused the card (last try, or not retryable)
 +--   timeout    no key in time          invalid  3 invalid entries
++--   deadline   out of time before the CRM's 3-minute watchdog
 +--   hangup     the channel went away   error    unexpected script error
 +--   transfer   someone else moved this leg out of secure_payment
 +-- Never a digit.
@@ -233,6 +234,19 @@ index 0000000..5920a0f
 +  if session:ready() then session:streamFile(PROMPT_DIR .. "/" .. name) end
 +end
 +
++-- ── time limit ──────────────────────────────────────────────────────────────
++-- The CRM's watchdog ends the entry 180 s after it started it
++-- (SECURE_ENTRY_MAX_MS): it bridges the customer back with no prompt and
++-- unmasks the recording, and a tokenize still in flight is refused. So the
++-- script takes no key after KEY_DEADLINE_S from its own start, which leaves
++-- time for the last tokenize (the API gives the gateway 10 s) and the closing
++-- prompts, and starts no new card attempt with less than MIN_PASS_S to go
++-- (one pass at a person's pace is about a minute).
++local KEY_DEADLINE_S = 150
++local MIN_PASS_S     = 55
++local key_deadline = os.time() + KEY_DEADLINE_S
++local function seconds_left() return key_deadline - os.time() end
++
 +-- ── validation ──────────────────────────────────────────────────────────────
 +local function luhn_valid(number)
 +  local sum, alternate = 0, false
@@ -264,16 +278,20 @@ index 0000000..5920a0f
 +local function is_amex(pan) return pan:sub(1, 2) == "34" or pan:sub(1, 2) == "37" end
 +
 +-- ── collection: one digit at a time, nothing stored on the channel ──────────
-+-- Returns digits, or nil plus "star" | "timeout" | "hangup".
++-- Returns digits, or nil plus "star" | "timeout" | "deadline" | "hangup".
 +local function read_field(field, prompt, min_len, max_len, expected, attempt)
 +  play(prompt)
 +  local digits, count = {}, 0
 +  progress("collecting", field, 0, expected, attempt)
 +  while count < max_len do
 +    if not session:ready() then return nil, "hangup" end
-+    local d = session:getDigits(1, "", count == 0 and FIRST_DIGIT_MS or INTER_DIGIT_MS)
++    local left_ms = seconds_left() * 1000
++    if left_ms <= 0 then return nil, "deadline" end
++    local wait_ms = count == 0 and FIRST_DIGIT_MS or INTER_DIGIT_MS
++    local d = session:getDigits(1, "", math.min(wait_ms, left_ms))
 +    if d == nil or d == "" then
 +      if count >= min_len then break end
++      if seconds_left() <= 0 then return nil, "deadline" end
 +      return nil, "timeout"
 +    end
 +    if d == "*" then return nil, "star" end
@@ -581,6 +599,7 @@ index 0000000..5920a0f
 +-- rest are failures with their reason.
 +local function field_failed(why)
 +  if why == "star" then return "cancelled" end
++  if why == "deadline" then play("unable_to_process.wav") end
 +  return "failed", why
 +end
 +
@@ -632,6 +651,11 @@ index 0000000..5920a0f
 +    if reason == "transport" or reason == "setup" or not retryable or card_attempt == MAX_ATTEMPTS then
 +      play("unable_to_process.wav")
 +      return "failed", reason
++    end
++    if seconds_left() < MIN_PASS_S then
++      log("info", "card not accepted; no time left for another attempt")
++      play("unable_to_process.wav")
++      return "failed", "deadline"
 +    end
 +    play("card_not_accepted_try_again.wav")
 +  end
