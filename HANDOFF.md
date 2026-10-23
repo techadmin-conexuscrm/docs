@@ -81,16 +81,18 @@ Runbook: `freeswitch/tonight-window/RUNBOOK.md`. Drafts: `freeswitch/tonight-win
    - `API_KEY_ENFORCE_OWN_PERMISSIONS_ORGS` turns enforcement on per org. It is off by default.
    - Expect funnel keys to log `read#campaign`. Grant that permission before enforcing.
    - Notes and Eric's grep command: `plans/api-key-watch-mode.md`.
-6. **Wallboard "All companies"**: finishing. BE `claude/wallboard-all-companies` **f3d66111**; FE **27798c14** (FE not yet merged with master).
-   - Enable per org with `WALLBOARD_ALL_COMPANIES_ORGS`; it is empty by default.
-   - An agent was finishing the gates and Eric's screenshot points: talking agents show as talking, the stats make sense, every collaborated company appears, and the header home line.
-   - Status note: `plans/wallboard-all-companies.md`, if the agent got that far. **Check whether it finished.**
+6. ~~Wallboard "All companies"~~: **built.** BE `claude/wallboard-all-companies` **f3d66111** (main merged); FE **5b4060bb** (on master). Gates green.
+   - Fixed: agents talking on Live calls now show "On a call", with Listen; empty stats say "No queue calls finished today"; the card badge clears after 3 minutes.
+   - The header "Quiet Protector" is not a bug: the phone pill names the company of his line's extension.
+   - Enable with `WALLBOARD_ALL_COMPANIES_ORGS=*` in the production `.env`, on Eric's yes.
+   - Needs the break-it pass, then Eric's yes. Notes: `plans/wallboard-all-companies.md`.
 
 ## 4. Built, not merged: each needs the break-it pass, then Eric's yes
 | Item | Branch / SHA | Notes |
 |---|---|---|
 | Card-field auto-pause plus "last 4" authorization (PCI) | BE and FE `claude/card-field-auto-pause`: BE **73dba5ff**, FE **bdd5c64c** | Switch `CARD_ENTRY_AUTO_PAUSE_ORGS` (off). Recording pauses on focus of a card field in the order form or the Retry dialog. The agent reads "$X on the card ending 1234, confirm the last 4 and that you authorize". A "Customer confirmed on the recording" checkbox gates submit and is saved as an order note. Audit log lines carry no card data. Eric approved the design. **He wanted recording 1 s in every 5; that was refused** because it captures card and CVV fragments. The customer saying the last 4 on the recording is the agreed proof. Live call checks: audio stops on both legs, the log lines appear, a manual pause is respected, a hangup mid-entry leaves nothing paused. |
 | API-key watch mode | `claude/api-key-no-system-user` **be323790** | See item 5 above. |
+| Wallboard "All companies" | BE f3d66111, FE 5b4060bb | See item 6 above. |
 | Graceful shutdown | `claude/api-graceful-shutdown` **a66837eb** | See item 3 above. |
 | Dialer pickup / free agent | `claude/dialer-queue-transfer-pickup` 63b1a5e1, `claude/queue-transfer-free-agent` 4660580d | Reviewed earlier: ship. Merge with main first. |
 | Phone-number (DID) purchase | BE `claude/did-purchase-assign-to-client` **80d72f5f** (done). FE work in progress, **untested**, on `claude/did-purchase-fe-wip` **0521796e** | Eric's decisions: the **call center (the buyer's root org) owns and pays**; the client is not billed or notified. A purchase log for owner-org admins with an editable note. **API keys can buy, via SignalWire only, never VoIP Innovations** (porting out). A default-off switch disables VI purchasing. **No provider names in any customer-visible text.** International numbers wait on SignalWire's API. TODO: finish the FE (lint, tsc, build, e2e), verify the BE gates and the migration number, then review. |
