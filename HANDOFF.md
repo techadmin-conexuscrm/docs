@@ -31,6 +31,13 @@ is merged. Your job:
 > Campaign branches that existed only on the sandbox were pushed: `claude/campaign-pr01…pr14-*`, `-be18-consent-mode`, `-d9-*`, `-fe7-*`, `-g4/g9/g10/g78-*`, and FE `claude/campaign-fe-foundation` 6c57e8c7 (WIP).
 > If a run died, check `battle-tests/` for what finished and restart the rest.
 
+
+> **Update 2026-10-23, about 13:50 UTC:**
+> - **FreeSWITCH is prioritised** (Eric). The static review and a live sandbox lab are running side by side. The lab places real test calls for voicemail detection, the voicemail drop and keypad card entry, in a private container with no access to the servers.
+> - **The review found a High PCI bug** in the drafts: `sensitive_dtmf` is not set on the customer leg, so typed card digits land in FS logs at INFO and in every CDR. A fix is in progress. **Do NOT run the FS window until `battle-tests/02-freeswitch.md` and `02b-freeswitch-lab.md` both say clean.**
+> - Eric was given the runbook's E1 read-only pre-checks (FS box and API box) to run during the morning lull. If he pastes the output, compare it to the GO table in RUNBOOK §E1.
+> - A safety-net check-in runs every 2 hours: it resumes dead runs, re-tests anything not clean, then does a final red-team pass (loop until 2 dry rounds).
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
