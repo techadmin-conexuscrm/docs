@@ -5,7 +5,7 @@
 # checkout of freeswitch-conf origin/master with the five drafts applied,
 # 3. builds the image (skipped when docker/ and requirements.txt are
 # unchanged since the last build), 4. starts the lab on a private network,
-# 5. runs sections 3-6 and the leak sweep, 6. writes results.md.
+# 5. runs sections 3-6, the leak sweep and the P11 probe, 6. writes results.md.
 # Never touches a real server, trunk or credential.
 set -eu
 LAB=$(cd "$(dirname "$0")" && pwd)
@@ -40,5 +40,7 @@ $R drop 2 | tee "$LABRUN/drop.log"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call
 $R pci X01_sensitive_dtmf_experiment X02_global_debug_experiment | tee "$LABRUN/pci-x.log"
 "$LAB/pci-grep.sh" "$WT" "$LABRUN" pci > "$LABRUN/results/pci-grep-after-experiments.txt"
+# P11 outside a call (ends with a FreeSWITCH restart, so it runs last)
+"$LAB/p11-evidence.sh" "$LABRUN"
 python3 "$LAB/report.py" "$LABRUN" > "$LAB/results.md"
 echo "results: $LAB/results.md"

@@ -13,7 +13,7 @@ credential. Results: `results.md`.
 ## Re-run everything
 
 ```sh
-./run-matrix.sh /tmp/fslab-run        # ~45 min; builds the image the first time (~10 min on 4 CPUs)
+./run-matrix.sh /tmp/fslab-run        # ~35 min; builds the image the first time (~10 min on 4 CPUs)
 ```
 
 Steps it runs (each can be run alone):

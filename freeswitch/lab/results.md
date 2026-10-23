@@ -1,6 +1,6 @@
 # FreeSWITCH lab: results
 
-Generated 2026-10-23 17:43 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab`.
+Generated 2026-10-23 17:55 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab`.
 Drafts: docs `150db3f` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
 Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits) between the lab FreeSWITCH (the drafts' image and config) and a far-end FreeSWITCH, on a private docker network with no way out. Test values only. How to re-run: `README.md`.
 ## Summary
@@ -174,6 +174,28 @@ Keypad digits FreeSWITCH itself exposed, per call (customer leg):
 | X01_sensitive_dtmf_experiment | `-` | `-` | `none` |
 | X02_global_debug_experiment | `4111111111111111123094778704` | `4111111111111111123094778704` | `4111111111111111123094778704` |
 
+P11 outside a call (`p11-evidence.sh`: `runner/luasec_eof.lua`, the script's tokenize socket calls, against the mock CRM in drop mode):
+
+```
+baseline: freeswitch used 3% of one core over 5 s (no calls)
+20-40 s after the probe started: freeswitch used 96% of one core over 20 s
+probe log (seconds since start, step):
+    0.001 connect 1
+    0.005 handshake true
+    0.005 send 416
+    0.005 receive (status line) ...
+    0.006 receive returned line=nil err=unexpected eof while reading partial=0
+    0.006 second receive (first header line) ...
+RESULT: the second read never returned after 40 s (its timeout is 15 s)
+busiest freeswitch threads now (top -H):
+        PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+          1 root      30  10 2273812  84712  39804 S  93.8   0.5   2:28.76 freeswi+
+       2568 root      30  10 2273812  84712  39804 R  93.8   0.5   0:38.57 freeswi+
+          7 root      30  10 2273812  84712  39804 S   0.0   0.5   0:00.04 freeswi+
+          8 root      30  10 2273812  84712  39804 S   0.0   0.5   0:00.19 freeswi+
+after a FreeSWITCH restart: 3% of one core over 5 s
+```
+
 Leak sweep (`pci-grep.sh`, pci-grep.txt):
 
 ```
@@ -254,9 +276,16 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
      `log-channel-variables=true`, so it is written to
      `/etc/freeswitch/call-cdr-json/<uuid>.cdr.json` (inside the repo
      checkout), and it is in the `CHANNEL_HANGUP_COMPLETE` and
-     `CHANNEL_DESTROY` events, which **the API's ESL connection subscribes to**
-     (screen-pop and live-calls listeners). `CHANNEL_HANGUP`, which the
-     event-listener sidecar posts to the API, does not carry it.
+     `CHANNEL_DESTROY` events. **The API's ESL connection subscribes to
+     `CHANNEL_HANGUP_COMPLETE`** (screen-pop and live-calls listeners on BE
+     `main`; live calls is on in production), so the full card is sent down
+     the API's ESL socket on every keyed call while those listeners are on.
+     `CHANNEL_HANGUP`, which the event-listener sidecar posts to the API, does
+     not carry it. Full run: 446 `RECV DTMF` lines in `freeswitch.log` (and on
+     the console); of the 15 calls that keyed digits, 12 spelled a whole test
+     card number in the log and in the DTMF events and 11 in `digits_dialed`
+     (P11's customer leg never hung up); the other 3 keyed only part of a
+     card or only the invalid one.
    - **`DTMF` events**, one per key. Known: the API never subscribes to them,
      but any `fs_cli` user who types `/event all` sees them.
    - **What closes all three (lab experiment X01, not a draft):** the channel
@@ -274,19 +303,30 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    first read returns `unexpected eof`; `secure_payment.lua` then reads the
    header lines from the same connection, and that second read spins inside
    LuaSec at 100% CPU, ignoring its 15 s timeout (`runner/luasec_eof.lua`
-   reproduces it in four lines). The customer hears silence; neither the API's
-   3-minute watchdog nor a hangup frees the channel (its thread never returns);
-   only a FreeSWITCH restart does. Four of these would saturate a 4-core box.
+   reproduces it in four lines; `p11-evidence.sh` measured FreeSWITCH at 3% of
+   a core idle, 96% while the probe's second read spun, past 40 s against its
+   15 s timeout, and 3% again after a restart). The customer hears silence;
+   neither the API's 3-minute watchdog (P11: entry ended "timed_out" at
+   180.2 s) nor a hangup frees the channel (its thread never returns; the
+   customer leg was still up after the agent hung up); only a FreeSWITCH
+   restart does. Four of these would saturate a 4-core box.
    Fix: stop reading after the first failed read (return "transport" at once).
 
 ### Voicemail drop (BE-17 / PR13, and what PR1 makes possible)
 
 3. **BE-17's drop starts over the greeting.** `wait_for_silence:200 15 10 8000`
-   finishes at the first pause in the greeting (about 2.7 s in on a 7 s
-   greeting), so the message plays while the greeting is still going and the
-   mailbox records only what is left after the beep. With PR1's modules the
-   right order works: AMD says MACHINE, wait for the avmd beep event, then
-   play: the drop started 0.0-0.3 s after the beep ended, every run.
+   finishes at the first pause in the greeting (2.6-2.7 s in on the 7 s
+   greeting, 4.9 s in on the 19 s one; the drop was heard from 2.9 s and
+   5.2 s), so the message plays while the greeting is still going and the
+   mailbox records only what is left after the beep. The runbook's F3
+   `droptest` does the same (its `avmd_start` changes nothing). With PR1's
+   modules the right order works: AMD says MACHINE, wait for the avmd beep
+   event, then play: the drop started 0.01-0.06 s after the beep ended, every
+   run (6/6). A greeting with no beep gets no drop in that flow (0/3: it waits
+   25 s for a beep that never comes); an automatic drop needs a fallback for
+   it (e.g. silence after a MACHINE verdict). BE-17 is a button the agent
+   presses, so it has no human guard: on "Hello?" it played the message to
+   the person (9.7 s in).
 4. **BE-17 plays an https link, and `playback:https://...` needs mod_httapi,
    which does not load with this repo's config** (no `httapi.conf.xml`:
    "open of httapi.conf failed"). In the lab the https drop failed to play.
@@ -294,14 +334,21 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
 
 ### AMD and the backend (BE-12 is not built yet; these are its inputs)
 
-5. **mod_amd is non-blocking and its verdict event is not a CUSTOM event.**
+5. **mod_amd is non-blocking and its verdict event has no Event-Name.**
    `amd` returns at once (it is a media bug); the verdict arrives later as
-   `amd::info`, fired as a CLONE event with no Event-Name and no timestamp. A
-   `CUSTOM amd::info` subscription does not receive it (see the section 3
-   table). Ways in: subscribe to `CLONE`, or set `amd_on_machine` /
-   `amd_on_human` / `amd_on_notsure` on the channel (mod_amd runs that app on
-   the verdict, e.g. an `event` app that fires a proper CUSTOM event).
-   `avmd::beep` is a normal CUSTOM event.
+   `amd::info` with no `Event-Name` and no `Event-Date-Timestamp` header. A
+   `CUSTOM amd::info` subscription does receive it (40/40; a `CLONE`
+   subscription got 0/40; an earlier draft of these notes had this the wrong
+   way round). **But ConexusCRM-BE would still never see it:** its ESL router
+   (`isRoutableEvent` / `attachEventRouter` in `src/lib/esl.ts`) drops every
+   event without an `Event-Name` before any handler, and its CUSTOM
+   subscription lists only `secure_payment::progress`. Ways in: set
+   `amd_on_machine` / `amd_on_human` / `amd_on_notsure` on the channel
+   (mod_amd runs that app on the verdict, e.g. an `event` app that fires a
+   proper CUSTOM event; the three names are in the built `mod_amd.so`), or
+   read `amd_result` from the channel. `avmd::beep` is a normal CUSTOM event
+   with an Event-Name (15/15 beeps reached a `CUSTOM avmd::beep`
+   subscriber).
 6. **Names differ:** mod_amd sets `amd_result` = `HUMAN` / `MACHINE` /
    `NOTSURE` (and `CANCEL` if the call ends first); the campaign branches'
    `DIALER_AMD_RESULTS` are `human` / `machine` / `not_sure`. A mapping is
