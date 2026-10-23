@@ -29,7 +29,7 @@ Last updated: 2026-10-23 00:20 UTC.
 1. ~~Release bundle~~ is #405 above.
 2. ~~Break-it of payments, transfers and PCI~~ is done. Its findings are under "Built, not merged" and "Open decisions" below.
 3. **Near-zero-downtime deploy review**: the `claude/api-graceful-shutdown` branch (b4a1832c). Not reviewed yet.
-4. **Upsell plan**: add upsells to the existing order via an API, not as a new sale.
+4. **Upsell: plan done, decisions made** (see the top of `plans/upsell-existing-order.md`): record-only API, never charges; Konnektive and Shopify first; always on. Build in the morning. Old summary:: add upsells to the existing order via an API, not as a new sale.
    - Old PRs #302, #305 and #307 are about 263 commits behind main and their migration numbers collide.
    - Plan only for now, then build.
 5. **API-key watch mode.** Four routes swap an API key for the system user: create-order,

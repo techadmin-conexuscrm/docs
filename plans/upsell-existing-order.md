@@ -1,3 +1,9 @@
+> **Eric's decisions (2026-10-23). These override anything below that conflicts.**
+> 1. **The upsell API NEVER charges.** It only records upsells that customers already bought in an outside funnel, written onto the original order that came in for that customer. A sale made outside ConexusCRM stays with its original processor. ConexusCRM charges only when the upsell is made ON ConexusCRM, by an agent in the CRM.
+> 2. **Konnektive and Shopify first**: their upsells on existing orders are being ignored today.
+> 3. **No on/off switch** for recording upsells. It's standard CRM behaviour: all activity a client sends must land, so our records match theirs. (Charging upsells inside the CRM is a separate piece, still to be designed.)
+> 4. **Build starts when Eric has fresh credits** (morning of 2026-10-23 or later).
+
 # Upsells on the existing order — plan
 
 Date: 2026-10-23. Base: ConexusCRM-BE `origin/main` at `8b57d818` (#405).
