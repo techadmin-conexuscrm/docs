@@ -95,10 +95,10 @@ index 0000000..3d7f15e
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..2059dda
+index 0000000..5920a0f
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,542 @@
+@@ -0,0 +1,555 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -172,6 +172,7 @@ index 0000000..2059dda
 +
 +local finished = false         -- a final event has been sent
 +local hung_up = false
++local transferred = false      -- moved out of secure_payment by someone else
 +
 +-- ── logging: never a digit ──────────────────────────────────────────────────
 +local function log(level, message)
@@ -201,6 +202,7 @@ index 0000000..2059dda
 +--   declined   the gateway refused the card (last try, or not retryable)
 +--   timeout    no key in time          invalid  3 invalid entries
 +--   hangup     the channel went away   error    unexpected script error
++--   transfer   someone else moved this leg out of secure_payment
 +-- Never a digit.
 +local function final(state, reason)
 +  if finished then return end
@@ -208,9 +210,20 @@ index 0000000..2059dda
 +  progress(state, nil, nil, nil, nil, state == "failed" and (reason or "error") or nil)
 +end
 +
-+-- Customer hung up mid-entry: tell the CRM, which ends the agent leg so the
-+-- call settles normally ("Customer hung up during payment").
++-- mod_lua calls this once, on hang-up (status "hangup") or when the channel
++-- is sent back to routing (status "transfer"), e.g. by another uuid_transfer
++-- of this leg such as a voicemail drop.
++-- Hang-up: tell the CRM, which ends the agent leg so the call settles
++-- normally ("Customer hung up during payment").
++-- Transfer: the customer is still on the line, somewhere else. Not a
++-- hang-up (that would make the CRM kill the agent leg): end the entry as
++-- failed, and never bridge the customer back from here.
 +function secure_payment_on_hangup(s, status, arg)
++  if status == "transfer" then
++    transferred = true
++    final("failed", "transfer")
++    return
++  end
 +  hung_up = true
 +  final("customer_hangup")
 +end
@@ -529,7 +542,7 @@ index 0000000..2059dda
 +
 +-- ── reconnect ───────────────────────────────────────────────────────────────
 +local function reconnect()
-+  if hung_up or not session:ready() then return end
++  if hung_up or transferred or not session:ready() then return end
 +  local agent_up = api:executeString("uuid_exists " .. AGENT_UUID)
 +  if agent_up and agent_up:match("^true") then
 +    play("returning_to_agent.wav")
@@ -636,7 +649,7 @@ index 0000000..2059dda
 +  log("err", "unhandled error in secure_payment (details withheld)")
 +  result, reason = "failed", "error"
 +end
-+if not hung_up then
++if not hung_up and not transferred then
 +  final(result or "failed", reason)
 +  reconnect()
 +end
