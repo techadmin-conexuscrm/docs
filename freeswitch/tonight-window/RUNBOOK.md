@@ -524,7 +524,8 @@ password.
 
 On each call: an agent on a live call with your mobile, on an order in the
 test company. The agent clicks **Start secure entry**. You key on your
-mobile.
+mobile. Key each field after its prompt has finished: a key pressed while
+a prompt is still playing is ignored (only `*` still works).
 
 **Before B1, on the FS box** (B10 compares against these two):
 
@@ -540,11 +541,12 @@ N0=$(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log)
 | B3 **decline** | the agent charges again with a decline trigger: **NMI:** an amount under $1.00. **Authorize.net:** a saved card with ZIP `46282`. | a decline message in plain words; no fraud wording; the order is not paid | the headline the agent saw |
 | B4 **hang-up mid-entry** | start entry, key 6 digits, hang up | **Agent screen:** "Customer hung up during payment". The agent's line ends, and the call is saved. | OK |
 | B5 **wrong digits** | key `4111111111111112` (fails the check) | "Sorry, that entry wasn't valid...", asked again. After 3 wrong tries you go back to the agent. | OK |
-| B6 **timeout** | at the card prompt, press nothing for 15 s | "Returning you to your agent now." Back with the agent. | OK |
+| B6 **silence** | at the card prompt, press nothing | about 10 s after the prompt ends you are asked for the card again: three times in all (about 50 s), then "Returning you to your agent now." Back with the agent. | OK |
 | B7 **back to agent** | press `*` at the expiry prompt | back with the agent within about 2 s; the agent sees "left secure entry" | OK |
 | B8 **`#` after every field** | key `4111111111111111#`, then `1230#`, `123#`, `78704#` (a `#` even after the fields that are already full) | the same as B1: no "not valid" anywhere. The script ignores a `#` that arrives before the next field's first digit. | OK, or what you heard |
 | B9 **recording** | play B1's call recording in the CRM | voice before and after, **silence during the entry, no tones** | OK |
 | B10 **no card in logs** | run the commands just below this table | `0` on every line | all the numbers |
+| B11 **extra keys, a pause** | card `4111111111111111#`; at the expiry prompt key `122030` (a 4-digit year); when asked again key `1230`; at the code prompt press nothing for 15 s; when asked again key `123`; ZIP `78704` | "wasn't valid" once (after `122030`), the code prompt twice, then the same as B1: "received securely", **Agent screen** `Visa •••• 1111 · 12/30` | OK, or what you heard; then B10's commands again |
 
 B10 commands. On the FS box, in the same terminal as `BSTART` and `N0`.
 FreeSWITCH would log a keypad digit one per line (`RECV DTMF 4:...`) and

@@ -107,10 +107,10 @@ index 0000000..4f8645f
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..86fe97b
+index 0000000..611205c
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,696 @@
+@@ -0,0 +1,706 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -345,20 +345,30 @@ index 0000000..86fe97b
 +end
 +
 +-- Prompts until valid, MAX_ATTEMPTS times. Returns value or nil, reason.
++-- A wrong entry and a pause ("timeout": no key for 10 s, or 5 s between
++-- keys, e.g. turning the card over for the code) each cost one attempt and
++-- the prompt is played again; "*", the deadline and a hang-up end the entry.
++-- After the last attempt the reason is that attempt's: "invalid" or
++-- "timeout".
 +local function collect(field, prompt, min_len, max_len, expected, validator)
++  local last = "invalid"
 +  for attempt = 1, MAX_ATTEMPTS do
 +    local value, why = read_field(field, prompt, min_len, max_len, expected, attempt)
-+    if not value then return nil, why end
-+    if validator(value) then
++    if value and validator(value) then
 +      progress("field_ok", field, #value, expected, attempt)
 +      return value
 +    end
++    if not value and why ~= "timeout" then return nil, why end
 +    value = nil
-+    progress("field_invalid", field, nil, expected, attempt)
-+    log("info", field .. " invalid on attempt " .. attempt)
-+    if attempt < MAX_ATTEMPTS then play("invalid_try_again.wav") end
++    last = why or "invalid"
++    progress("field_invalid", field, nil, expected, attempt, why)
++    log("info", field .. (why and " timed out" or " invalid") .. " on attempt " .. attempt)
++    if attempt < MAX_ATTEMPTS then
++      if seconds_left() <= 0 then return nil, "deadline" end
++      if not why then play("invalid_try_again.wav") end
++    end
 +  end
-+  return nil, "invalid"
++  return nil, last
 +end
 +
 +-- ── tokenize: HTTPS from Lua, never through the FreeSWITCH API ──────────────

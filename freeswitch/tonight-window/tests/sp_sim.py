@@ -262,6 +262,18 @@ SCENARIOS = {
         replies=[OK], want=dict(pan=VISA, expiry="1230")),
     # "*" pressed while a prompt plays still goes back to the agent
     "star_during_prompt": dict(keys=keys(VISA + "#") + [("*", 2.0, False)], replies=[]),
+    # A pause is one failed attempt, not the end of the entry: 12 s to find
+    # the code on the back of the card, 6 s after 8 card digits
+    "pause_before_cvv": dict(keys=human(VISA) + human("1230") + keys("123", 12, 0.8) + human("78704"),
+                             replies=[OK], want=dict(cvv="123")),
+    "pause_mid_card": dict(keys=human("41111111") + human(VISA) + human("1230") + human("123") + human("78704"),
+                           replies=[OK], want=dict(pan=VISA)),
+    # two pauses at every field: the retries must still end before the
+    # CRM's watchdog (the 150 s key deadline)
+    "pauses_everywhere": dict(keys=keys(VISA + "#", 21, 0.8) + keys("1230", 21, 0.8) + keys("123", 21, 0.8)
+                              + keys("78704", 21, 0.8), replies=[OK]),
+    # silence at the card prompt (runbook B6): asked three times, then back
+    "silent_customer": dict(keys=[], replies=[]),
 }
 
 WATCHDOG_S = 180     # the CRM's SECURE_ENTRY_MAX_MS, counted from before the transfer
@@ -384,7 +396,8 @@ def check(results):
     expect("transferred_mid_card", not any("uuid_bridge" in c for _, c in api(t)),
            "script pulled a transferred customer back to the agent")
     for n in ("two_declines_human_pace", "slow_typist_one_decline", "human_pace_ok",
-              "dribbling_invalid_cards"):
+              "dribbling_invalid_cards", "pause_before_cvv", "pause_mid_card", "silent_customer",
+              "pauses_everywhere"):
         r = results[n]
         tf = state(n)[0]
         expect(n, tf is not None and tf <= WATCHDOG_S - TRANSFER_MARGIN_S,
@@ -411,6 +424,14 @@ def check(results):
             expect(n, '"%s":"%s"' % (k, v) in body, "tokenize got the wrong %s (want %s)" % (k, v))
     expect("star_during_prompt", state("star_during_prompt")[1] == "cancelled",
            "'*' pressed during a prompt did not go back to the agent: %r" % (state("star_during_prompt"),))
+    p = plays(results["pause_mid_card"])
+    expect("pause_mid_card", p.count("enter_card_number.wav") == 2, "card prompt not replayed after the pause: %r" % p)
+    p = plays(results["silent_customer"])
+    expect("silent_customer", p.count("enter_card_number.wav") == 3,
+           "silence: want the card prompt 3 times, heard it %d time(s)" % p.count("enter_card_number.wav"))
+    expect("silent_customer", state("silent_customer")[1:] == ("failed", "timeout"),
+           "want failed/timeout, got %r" % (state("silent_customer"),))
+    expect("silent_customer", p[-1:] == ["returning_to_agent.wav"], "not returned to the agent: %r" % p)
     s = results["secret_file_missing"]
     expect("secret_file_missing", "payment_intro.wav" not in plays(s) and "enter_card_number.wav" not in plays(s),
            "customer was asked for the card with no usable secret: plays=%r" % plays(s))

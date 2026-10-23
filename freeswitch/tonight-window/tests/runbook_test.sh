@@ -133,6 +133,11 @@ if printf '%s\n' "$B" | grep -qE 'known risk|small script fix later'; then
 else ok "B8: no stale 'known risk' wording"; fi
 printf '%s\n' "$B" | grep -E '^\| B8' | grep -q '1230#' && ok "B8: presses # after a fixed-length field" \
   || bad "B8: keys do not press # after a fixed-length field (expiry), so the fix is not exercised"
+# a pause costs one attempt (the prompt is played again), not the entry
+printf '%s\n' "$B" | grep -E '^\| B6' | grep -q 'three times' && ok "B6: silence is asked again three times" \
+  || bad "B6: still says silence at the card prompt sends you straight back to the agent"
+printf '%s\n' "$B" | grep -E '^\| B11' | grep -q '122030' && ok "B11: extra keys and a pause are tested" \
+  || bad "B11: no test for extra keys (122030 at the expiry) and a pause at the code"
 printf '%s\n' "$B" | grep -q 'RECV DTMF' && ok "B10: looks for per-key 'RECV DTMF' log lines" \
   || bad "B10: does not look for 'RECV DTMF' lines (one digit per line)"
 printf '%s\n' "$B" | grep -q 'digits_dialed' && ok "B10: looks at digits_dialed in the CDRs" \
