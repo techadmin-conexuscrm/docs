@@ -96,12 +96,26 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    `NOTSURE` (and `CANCEL` if the call ends first); the campaign branches'
    `DIALER_AMD_RESULTS` are `human` / `machine` / `not_sure`. A mapping is
    needed, and somewhere to put `CANCEL`.
-7. **AMD calls a long-talking person a machine** (every run: "Hello, this is
-   John speaking, who's calling please?" → MACHINE, MAXWORDS), a beep alone
-   a human, and silence or noise a machine. With the default settings an
-   automatic drop on the AMD verdict alone would play a recorded message to a
-   live person. Requiring MACHINE **and** an avmd beep avoided that in every
-   lab run (a person never beeps).
+7. **With mod_amd's stock settings (PR1 as first drafted), AMD calls the
+   wrong people a machine:** a long-talking person ("Hello, this is John
+   speaking, who's calling please?" → MACHINE/MAXWORDS at 2.4 s, every
+   run), a person who answers and waits (MACHINE/INITIALSILENCE at 2.5 s:
+   `silence_notsure` was not set, so mod_amd's default 0 makes initial
+   silence a MACHINE) and a noisy line (pink noise → MACHINE/LONGGREETING at
+   1.6 s). The first lab run accepted any verdict for silence and noise and
+   passed those rows; they are now strict (never MACHINE). A MACHINE verdict
+   is what holds a call for a beep or plays a recording, so a person judged
+   MACHINE is either held in silence and hung up (the amdbeep flow) or
+   played the message (a no-beep fallback). Requiring MACHINE **and** a beep
+   only avoids the second. Fix (PR1 `amd.conf.xml`): `silence_notsure=1`,
+   `silence_threshold=640`, `between_words_silence=250`, `greeting=2500`,
+   `total_analysis_time=6000`. Lab, on real calls: "Hello?" HUMAN 1.6 s, the
+   long talker HUMAN 4.2 s, a silent caller NOTSURE 2.5 s, noise NOTSURE
+   2.7 s, every greeting MACHINE 3.9-4.8 s. Found by simulating mod_amd's
+   own algorithm on the lab audio at four gains (-6 dB to +3 dB) and
+   keeping the settings that were right at all of them. Synthetic voices
+   only: measure the hit rate on recorded real calls before letting a
+   verdict drop messages unattended.
 
 ### ESL password (PR3)
 

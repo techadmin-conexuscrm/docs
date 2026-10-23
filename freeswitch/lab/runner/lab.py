@@ -137,12 +137,26 @@ def wait_gone(rec, u, timeout):
 
 # ── 3. answering-machine detection ─────────────────────────────────────────
 AMD_STEPS = "avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING"   # runbook F1 amdtest, at answer
-AMD_EXPECT = {  # (verdict a dialer needs, beep present)
+# (verdict a dialer needs, beep present). NOT_MACHINE = HUMAN or NOTSURE: a
+# dialer sends both to an agent. A person who answers and says nothing, or
+# answers from a noisy street, must never be called a MACHINE (that verdict
+# is what holds them for a beep or plays them a recording).
+AMD_EXPECT = {
     "human_hello": ("HUMAN", False), "human_long": ("HUMAN", False),
+    "silent_then_hello": ("NOT_MACHINE", False),
     "vm_beep_short": ("MACHINE", True), "vm_beep_long": ("MACHINE", True),
+    "vm_beep_1200ms": ("MACHINE", True),
     "vm_nobeep": ("MACHINE", False), "beep_only": (None, True),
-    "silence": (None, False), "noise": (None, False),
+    "silence": ("NOT_MACHINE", False), "noise": ("NOT_MACHINE", False),
 }
+
+
+def verdict_ok(want, got):
+    if want is None:
+        return True
+    if want == "NOT_MACHINE":
+        return got in ("HUMAN", "NOTSURE")
+    return got == want
 
 
 def amd_one(rec, case, run):
@@ -176,7 +190,7 @@ def amd_one(rec, case, run):
          "events_for_leg": sorted({e.get("Event-Subclass") or e.get("Event-Name") for e in evs}),
          "amd_vars": {k: v for k, v in (hup or {}).items() if k.startswith(("variable_amd", "variable_avmd"))}}
     want, beep_present = AMD_EXPECT[case]
-    r["verdict_ok"] = (want is None) or (r["verdict"] == want)
+    r["verdict_ok"] = verdict_ok(want, r["verdict"])
     r["beep_ok"] = bool(r["t_beep"]) == beep_present
     if beep_present and r["t_beep"]:
         r["beep_ok"] = r["t_beep"] >= FACTS[case]["beep_start"] - 0.1
@@ -195,7 +209,8 @@ def suite_amd(runs=3, parallel=4):
     SUBS["clone"] = Recorder(*FS, "CLONE", f"{RES}/esl/amd-sub-clone.txt")
     for r in SUBS.values():
         r.start()
-    jobs = [(c, r) for r in range(1, runs + 1) for c in AMD_EXPECT]
+    only = os.environ.get("LAB_AMD_CASES")
+    jobs = [(c, r) for r in range(1, runs + 1) for c in AMD_EXPECT if not only or c in only.split(",")]
     results, lock = [], threading.Lock()
 
     def worker():

@@ -21,8 +21,10 @@ cat_wav() { # out in...
   for i in "$@"; do echo "file '$T/$i.wav'" >> "$T/list.txt"; done
   ff -f concat -safe 0 -i "$T/list.txt" -ar 8000 -ac 1 -sample_fmt s16 "$F/$o.wav"
 }
-sil s03 0.3; sil s06 0.6; sil s1 1; sil s15 15; sil s30 30
-beep b1000 1000 0.5; beep b1400 1400 0.25
+sil s03 0.3; sil s06 0.6; sil s1 1; sil s3 3; sil s15 15; sil s30 30
+# 0.5 s and 0.25 s test beeps, and a 1.2 s one (real carrier beeps run up to
+# about a second: a drop that starts on the beep detection plays over it)
+beep b1000 1000 0.5; beep b1400 1400 0.25; beep b1000l 1000 1.2
 
 say hello en-us 160 "Hello?"
 say john en-us 165 "Hello, this is John speaking, who's calling please?"
@@ -34,6 +36,9 @@ cat_wav human_long   s03 john s15
 cat_wav vm_beep_short s03 g_short s06 b1000 s30
 cat_wav vm_beep_long  s03 g_long s06 b1400 s30
 cat_wav vm_nobeep     s03 g_short s30
+cat_wav vm_beep_1200ms s03 g_short s06 b1000l s30
+# a person who answers and says nothing for 3 s, then "Hello?"
+cat_wav silent_then_hello s3 hello s15
 cat_wav beep_only     s1 b1000 s30
 cat_wav silence       s30
 ff -f lavfi -i "anoisesrc=r=8000:color=pink:amplitude=0.08:duration=30" -ar 8000 -ac 1 -sample_fmt s16 "$F/noise.wav"
@@ -50,6 +55,13 @@ while IFS='|' read -r name text; do
   cp "$T/p_$name.wav" "$WT/sounds/secure_payment/$name.wav"
 done < "$D/prompts.txt"
 
+# the drop recordings: the repo's default_voicemail.wav (it starts with
+# ~0.24 s of near-silence) and the same with that lead-in cut, so a drop that
+# starts too early is heard at once (no lead-in hiding it)
+mkdir -p "$OUT/drop"
+ff -i "$WT/default_voicemail.wav" -af "silenceremove=start_periods=1:start_threshold=-36dB:start_silence=0" \
+  -ar 8000 -ac 1 -sample_fmt s16 "$OUT/drop/drop_nolead.wav"
+
 # timing facts the analysis needs (greeting end, beep start/end), seconds
 python3 - "$T" "$F" <<'PY'
 import sys, wave, json
@@ -61,6 +73,8 @@ facts = {
  "vm_beep_short": {"greeting_end": 0.3 + d("g_short"), "beep_start": 0.3 + d("g_short") + 0.6, "beep_end": 0.3 + d("g_short") + 0.6 + 0.5},
  "vm_beep_long":  {"greeting_end": 0.3 + d("g_long"), "beep_start": 0.3 + d("g_long") + 0.6, "beep_end": 0.3 + d("g_long") + 0.6 + 0.25},
  "vm_nobeep":     {"greeting_end": 0.3 + d("g_short")},
+ "vm_beep_1200ms": {"greeting_end": 0.3 + d("g_short"), "beep_start": 0.3 + d("g_short") + 0.6, "beep_end": 0.3 + d("g_short") + 0.6 + 1.2},
+ "silent_then_hello": {"speech_start": 3.0, "speech_end": 3.0 + d("hello")},
  "beep_only":     {"beep_start": 1.0, "beep_end": 1.5},
  "silence": {}, "noise": {},
 }

@@ -1,0 +1,17 @@
+# lab.py amd 3, LAB_AMD_CASES=human_long,silence,noise,silent_then_hello,vm_beep_1200ms
+# drafts 150db3f (PR1 amd.conf.xml as drafted), strict expectations (silence/noise/silent caller never MACHINE)
+{"case": "human_long", "run": 1, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.428, "t_beep": null, "pass": false}
+{"case": "vm_beep_1200ms", "run": 1, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.287, "t_beep": 7.68, "pass": true}
+{"case": "silence", "run": 1, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.509, "t_beep": null, "pass": false}
+{"case": "silent_then_hello", "run": 1, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.51, "t_beep": null, "pass": false}
+{"case": "human_long", "run": 2, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.436, "t_beep": null, "pass": false}
+{"case": "noise", "run": 1, "verdict": "MACHINE", "cause": "LONGGREETING", "t_verdict": 1.607, "t_beep": null, "pass": false}
+{"case": "vm_beep_1200ms", "run": 2, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.293, "t_beep": 7.7, "pass": true}
+{"case": "silent_then_hello", "run": 2, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.518, "t_beep": null, "pass": false}
+{"case": "human_long", "run": 3, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.403, "t_beep": null, "pass": false}
+{"case": "silence", "run": 2, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.524, "t_beep": null, "pass": false}
+{"case": "noise", "run": 2, "verdict": "MACHINE", "cause": "LONGGREETING", "t_verdict": 1.616, "t_beep": null, "pass": false}
+{"case": "silent_then_hello", "run": 3, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.525, "t_beep": null, "pass": false}
+{"case": "vm_beep_1200ms", "run": 3, "verdict": "MACHINE", "cause": "MAXWORDS", "t_verdict": 2.292, "t_beep": 7.7, "pass": true}
+{"case": "noise", "run": 3, "verdict": "MACHINE", "cause": "LONGGREETING", "t_verdict": 2.515, "t_beep": null, "pass": false}
+{"case": "silence", "run": 3, "verdict": "MACHINE", "cause": "INITIALSILENCE", "t_verdict": 2.557, "t_beep": null, "pass": false}
