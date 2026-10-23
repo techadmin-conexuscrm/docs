@@ -138,6 +138,14 @@ printf '%s\n' "$B" | grep -E '^\| B6' | grep -q 'three times' && ok "B6: silence
   || bad "B6: still says silence at the card prompt sends you straight back to the agent"
 printf '%s\n' "$B" | grep -E '^\| B11' | grep -q '122030' && ok "B11: extra keys and a pause are tested" \
   || bad "B11: no test for extra keys (122030 at the expiry) and a pause at the code"
+# a queue caller keeps app.py's "0 = callback" digit binding; the extension
+# clears it (clear_digit_action all). Tested from a queue, after a transfer,
+# with a card that has a 0.
+printf '%s\n' "$B" | grep -E '^\| B12' | grep -i 'queue' | grep -i 'callback' | grep -i 'transfer' | grep -q '1230' \
+  && ok "B12: a callback-enabled queue caller, transferred, keys a card with a 0" \
+  || bad "B12: no test of secure entry for a queue caller (callback on) after a transfer, keying a 0"
+printf '%s\n' "$B" | grep -q 'last_non_matching_digits' && ok "B10: looks at last_non_matching_digits in the CDRs" \
+  || bad "B10: does not look for last_non_matching_digits (keys copied by a digit binding)"
 printf '%s\n' "$B" | grep -q 'RECV DTMF' && ok "B10: looks for per-key 'RECV DTMF' log lines" \
   || bad "B10: does not look for 'RECV DTMF' lines (one digit per line)"
 printf '%s\n' "$B" | grep -q 'digits_dialed' && ok "B10: looks at digits_dialed in the CDRs" \

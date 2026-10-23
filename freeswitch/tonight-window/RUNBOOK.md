@@ -547,6 +547,7 @@ N0=$(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log)
 | B9 **recording** | play B1's call recording in the CRM | voice before and after, **silence during the entry, no tones** | OK |
 | B10 **no card in logs** | run the commands just below this table | `0` on every line | all the numbers |
 | B11 **extra keys, a pause** | card `4111111111111111#`; at the expiry prompt key `122030` (a 4-digit year); when asked again key `1230`; at the code prompt press nothing for 15 s; when asked again key `123`; ZIP `78704` | "wasn't valid" once (after `122030`), the code prompt twice, then the same as B1: "received securely", **Agent screen** `Visa •••• 1111 · 12/30` | OK, or what you heard; then B10's commands again |
+| B12 **queue caller, transferred** | from your mobile, call the test company's number that goes to a ring group with callback on (the default) and wait in its queue, pressing nothing; agent A answers and transfers you to agent B; B clicks **Start secure entry**; key B1's card, expiry, CVV and ZIP (`1230` and `78704` have a `0`) | the same as B1. You never hear "we will return your call", and the call does not drop at a `0`. | OK, or what you heard; then B10's commands again |
 
 B10 commands. On the FS box, in the same terminal as `BSTART` and `N0`.
 FreeSWITCH would log a keypad digit one per line (`RECV DTMF 4:...`) and
@@ -558,6 +559,7 @@ sudo docker exec fs sh -c 'grep -rl 4111111111111111 /var/log/freeswitch /etc/fr
 echo $(( $(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log) - N0 ))    # 0: no key logged since B1
 sudo docker logs --since "$BSTART" fs 2>&1 | grep -c 'RECV DTMF'                                  # 0
 sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -lE '"digits_dialed": ?"[0-9*#]' {} + | wc -l   # 0
+sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -l '"last_non_matching_digits"' {} + | wc -l   # 0: no key went through the queue's "0 = callback" binding (B12)
 ```
 
 On the API box:
@@ -571,7 +573,7 @@ purge what was written (test cards only tonight, but the same steps apply
 if a real card was ever keyed):
 
 ```bash
-sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -lE '"digits_dialed": ?"[0-9*#]' {} + | sudo xargs -r rm -v
+sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -lE '"digits_dialed": ?"[0-9*#]|"last_non_matching_digits"' {} + | sudo xargs -r rm -v
 sudo docker exec fs sh -c ': > /var/log/freeswitch/freeswitch.log'
 sudo sh -c ': > "$(docker inspect -f "{{.LogPath}}" fs)"'
 ```
@@ -585,7 +587,7 @@ after a declined card it only asks again if about a minute is left. Then
 you hear "unable to take your card details right now" and go back to the
 agent, before the CRM's own 3-minute limit cuts in without a word.
 
-If any of B1, B4, B7, B9 or B10 is NOT OK, switch secure entry off with the
+If any of B1, B4, B7, B9, B10 or B12 is NOT OK, switch secure entry off with the
 no-downtime rollback in §4. Leave everything else.
 
 ### C. Other payments (not FreeSWITCH; checks nothing else broke)
