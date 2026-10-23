@@ -120,6 +120,54 @@ index 0000000..cfd710f
 +	</settings>
 +</configuration>
 +
+diff --git a/autoload_configs/httapi.conf.xml b/autoload_configs/httapi.conf.xml
+new file mode 100644
+index 0000000..5f0e173
+--- /dev/null
++++ b/autoload_configs/httapi.conf.xml
+@@ -0,0 +1,42 @@
++<configuration name="httapi.conf" description="mod_httapi: only its http(s):// file cache is used">
++  <!--
++    modules.conf.xml loads mod_httapi, but without this file it does not load
++    ("open of httapi.conf failed"), and `playback:https://...` then fails with
++    FILE NOT FOUND. That is how the campaign voicemail drop (BE-17) plays its
++    5-minute recording link. Lab: section 4, be17https.
++
++    Only the file cache is used here (playback of http:// and https:// URLs).
++    The HTTAPI dialplan application is not: the one profile below points at
++    nothing and may do nothing.
++
++    Note: mod_httapi's file cache does not verify the server's certificate
++    (fetch_cache_data turns CURLOPT_SSL_VERIFYPEER off for https and has no
++    setting to turn it on). It only ever fetches a recording to play; keep
++    it that way.
++  -->
++  <settings>
++    <param name="debug" value="false"/>
++    <!-- a drop link is used once: do not keep copies around for long -->
++    <param name="file-cache-ttl" value="300"/>
++    <param name="file-not-found-expires" value="0"/>
++  </settings>
++  <profiles>
++    <profile name="default">
++      <permissions>
++        <permission name="set-params" value="false"/>
++        <permission name="set-vars" value="false"/>
++        <permission name="get-vars" value="false"/>
++        <permission name="extended-data" value="false"/>
++        <permission name="execute-apps" value="false"/>
++        <permission name="expand-vars-in-tag-body" value="false"/>
++        <permission name="dial" value="false"/>
++        <permission name="conference" value="false"/>
++      </permissions>
++      <params>
++        <param name="gateway-url" value="http://127.0.0.1:9/httapi-is-not-used"/>
++        <param name="timeout" value="10"/>
++        <param name="connect-timeout" value="5"/>
++      </params>
++    </profile>
++  </profiles>
++</configuration>
 diff --git a/autoload_configs/modules.conf.xml b/autoload_configs/modules.conf.xml
 index e8e204f..9cf185f 100755
 --- a/autoload_configs/modules.conf.xml
