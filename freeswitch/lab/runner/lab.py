@@ -444,7 +444,10 @@ PCI_CASES = {
     "P17_wrong_cert_name": (None, "ok", "failed", 0),                  # cert for other.lab.test
     "P18_agent_hangup_mid_entry": ([("card", 1, "4111"), ("HANGUP_AGENT", 0, "")], "ok", "customer_hangup", 0),
     "P19_script_missing_fallback": (None, "ok", "failed", 0),          # dialplan fallback path
-    "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")], "ok", "completed", 1),
+    # keys typed over the intro are dropped once the card prompt ends (never
+    # logged, not in digits_dialed: no session:flushDigits); then the card
+    # is asked for as usual
+    "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")] + GOOD, "ok", "completed", 1),
     "P21_secret_file_missing": (GOOD, "ok", "failed", 0),
     # the TLS front end (Caddy) is up but the app behind it is down: every
     # request gets a 502. Must be refused before the customer is asked anything.
