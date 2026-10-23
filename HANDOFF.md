@@ -20,6 +20,17 @@ is merged. Your job:
 - Save research in this repo as you go: branch `claude/busy-tesla-xl07bi`. Run `git pull --no-rebase` before each push, and commit often.
 - This session's container restarted 3 times tonight. Push work in progress early.
 
+
+> **In progress (2026-10-23, from about 05:30 UTC):** two long runs, each item through break-it → verify → fix → full gates until clean. Results land in `battle-tests/` as each item finishes.
+> 1. **Battle test of everything already built:** FreeSWITCH drafts, card pause, wallboard, API-key watch, graceful shutdown, DID purchase, dialer queue; then a combined `claude/release-next` (BE and FE). Warm transfer runs separately (`battle-tests/01-warm-transfer.md`).
+> 2. **Build plus battle test:**
+>    - upsell record-only API (Konnektive and Shopify), then the other funnels;
+>    - the campaign BE stack brought up to date with main;
+>    - the campaign FE U1–U7, then `claude/campaign-fe-all`.
+>
+> Campaign branches that existed only on the sandbox were pushed: `claude/campaign-pr01…pr14-*`, `-be18-consent-mode`, `-d9-*`, `-fe7-*`, `-g4/g9/g10/g78-*`, and FE `claude/campaign-fe-foundation` 6c57e8c7 (WIP).
+> If a run died, check `battle-tests/` for what finished and restart the rest.
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
