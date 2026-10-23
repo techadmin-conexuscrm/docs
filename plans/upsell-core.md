@@ -1,15 +1,15 @@
 # Upsells paid outside ConexusCRM: record-only API, Konnektive, Shopify
 
-Status (2026-10-23): **built, gates run, pushed. No PR opened, nothing merged, no production touched.**
+Status (2026-10-23): **built, all gates green, pushed. No PR opened, nothing merged, no production touched. Needs an independent adversarial review, then Eric's yes.**
 Plan: `plans/upsell-existing-order.md`. Eric's decisions there are followed: never charge, Konnektive and Shopify first, always on (no switch).
 
 | | |
 |---|---|
 | Branch | `claude/upsell-record-existing-order` (ConexusCRM-BE), from `origin/main` 8b57d818 (#405) |
-| Head | see the last commit on the branch (gates below are for that commit) |
+| Head | `a6f0e8da` (pushed) |
 | Worktree | `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/build/upsell-core` |
 | Migration | **0111_external_transactions** (one migration) |
-| Gates | see "Gates" below |
+| Gates | all green on `a6f0e8da` (below) |
 
 ## What it does, in plain words
 
@@ -66,8 +66,12 @@ Nothing to set up. Post-purchase upsells add line items to the same Shopify orde
 - **Fail without the fix:** with main's Konnektive and Shopify webhooks, 5 of the new webhook tests fail.
 - **Migration 0111** was run on a scratch Postgres with main's 111 migrations and 2,000 seeded orders. Applied cleanly. With `order_items` locked it failed after the 10 s lock timeout and rolled back completely; rerun after the lock cleared, it applied.
 
-## Gates
-Filled in below once the final run finished.
+## Gates (on `a6f0e8da`)
+- `npx tsc --noEmit`: clean (exit 0).
+- Full `npx vitest run`, using the shared suite runner: **375 test files passed, 5 skipped (380); 5,458 tests passed, 142 skipped (5,600); exit 0.**
+  - The 5 skipped files are the Postgres-only tests, which run only where `ORDERS_TEST_DATABASE_URL` is set.
+- The new Postgres test, run against the scratch database: `record-external-items.db.test.ts` **4/4 passed**.
+- `npx drizzle-kit generate`: "No schema changes, nothing to migrate".
 
 ## Migration 0111
 - Two new tables, `external_transactions` and `external_transaction_items`, plus `order_items.kind` (nullable, so a catalog change only).
