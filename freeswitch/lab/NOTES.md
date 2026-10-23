@@ -3,9 +3,12 @@
 Severity is for tonight's window. "Draft" = one of the five drafts; "BE" = a
 ConexusCRM-BE branch the drafts serve. Items 1-17 are the first run's
 findings, each with what has been done since; items 18-24 came from the
-independent review of the lab and were fixed in the second pass. The table
-in `results.md` is the run on the fixed drafts; `failfirst/` holds the runs
-that show each new test failing before its fix.
+independent review of the lab and were fixed in the second pass; items 25-26
+are two places where the lab itself was measuring the wrong thing, found and
+fixed in the third pass. The table in `results.md` is the run on the fixed
+drafts: **71 of 77 rows pass**, and the 6 that do not are one fault that
+cannot be fixed inside BE-17 (see the last section). `failfirst/` holds the
+runs that show each new test failing before its fix.
 
 ### Stop-ship for secure card entry (PR4 + PR5 as drafted)
 
@@ -103,7 +106,10 @@ that show each new test failing before its fix.
    Holding the line for a beep is itself not human-safe: in the first run
    the long talker was held 25 s in dead air and then hung up (an abandoned
    call, far past the 2-second connect window); the lab now counts that as a
-   failure.
+   failure. The amdbeep flow does that now (item 25): on a MACHINE verdict
+   with no beep inside 25 s it plays nothing and hands the call to an agent,
+   which is what BE-12 must do. `vm_nobeep` passes on that basis (no drop,
+   routed, 3/3), not on a drop being played.
    **Fixed** in ConexusCRM-BE `claude/campaign-be17-voicemail-drop` (merged
    up to pr13 and pr14) and in RUNBOOK F3: wait for 1.5 s of quiet
    (`wait_for_silence:200 75 0 30000`). Every voicemail case now drops after
@@ -288,3 +294,54 @@ the next one (B8); typing ahead during the intro works; the dialplan fallback
     key pressed after the entry is logged on purpose. L5 now fails on any
     key logged inside a secure-entry window.
 
+
+### Found in the third pass (this run)
+
+25. **The amdbeep flow hung up on a MACHINE verdict with no beep.** Item 3
+    says the human-safe end for that verdict is an agent, never a recording
+    and never a hang-up, but the flow itself still ran
+    `uuid_kill NORMAL_CLEARING` after waiting 25 s for a beep, and the lab
+    judged `vm_nobeep` on whether a drop had been *played* — the one thing
+    item 3 rules out. So the row demanded the unsafe behaviour and failed
+    whatever the flow did. **Fixed in the lab** (`runner/lab.py`): no beep
+    inside 25 s means no drop and the call goes to an agent, and the row
+    requires exactly that (nothing played, a route, no hang-up). `vm_nobeep`
+    is MACHINE 3/3, held 25.0 s for the beep, nothing played, routed.
+    Holding a *machine* that long is fine; a person wrongly judged MACHINE
+    is what `held_s` on the human rows catches.
+26. **The leak check went vacuous the moment the leak was fixed.**
+    `report.py` chose "the calls that keyed a card" by reading
+    `dtmf_events_on_B` — the very field `sensitive_dtmf` empties. With the
+    fix in, every keyed call dropped out of the denominator and the three
+    leak rows reported `PASS 0/0`: green on no evidence, and green too if
+    the entry had never run. **Fixed**: the denominator is now counted from
+    `keys_sent`, the runner's own record of what the robot pressed, which
+    nothing in FreeSWITCH can suppress. The rows now read `PASS 18/18` (18
+    calls really keyed a card; none leaked to the log, the CDR or the
+    events). `failfirst/D9-leak-denominator-vacuous.log` has both.
+
+### The one thing still red: BE-17 pressed on a live person
+
+The 6 failing rows (`be17` and `runbook` × `human_hello`, `human_long`,
+`silent_then_hello`) are all the same fault: the agent presses "Machine:
+drop voicemail" on a person and the recording plays to them (3.5-5.5 s in)
+and then the call is hung up. This is **not fixed**, and it cannot be fixed
+inside BE-17:
+
+- BE-17 is a button, and no AMD runs on the call. `dropSteps` only waits for
+  the line to go quiet, and a person who has stopped to listen is quiet in
+  exactly the same way a greeting is. The lab measured that directly: the
+  drop lands at 3.5 s on "Hello?" and 5.4 s on the long greeting.
+- Refusing unless `amd_result` is MACHINE would refuse **every** drop today,
+  because nothing starts AMD at answer yet. Starting AMD on every dialer
+  call is BE-12's work and a behaviour change for Eric to decide, not a
+  tidy-up inside this item.
+- Starting AMD at the button press cannot help either: mid-greeting it comes
+  out HUMAN (item 3).
+
+What to do with it, in order of cost: (a) BE-12 starts AMD at answer and
+BE-17 refuses the drop unless the verdict is MACHINE — this is the real fix
+and these 6 rows are its acceptance test; (b) in the meantime BE-17 could
+refuse when `amd_result` exists and says HUMAN (costs nothing today, closes
+the hole the day BE-12 lands); (c) the agent-facing wording should say the
+message plays immediately, because today the button is the only guard.
