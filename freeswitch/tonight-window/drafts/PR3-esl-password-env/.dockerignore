@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+__pycache__
+**/__pycache__
+**/*.pyc
+call-cdr-json
+recording
+voicemail_recordings
+voicemail_welcome_message
+ivr_prompts
+sounds
+note.txt
+*.log
+.env

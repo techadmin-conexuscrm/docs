@@ -1,0 +1,12 @@
+.venv/*
+call-cdr-json/*
+sounds/*
+!sounds/en/
+!sounds/music/
+voicemail_welcome_message/*
+voicemail_recordings/*
+recording/*
+ivr_prompts/*
+__pycache__/*
+*.pyc
+.env

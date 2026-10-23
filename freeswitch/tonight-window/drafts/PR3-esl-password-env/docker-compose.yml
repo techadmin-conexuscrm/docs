@@ -1,0 +1,71 @@
+services:
+  freeswitch:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: conexus-fs:latest
+    container_name: fs
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      # Default credential for mod_deepgram_transcribe. Set it in .env (or the
+      # deploy shell); a per-call channel variable of the same name overrides it.
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      # Event-socket password. Required: compose refuses to start without it,
+      # so FreeSWITCH can never come up with an empty ESL password.
+      - FS_ESL_PASSWORD=${FS_ESL_PASSWORD:?set FS_ESL_PASSWORD in .env}
+    volumes:
+      - ./:/etc/freeswitch
+      - fs_db:/var/lib/freeswitch
+      - fs_log:/var/log/freeswitch
+      - fs_run:/var/run/freeswitch
+
+  event-listener:
+    image: conexus-fs:latest
+    container_name: fs-event-listener
+    network_mode: host
+    restart: unless-stopped
+    working_dir: /etc/freeswitch/scripts/event
+    command: ["python3", "-u", "main.py"]
+    environment:
+      - PYTHONPATH=/etc/freeswitch/scripts
+      - FS_ESL_PASSWORD=${FS_ESL_PASSWORD:?set FS_ESL_PASSWORD in .env}
+    volumes:
+      - ./:/etc/freeswitch
+    depends_on:
+      - freeswitch
+
+  voicemail-api:
+    image: conexus-fs:latest
+    container_name: fs-voicemail-api
+    network_mode: host
+    restart: unless-stopped
+    working_dir: /etc/freeswitch/scripts/voicemail
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      - PYTHONPATH=/etc/freeswitch/scripts
+    volumes:
+      - ./:/etc/freeswitch
+    depends_on:
+      - freeswitch
+
+  upload-audio:
+    image: conexus-fs:latest
+    container_name: fs-upload-audio
+    network_mode: host
+    restart: unless-stopped
+    working_dir: /etc/freeswitch/scripts/upload_audio
+    command: ["python3", "-u", "main.py"]
+    environment:
+      - PYTHONPATH=/etc/freeswitch/scripts
+    volumes:
+      - ./:/etc/freeswitch
+      - upload_logs:/var/log
+    depends_on:
+      - freeswitch
+
+volumes:
+  fs_db:
+  fs_log:
+  fs_run:
+  upload_logs:

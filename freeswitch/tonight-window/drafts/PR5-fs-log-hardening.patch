@@ -1,0 +1,31 @@
+diff --git a/autoload_configs/logfile.conf.xml b/autoload_configs/logfile.conf.xml
+index 7f7d151..961988f 100755
+--- a/autoload_configs/logfile.conf.xml
++++ b/autoload_configs/logfile.conf.xml
+@@ -15,7 +15,7 @@
+       </settings>
+       <mappings>
+ 
+-	<map name="all" value="console,debug,info,notice,warning,err,crit,alert"/>
++	<map name="all" value="console,info,notice,warning,err,crit,alert"/>
+       </mappings>
+     </profile>
+     <profile name="stdout">
+diff --git a/autoload_configs/switch.conf.xml b/autoload_configs/switch.conf.xml
+index 6fbc972..5011fbb 100755
+--- a/autoload_configs/switch.conf.xml
++++ b/autoload_configs/switch.conf.xml
+@@ -35,11 +35,11 @@
+     <!--Most channels to create per second -->
+     <param name="sessions-per-second" value="30"/>
+     <!-- Default Global Log Level - value is one of debug,info,notice,warning,err,crit,alert -->
+-    <param name="loglevel" value="debug"/>
++    <param name="loglevel" value="info"/>
+ 
+     <param name="mailer-app" value="sendmail"/>
+     <param name="mailer-app-args" value="-t"/>
+-    <param name="dump-cores" value="yes"/>
++    <param name="dump-cores" value="no"/>
+ 
+   </settings>
+ 

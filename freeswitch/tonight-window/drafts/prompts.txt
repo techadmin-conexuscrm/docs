@@ -1,0 +1,13 @@
+payment_intro|You're now on our secure payment line. Your agent can't hear the numbers you press, and they are not recorded. Use your phone's keypad. You can press star at any time to go back to your agent.
+enter_card_number|Please enter your card number. If it has fewer than sixteen digits, press pound at the end.
+enter_expiry|Please enter the expiration date as four digits: two for the month, then two for the year.
+enter_cvv|Please enter the three digit security code on the back of your card.
+enter_cvv_amex|Please enter the four digit security code printed on the front of your card.
+enter_zip|Please enter the five digit ZIP code of your billing address.
+invalid_try_again|Sorry, that entry wasn't valid. Let's try that again.
+one_moment|Thank you. One moment while we securely check your card.
+payment_captured|Thank you. Your card details have been received securely.
+card_not_accepted_try_again|Sorry, that card couldn't be accepted. Please check your details, and enter the card number again.
+unable_to_process|Sorry, we're unable to take your card details right now.
+returning_to_agent|Returning you to your agent now.
+agent_unavailable|Sorry, your agent is no longer on the line. Please call us back. Goodbye.

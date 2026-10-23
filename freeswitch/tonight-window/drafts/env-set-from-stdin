@@ -1,0 +1,23 @@
+#!/bin/sh
+# Usage: env-set-from-stdin /path/to/.env   (KEY=VALUE lines on stdin)
+# Replaces or adds FS_ESL_PASSWORD / TELEPHONY_PAYMENT_SECRET in the file.
+# Prints key names only, never values. Keeps the file's owner and mode.
+set -eu
+umask 077
+f="$1"; tmp="$f.tmp.$$"
+cp -p "$f" "$tmp"
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  k=${line%%=*}
+  case "$k" in
+    FS_ESL_PASSWORD|TELEPHONY_PAYMENT_SECRET) ;;
+    *) echo "refused: unexpected key"; rm -f "$tmp" "$tmp.2"; exit 1 ;;
+  esac
+  v=${line#*=}
+  [ ${#v} -ge 32 ] || { echo "refused: $k value too short"; rm -f "$tmp" "$tmp.2"; exit 1; }
+  grep -v "^$k=" "$tmp" > "$tmp.2" || true
+  printf '%s\n' "$line" >> "$tmp.2"
+  cat "$tmp.2" > "$tmp"; rm -f "$tmp.2"
+  echo "set $k"
+done
+cat "$tmp" > "$f"; rm -f "$tmp"

@@ -1,0 +1,419 @@
+<title>Campaign Dialer Mockups</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap");
+/* Colours are the app's own tokens (ConexusCRM-FE src/index.css), as in the approved dialer-order prototype. */
+:root{
+  --page:220 14% 93%; --background:210 40% 98%; --foreground:222 47% 11%; --card:0 0% 100%;
+  --primary:221 83% 53%; --primary-soft:214 100% 97%; --muted:210 40% 96%; --muted-fg:215 16% 42%;
+  --destructive:0 73% 48%; --destructive-soft:0 86% 97%; --border:220 13% 89%; --input:220 13% 80%;
+  --success:160 84% 28%; --success-soft:152 81% 95%; --warning:30 80% 33%; --warning-soft:48 100% 95%;
+  --violet:262 83% 58%; --violet-fg:263 70% 42%; --info:262 83% 58%; --logo:221 70% 28%;
+  --shadow:0 4px 14px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --font:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page:222 47% 3%; --background:222 47% 6%; --foreground:210 40% 96%; --card:222 47% 8%;
+  --primary:217 91% 60%; --primary-soft:222 47% 14%; --muted:217 33% 14%; --muted-fg:215 20% 68%;
+  --destructive:0 73% 62%; --destructive-soft:0 50% 14%; --border:217 33% 18%; --input:217 33% 26%;
+  --success:152 76% 46%; --success-soft:152 50% 12%; --warning:43 96% 58%; --warning-soft:30 40% 12%;
+  --violet:263 70% 70%; --violet-fg:263 90% 82%; --info:263 70% 70%; --logo:210 40% 96%;
+  --shadow:0 4px 14px rgba(0,0,0,.35); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --page:222 47% 3%; --background:222 47% 6%; --foreground:210 40% 96%; --card:222 47% 8%;
+  --primary:217 91% 60%; --primary-soft:222 47% 14%; --muted:217 33% 14%; --muted-fg:215 20% 68%;
+  --destructive:0 73% 62%; --destructive-soft:0 50% 14%; --border:217 33% 18%; --input:217 33% 26%;
+  --success:152 76% 46%; --success-soft:152 50% 12%; --warning:43 96% 58%; --warning-soft:30 40% 12%;
+  --violet:263 70% 70%; --violet-fg:263 90% 82%; --info:263 70% 70%; --logo:210 40% 96%;
+  --shadow:0 4px 14px rgba(0,0,0,.35); color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:hsl(var(--page));color:hsl(var(--foreground));font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.num,.mono{font-variant-numeric:tabular-nums}.mono{font-family:var(--mono)}
+svg{width:1em;height:1em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid hsl(var(--primary));outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:12px;min-width:0}
+.demo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1px dashed hsl(var(--input));border-radius:10px;background:hsl(var(--card))}
+.demo h1{font-size:15px;margin:0 8px 0 0}
+.demo .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:hsl(var(--muted-fg))}
+.sp{flex:1}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid hsl(var(--border));border-radius:999px;padding:4px 10px;background:hsl(var(--background))}
+.tg input{accent-color:hsl(var(--primary))}
+.frame{container-type:inline-size;background:hsl(var(--background));border:1px solid hsl(var(--border));border-radius:12px;overflow:hidden;box-shadow:0 10px 30px -12px rgba(15,23,42,.25);min-width:0}
+.hdr{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 12px;border-bottom:1px solid hsl(var(--border));background:hsl(var(--card))}
+.logo{font-weight:800;letter-spacing:-.02em;font-size:20px;color:hsl(var(--logo))}
+.badge{background:hsl(var(--primary-soft));color:hsl(var(--primary));font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:6px}
+.crumb{font-size:13px;color:hsl(var(--muted-fg))}
+.main{padding:12px;display:grid;gap:12px;min-width:0}
+.main>*,.cols>*,.grid>*{min-width:0}
+@container (min-width:780px){.main{padding:16px}}
+.camp{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.camp h2{margin:0;font-size:20px;line-height:1.2}
+.status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
+.status::before{content:"";width:7px;height:7px;border-radius:9px;background:currentColor}
+.status.run{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.status.pause{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.status.stop{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.tabs{display:flex;gap:4px;border-bottom:1px solid hsl(var(--border));overflow-x:auto;scrollbar-width:thin}
+.tabs button{border:0;background:transparent;padding:10px 12px;font-weight:600;color:hsl(var(--muted-fg));border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:hsl(var(--primary));border-color:hsl(var(--primary))}
+.cols{display:grid;gap:12px;min-width:0}
+@container (min-width:900px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+.card{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid hsl(var(--border))}
+.card-h h3{margin:0;font-size:15px}
+.card-b{padding:12px 14px;display:grid;gap:10px;min-width:0}
+.full{grid-column:1/-1}
+.muted{color:hsl(var(--muted-fg))}.small{font-size:12px}
+.hint{font-size:12px;color:hsl(var(--muted-fg));margin:0}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:10px 12px;border:1px solid hsl(var(--border));border-radius:10px;align-items:start;text-align:left;background:hsl(var(--card));width:100%}
+.opt.sel{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary));background:hsl(var(--primary-soft)/.5)}
+.opt[disabled]{opacity:.55;cursor:not-allowed}
+.radio{width:16px;height:16px;border-radius:99px;border:2px solid hsl(var(--input));margin-top:2px}
+.opt.sel .radio{border-color:hsl(var(--primary));box-shadow:inset 0 0 0 3px hsl(var(--card));background:hsl(var(--primary))}
+.opt b{font-weight:600}.opt .d{grid-column:2;font-size:12px;color:hsl(var(--muted-fg))}
+.modes{display:grid;gap:8px}
+@container (min-width:700px){.modes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;font-size:14px;white-space:nowrap}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:hsl(var(--primary));color:hsl(var(--card))}
+.btn.outline{background:hsl(var(--background));border-color:hsl(var(--input))}
+.btn.success{background:hsl(var(--success));color:hsl(var(--card))}
+.btn.warn{background:hsl(var(--warning));color:hsl(var(--card))}
+.btn.ghost{background:transparent;color:hsl(var(--muted-fg));padding:0 8px}
+.btn.sm{min-height:30px;padding:0 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.f label,.flab{display:block;font-size:12px;font-weight:600;color:hsl(var(--muted-fg));margin-bottom:3px}
+.inp,select.sel,textarea.inp{height:36px;width:100%;border:1px solid hsl(var(--input));border-radius:8px;background:hsl(var(--background));padding:0 10px;font-size:14px;min-width:0}
+textarea.inp{height:auto;min-height:92px;padding:8px 10px;resize:vertical;line-height:1.4}
+.inp.bad{border-color:hsl(var(--destructive))}
+.fields{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@container (min-width:700px){.fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.switch{display:flex;align-items:flex-start;gap:10px;padding:8px 0}
+.switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:hsl(var(--input));position:relative;flex:none;cursor:pointer;margin:0;transition:background .15s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:99px;background:hsl(var(--card));transition:left .15s}
+.switch input:checked{background:hsl(var(--primary))}
+.switch input:checked::after{left:19px}
+.switch input:disabled{opacity:.5;cursor:not-allowed}
+.switch b{display:block;font-weight:600}
+.note{display:flex;gap:8px;align-items:flex-start;border-radius:8px;padding:8px 10px;font-size:13px;border:1px solid}
+.note svg{margin-top:3px}
+.note.info{border-color:hsl(var(--primary)/.3);background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.note.warn{border-color:hsl(var(--warning)/.4);background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.note.bad{border-color:hsl(var(--destructive)/.35);background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.note.ok{border-color:hsl(var(--success)/.35);background:hsl(var(--success-soft));color:hsl(var(--success))}
+.chk{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:13px}
+.chk li{display:flex;gap:6px;align-items:center}
+.chk li.y{color:hsl(var(--success))}.chk li.n{color:hsl(var(--destructive))}
+.gauge{display:grid;gap:6px}
+.gtrack{position:relative;height:12px;border-radius:999px;background:linear-gradient(90deg,hsl(var(--success)) 0 66.6%,hsl(var(--warning)) 66.6% 83.3%,hsl(var(--destructive)) 83.3% 100%);opacity:.9}
+.gneedle{position:absolute;top:-4px;width:4px;height:20px;border-radius:2px;background:hsl(var(--foreground));transform:translateX(-2px);transition:left .5s}
+.gcap{position:absolute;top:-6px;bottom:-6px;width:0;border-left:2px dashed hsl(var(--foreground));opacity:.6}
+.gscale{display:flex;justify-content:space-between;font-size:11px;color:hsl(var(--muted-fg))}
+.big{font-size:26px;font-weight:700;line-height:1.1}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@container (min-width:780px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:12px 14px;display:grid;gap:2px;box-shadow:var(--shadow);min-width:0}
+.tile .k{font-size:11px;font-weight:700;color:hsl(var(--muted-fg));text-transform:uppercase;letter-spacing:.05em}
+.tile .v{font-size:24px;font-weight:700;line-height:1.15}
+.tile .s{font-size:12px;color:hsl(var(--muted-fg))}
+.tile.alert{border-color:hsl(var(--warning)/.6);background:hsl(var(--warning-soft))}
+.tile.danger{border-color:hsl(var(--destructive)/.6);background:hsl(var(--destructive-soft))}
+.scroll{overflow-x:auto;max-width:100%}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t.wide{min-width:640px}
+.t th{text-align:left;font-size:11px;font-weight:700;color:hsl(var(--muted-fg));text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid hsl(var(--border));white-space:nowrap}
+.t td{padding:8px 10px;border-bottom:1px solid hsl(var(--border));vertical-align:middle}
+.t tr:last-child td{border-bottom:0}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.ok{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.pill.warn{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.pill.bad{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.pill.info{background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.pill.mut{background:hsl(var(--muted));color:hsl(var(--muted-fg))}
+.pill.vio{background:hsl(var(--violet)/.12);color:hsl(var(--violet-fg))}
+.bars{display:grid;gap:6px}
+.bar{display:grid;grid-template-columns:minmax(78px,110px) minmax(0,1fr) 54px;gap:8px;align-items:center;font-size:13px}
+.bar .tr{height:10px;border-radius:5px;background:hsl(var(--muted));overflow:hidden}
+.bar .tr i{display:block;height:100%;background:hsl(var(--primary));transition:width .4s}
+.bar .tr i.cb{background:hsl(var(--violet))}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipbtn{border:1px solid hsl(var(--input));border-radius:999px;padding:4px 10px;font-size:13px;background:hsl(var(--background))}
+.chipbtn[aria-pressed="true"]{border-color:hsl(var(--success));background:hsl(var(--success-soft));color:hsl(var(--success));font-weight:600}
+input[type=range]{width:100%;accent-color:hsl(var(--primary))}
+.player{display:flex;align-items:center;gap:10px;border:1px solid hsl(var(--border));border-radius:10px;padding:8px 10px;min-width:0}
+.player .wave{flex:1;height:22px;min-width:0;background:repeating-linear-gradient(90deg,hsl(var(--primary)/.55) 0 2px,transparent 2px 5px);border-radius:4px;mask:linear-gradient(90deg,#000,#0008 60%,#000)}
+.rec{width:10px;height:10px;border-radius:99px;background:hsl(var(--destructive));animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.rec{animation:none}.gneedle,.bar .tr i{transition:none}}
+.savebar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:hsl(var(--card));border-top:1px solid hsl(var(--border));border-radius:0 0 12px 12px}
+.slow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.steps4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:11px;font-weight:600;text-align:center}
+.steps4 span{padding:6px 2px;border-radius:6px;background:hsl(var(--muted));color:hsl(var(--muted-fg))}
+.steps4 span.on.s0{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.steps4 span.on.s1,.steps4 span.on.s2{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.steps4 span.on.s3{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.45);display:grid;place-items:center;padding:16px;z-index:10}
+.modal .card{max-width:480px;width:100%}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+dl.kv dt{color:hsl(var(--muted-fg))}dl.kv dd{margin:0;text-align:right;font-weight:600}
+[hidden]{display:none!important}
+</style>
+
+<div class="wrap">
+  <div class="demo" role="region" aria-label="Demo controls">
+    <h1>Campaign dialer: admin mockup</h1>
+    <span class="sp"></span>
+    <a class="btn ghost sm" href="agent.html" style="text-decoration:none">Dialer</a>
+    <button class="btn ghost sm" type="button" id="d-theme">Dark / light</button>
+    <button class="btn ghost sm" type="button" id="d-reset">Start over</button>
+  </div>
+  <p class="hint">Fake data. Nothing dials and nothing is saved. Campaigns, lead lists, the live monitor and the calling rules are in the <b>Dialer</b>.</p>
+
+  <div class="frame">
+    <header class="hdr">
+      <span class="logo">CONEXUS</span><span class="badge">ADMIN</span>
+      <span class="crumb">Org Settings › Dialer</span>
+    </header>
+    <main class="main">
+      <div class="camp">
+        <h2>Dialer</h2>
+        <span class="small muted">AutoShield Partners · company-wide</span>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Sections">
+        <button role="tab" aria-selected="true" data-tab="company" type="button">Settings</button>
+        <button role="tab" aria-selected="false" data-tab="pool" type="button">Never-reached callbacks</button>
+        <button role="tab" aria-selected="false" data-tab="cats" type="button">Result categories</button>
+      </div>
+      <section id="tab-company"></section>
+      <section id="tab-pool" hidden></section>
+      <section id="tab-cats" hidden></section>
+    </main>
+  </div>
+</div>
+<div id="modal-root"></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const I={
+  alert:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>',
+  x:'<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  up:'<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  mic:'<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>'
+};
+const AGENTS=[
+  {id:'a1',name:'Maria Lopez',on:true},{id:'a2',name:'Ana Torres',on:true},{id:'a3',name:'Dev Patel',on:true},
+  {id:'a4',name:'Sam Okafor',on:true},{id:'a5',name:'Lee Chen',on:false},{id:'a6',name:'Jo Rivera',on:false}];
+const NUMBERS=[{n:'+1 (512) 555-0100',a:'512',p:'VoIP Innovations'},{n:'+1 (214) 555-0177',a:'214',p:'VoIP Innovations'},{n:'+1 (737) 555-0142',a:'737',p:'SignalWire'}];
+const DISPOS=['Sale','Call back','Not interested','Voicemail','No answer','Left message','Wrong number','Do not call'];
+const REACHED_DEFAULT=['Sale','Call back','Not interested'];
+const DNC_DISPOS=['Wrong number','Do not call'];
+const VCM={records:'Require a written-consent record',client:'Client confirms consent for all its leads'};
+const ATTEST='I confirm, on behalf of NewCallHQ, which places calls for AutoShield Partners, that every lead dialed has given the consent required by law for prerecorded messages, and that NewCallHQ is responsible for that consent.';
+const CS_SRC=['Web form','Signed paper form','E-signature','Recorded written agreement'];
+const CRM=['Warranty renewals 2026','Roadside assistance','Extended warranty: web'];
+const CATS=[['Reached','Spoken to. Ends the callbacks.'],['Not reached','Back into rotation on the callback schedule.'],['Sale','Ends the lead in this campaign.'],['Callback','Back into rotation at the agreed time.'],['Do not call','Added to the do-not-call list. Never called again.'],['Wrong number','Never called on this number again.']];
+
+let S,tick=null;
+function fresh(){return{
+  tab:'company',coStart:8,coEnd:21,coPerDay:3,status:'paused',mode:3,maxAbandon:3,crm:0,
+  company:true,globalPause:false,coVm:'autoshield-default-vm.mp3 · 0:18',coRec:false,coRecSecs:0,expMsg:'',
+  camps:[{name:'Warranty renewals · October',agents:4,crm:'Warranty renewals 2026'},{name:'Roadside upsell (draft)',mode:'Auto dial 1',status:'pause',stTxt:'Paused',agents:0,crm:'Roadside assistance'},{name:'Card on file follow-up',mode:'Auto dial 1',status:'pause',stTxt:'Paused',agents:2,crm:'Extended warranty: web'}],
+  results:[{n:'Sale',c:'Sale'},{n:'Call back',c:'Callback'},{n:'Not interested',c:'Reached'},{n:'Voicemail',c:''},{n:'No answer',c:''},{n:'Left message',c:''},{n:'Wrong number',c:'Wrong number'},{n:'Do not call',c:'Do not call'}],vmResult:'',
+  consent:[
+    {num:'+1 (512) 555-0147',name:'Jordan Ellis',src:'Web form · autoshield.com/quote',date:'3 Sep 2026',proof:'Form text v3 · IP and time stored',st:'active'},
+    {num:'+1 (737) 555-0161',name:'Priya Shah',src:'Signed paper form (scanned)',date:'12 Aug 2026',proof:'consent-shah.pdf',st:'active'},
+    {num:'+1 (214) 555-0193',name:'Renee Hall',src:'CSV import · webinar-signups.csv, row 88',date:'2 Oct 2026',proof:'Sign-up checkbox',st:'withdrawn',wd:'Admin: Jo Rivera · 18 Oct'}],
+  consentImport:null,
+  schedSrc:'company',schedSaved:false,
+  vmConsent:'records',attHist:[{who:'Jo Rivera · Company admin',when:'14 Oct 2026 · 09:40',from:'Client confirms consent for all its leads',to:'Require a written-consent record',ver:'v1'}],
+  vmOn:true,vmBeep:true,vmFile:'warranty-vm-v2.mp3 · 0:24',recording:false,recSecs:0,
+  sh:'Hi, this is AutoShield Partners calling for telemarketing purposes. We\'re sorry we missed you. To reach us, call 1-800-555-0199. To stop these calls, press 9 now.',
+  shFile:'safe-harbor-v1.mp3 · 0:09',
+  start:8,end:21,perDay:3,spacing:2,callerId:0,local:true,wrap:20,
+  pvOn:true,pvSecs:30,pvShare:20,pvOcc:true,
+  agents:AGENTS.map(a=>({...a})),
+  lists:[
+    {name:'Abandoned carts · Sep–Oct',src:'Orders filter',rows:1840,w:1120,c:0,n:720},
+    {name:'Warranty expiring Q4',src:'Orders filter',rows:2310,w:610,c:1700,n:0},
+    {name:'Webinar sign-ups (CSV)',src:'CSV upload',rows:960,w:960,c:0,n:0}],
+  dnc:[{num:'+1 (305) 555-0123',src:'Pressed 9 (opt-out)',when:'Today 10:41'},{num:'+1 (469) 555-0188',src:'Disposition: Do not call',when:'Today 09:15'},{num:'+1 (512) 555-0110',src:'Admin: Jo Rivera',when:'Yesterday'}],
+  registry:false,
+  pool:{on:true,back:90,mix:70,max:20,reached:30,dispos:[...REACHED_DEFAULT],
+    sched:[{p:'Day 1',n:3,every:'2 h apart, morning / afternoon / evening'},{p:'Days 2–7',n:1,every:'once a day, time slot rotates'},{p:'Days 8–30',n:1,every:'every 3 days'},{p:'Month 2–6',n:1,every:'once a week'}]},
+  live:{lines:0,ready:0,talk:0,wrap:0,paused:1,answer:18,ab30:1.4,abToday:0.9,vm:0,fresh:1284,cb:3410,pv:46,skips:{'Not interested':9,'Already handled':5,'Call back on date':7,'Do not call':2,'Wrong number':1},spokenSkip:23,eff:0,joinMs:420,dialed:0,humans:0,abandons:0,overdue:0,agentVm:0}
+};}
+
+
+const hours=(a,b,sel)=>{let o='';for(let h=a;h<=b;h++)o+=`<option value="${h}" ${h===sel?'selected':''}>${h===12?'12 pm':h>12?(h-12)+' pm':h+' am'}</option>`;return o;};
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':'0%';
+
+/* ---------- Settings tab (company-wide) ---------- */
+function save(){try{localStorage.setItem('cdm-co',JSON.stringify({company:S.company,vmConsent:S.vmConsent}));}catch(e){}}
+function renderCompany(){
+  $('tab-company').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>Campaign dialing for AutoShield Partners</h3><span class="pill ${S.company?'ok':'mut'}">${S.company?'On':'Off'}</span></div><div class="card-b">
+    <label class="switch"><input type="checkbox" id="co-on" ${S.company?'checked':''}><span><b>Let this company run dialer campaigns</b><span class="small muted">Off by default. Turning it off pauses every campaign of this company within a second.</span></span></label>
+  </div></div>
+
+  <div class="card full"><div class="card-h"><h3>Recorded voicemail consent</h3><span class="pill ${S.vmConsent==='client'?'warn':'ok'}">${VCM[S.vmConsent]}</span></div><div class="card-b">
+    <div class="cols">
+      <button type="button" class="opt ${S.vmConsent==='records'?'sel':''}" data-vcm="records"><span class="radio"></span><b>${VCM.records}</b><span class="d">Default. The voicemail button works only for numbers with a record in Dialer › Lead lists.</span></button>
+      <button type="button" class="opt ${S.vmConsent==='client'?'sel':''}" data-vcm="client"><span class="radio"></span><b>${VCM.client}</b><span class="d">No record per number. A company admin signs a confirmation first.</span></button>
+    </div>
+    <div class="note warn">${I.alert}<span>A recorded voicemail to someone who didn't consent can bring a legal claim for each message. In either mode, numbers on a do-not-call list never get one.</span></div>
+  </div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>Who</th><th>When</th><th>From → to</th><th>Attestation</th></tr></thead><tbody>
+  ${S.attHist.map(h=>`<tr><td><b>${esc(h.who)}</b></td><td class="small muted">${esc(h.when)}</td><td>${esc(h.from)} → ${esc(h.to)}</td><td>${esc(h.ver)}</td></tr>`).join('')}
+  </tbody></table></div></div>
+
+  <div class="card"><div class="card-h"><h3>Company default voicemail</h3><span class="small muted">Manual dialer calls</span></div><div class="card-b">
+    ${S.coRec?`<div class="player"><span class="rec"></span><b>Recording…</b><span class="mono" id="co-rec-t">0:${String(S.coRecSecs).padStart(2,'0')}</span><span class="sp"></span><button class="btn outline sm" type="button" id="co-rec-stop">Stop</button></div>`
+      :`<div class="player">${I.play}<span class="wave"></span><span class="small mono">${esc(S.coVm)}</span></div>`}
+    <div class="row"><button class="btn outline sm" type="button" id="co-up">${I.up} Upload file</button><button class="btn outline sm" type="button" id="co-rec" ${S.coRec?'disabled':''}>${I.mic} Record</button><span class="small muted">MP3 or WAV, 30 seconds at most</span></div>
+    <p class="hint">Played by the <b>Machine: drop voicemail</b> button on manual dialer calls. Campaign calls use the campaign's own recording (Dialer › Campaigns). Only numbers with written consent get it.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Calling hours and daily limit</h3><span class="small muted">Company default · each campaign can narrow it</span></div><div class="card-b">
+    <div class="fields three">
+      <div class="f"><label for="co-hs">From (lead's local time)</label><select class="sel" id="co-hs">${hours(8,20,S.coStart)}</select></div>
+      <div class="f"><label for="co-he">Until</label><select class="sel" id="co-he">${hours(9,21,S.coEnd)}</select></div>
+      <div class="f"><label for="co-pd">Attempts per number per day</label><select class="sel" id="co-pd">${[1,2,3].map(n=>`<option ${n===S.coPerDay?'selected':''}>${n}</option>`).join('')}</select></div>
+    </div>
+    <p class="hint">Never earlier than 8am or later than 9pm. Florida, Oklahoma and Maryland stop at 8pm. Counts are per phone number across every campaign and client this call centre dials for, and manual calls count too.</p>
+  </div></div>
+  </div>`;
+  document.querySelectorAll('[data-vcm]').forEach(b=>b.onclick=()=>{const m=b.dataset.vcm;if(m===S.vmConsent)return;
+    if(m==='client'){attestModal();return;}
+    S.attHist.unshift({who:'Jo Rivera · Company admin',when:'22 Oct 2026 · just now',from:VCM.client,to:VCM.records,ver:'—'});S.vmConsent='records';save();renderCompany();});
+  $('co-on').onchange=e=>{S.company=e.target.checked;save();renderCompany();};
+  $('co-up').onclick=()=>{S.coVm='autoshield-default-vm-v2.mp3 · 0:22';renderCompany();};
+  $('co-rec').onclick=()=>{S.coRec=true;S.coRecSecs=0;renderCompany();const t=setInterval(()=>{if(!S.coRec){clearInterval(t);return;}S.coRecSecs++;const el=$('co-rec-t');if(el)el.textContent='0:'+String(S.coRecSecs).padStart(2,'0');if(S.coRecSecs>=30){S.coRec=false;S.coVm='company-default-now.wav · 0:30';clearInterval(t);if(S.tab==='company')renderCompany();}},1000);};
+  const cs=$('co-rec-stop');if(cs)cs.onclick=()=>{S.coRec=false;S.coVm=`company-default-now.wav · 0:${String(Math.max(1,S.coRecSecs)).padStart(2,'0')}`;renderCompany();};
+  [['co-hs','coStart'],['co-he','coEnd'],['co-pd','coPerDay']].forEach(([id,k])=>$(id).onchange=e=>{S[k]=+e.target.value;if(S.coStart>=S.coEnd){S.coEnd=Math.min(21,S.coStart+1);}renderCompany();});
+}
+function attestModal(){
+  $('modal-root').innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><div class="card"><div class="card-h"><h3 id="mh">Client confirms consent for all its leads</h3></div><div class="card-b">
+  <div class="note bad">${I.alert}<span><b>Read this first.</b> The voicemail button will stop checking for a written-consent record per number. If any lead did not give consent, NewCallHQ, as the call center placing these calls, carries the legal risk for every message left.</span></div>
+  <span class="flab">Attestation, version 1</span>
+  <div class="note info"><span>${esc(ATTEST)}</span></div>
+  <label class="switch"><input type="checkbox" id="att-ok"><span><b>I have read and agree</b><span class="small muted">Required</span></span></label>
+  <dl class="kv"><dt>Signed by</dt><dd>Jo Rivera</dd><dt>Role</dt><dd>Admin, NewCallHQ (places calls for AutoShield Partners)</dd><dt>Date</dt><dd>22 Oct 2026</dd></dl>
+  <div class="row" style="justify-content:flex-end"><button class="btn outline" type="button" id="m-x">Cancel</button><button class="btn warn" type="button" id="att-go" disabled>Confirm and switch on</button></div></div></div></div>`;
+  $('m-x').onclick=closeModal;
+  $('att-ok').onchange=e=>{$('att-go').disabled=!e.target.checked;};
+  $('att-go').onclick=()=>{if(!$('att-ok').checked)return;S.attHist.unshift({who:'Jo Rivera · Company admin',when:'22 Oct 2026 · just now',from:VCM.records,to:VCM.client,ver:'v1'});S.vmConsent='client';closeModal();save();renderCompany();};
+  setTimeout(()=>$('att-ok').focus(),0);
+  document.addEventListener('keydown',escClose);
+}
+
+/* ---------- Never-reached pool tab ---------- */
+function poolBuckets(){
+  const f=S.pool.back/90, total=S.live.cb;
+  const b=[['Today',Math.round(total*.06)],['This week',Math.round(total*.21)],['This month',Math.round(total*.38*Math.min(1,f*1.2))],['Older',Math.max(0,Math.round(total*.35*(f-0.5)))]];
+  return b;
+}
+function renderPool(){
+  const P=S.pool;const b=poolBuckets();const max=Math.max(...b.map(x=>x[1]),1);
+  $('tab-pool').innerHTML=`<div class="cols">
+  <div class="card"><div class="card-h"><h3>Never-reached callbacks</h3><span class="pill ${P.on?'ok':'mut'}">${P.on?'On':'Off'}</span></div><div class="card-b">
+    <label class="switch"><input type="checkbox" id="p-on" ${P.on?'checked':''}><span><b>Call back people we never actually spoke to</b><span class="small muted">No answer, busy, voicemail, hung up before an agent, or a call under ${P.reached} seconds. Newest customers first.</span></span></label>
+    <div class="fields">
+      <div class="f"><label for="p-back">How far back</label><select class="sel" id="p-back">${[[30,'30 days'],[90,'90 days (recommended)'],[180,'6 months (customers only)'],[540,'18 months (customers only)']].map(([v,t])=>`<option value="${v}" ${v===P.back?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="f"><label for="p-max">Most attempts per person, ever</label><select class="sel" id="p-max">${[10,15,20,25,30].map(n=>`<option ${n===P.max?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="f"><label for="p-th">Counts as "reached" after</label><select class="sel" id="p-th">${[20,30,45,60].map(n=>`<option value="${n}" ${n===P.reached?'selected':''}>${n} seconds talking</option>`).join('')}</select></div>
+    </div>
+    <div class="f"><label for="p-mix">Mix: <b id="mixv">${P.mix}% fresh leads · ${100-P.mix}% callbacks</b></label><input type="range" id="p-mix" min="0" max="100" step="10" value="${P.mix}"></div>
+    <p class="hint">When one side runs out, the other fills in, so agents keep getting calls. After the most attempts, or 6 months, the number is retired as <b>unreachable</b>. Enquiries without consent leave at 3 months.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Waiting now</h3><span class="small muted">${P.on?'':'Off: nothing will be dialed'}</span></div><div class="card-b">
+    <div class="bars">${b.map(x=>`<div class="bar"><span>${x[0]}</span><span class="tr"><i class="cb" style="width:${100*x[1]/max}%"></i></span><span class="n">${x[1].toLocaleString()}</span></div>`).join('')}</div>
+    <p class="hint">Left out automatically: anyone who bought in this campaign, opted out, is on a do-not-call list, was marked wrong number, or was already spoken to today in any campaign.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Backoff schedule</h3><span class="small muted">Per phone number, in their local time</span></div>
+    <div class="card-b"><div class="f"><label for="p-src">Schedule used</label><select class="sel" id="p-src"><option value="company" ${S.schedSrc==='company'?'selected':''}>The company's (Org Settings › Dialer)</option><option value="own" ${S.schedSrc==='own'?'selected':''}>This campaign's own</option></select></div></div>
+    <div class="scroll"><table class="t"><thead><tr><th>Period</th><th>Attempts</th><th>Spacing</th><th></th></tr></thead><tbody>
+    ${P.sched.map((r,i)=>`<tr><td><b>${r.p}</b></td><td><select class="sel" data-sched="${i}" style="width:72px" aria-label="Attempts for ${r.p}">${(i===0?[1,2,3]:[0,1]).map(n=>`<option ${n===r.n?'selected':''}>${n}</option>`).join('')}</select></td><td class="small">${r.n===0?'<span class="muted">skipped</span>':r.every}</td><td>${P.sched.length>1?`<button class="btn ghost sm" type="button" data-rmsched="${i}" aria-label="Remove ${r.p}">${I.x}</button>`:''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="card-b"><p class="hint">Never more than 3 a day per number across all campaigns and clients of this call centre, and never more than the state allows. Attempts rotate between morning, afternoon and evening.</p>
+    ${S.schedSaved?`<div class="note ok">${I.check}<span>Saved just now. Every change is logged: who, when, old → new.</span></div>`:`<div class="note warn">${I.alert}<span><b>Not saved yet.</b> This is the starting template. Never-reached callbacks stay off until a company admin saves a schedule. Saving it unchanged counts.</span></div>`}
+    <div class="row"><button class="btn outline sm" type="button" id="p-addrow" ${P.sched.length>=5?'disabled':''}>Add a period</button><span class="sp"></span><button class="btn primary sm" type="button" id="p-savesched">Save schedule</button></div></div>
+  </div>
+
+  <div class="card"><div class="card-h"><h3>Which results count as "reached"</h3></div><div class="card-b">
+    <div class="chips">${DISPOS.map(d=>{const dnc=DNC_DISPOS.includes(d);const on=P.dispos.includes(d);return `<button type="button" class="chipbtn" data-dispo="${esc(d)}" aria-pressed="${on||dnc}" ${dnc?'disabled title="Always stops calls"':''}>${on||dnc?'✓ ':''}${esc(d)}</button>`;}).join('')}</div>
+    <p class="hint">Ticked results end the callbacks. "Do not call" and "Wrong number" always stop all calls to that number.</p>
+  </div></div>
+  </div>`;
+  $('p-on').onchange=e=>{P.on=e.target.checked;renderPool();};
+  $('p-back').onchange=e=>{P.back=+e.target.value;renderPool();};
+  $('p-max').onchange=e=>{P.max=+e.target.value;};
+  $('p-th').onchange=e=>{P.reached=+e.target.value;renderPool();};
+  $('p-mix').oninput=e=>{P.mix=+e.target.value;$('mixv').textContent=`${P.mix}% fresh leads · ${100-P.mix}% callbacks`;};
+  document.querySelectorAll('[data-sched]').forEach(s=>s.onchange=e=>{P.sched[+s.dataset.sched].n=+e.target.value;S.schedSaved=false;renderPool();});
+  document.querySelectorAll('[data-rmsched]').forEach(b=>b.onclick=()=>{P.sched.splice(+b.dataset.rmsched,1);S.schedSaved=false;renderPool();});
+  $('p-src').onchange=e=>{S.schedSrc=e.target.value;S.schedSaved=false;renderPool();};
+  $('p-addrow').onclick=()=>{P.sched.push({p:'Last period (before 6 months)',n:1,every:'once every 2 weeks'});S.schedSaved=false;renderPool();};
+  $('p-savesched').onclick=()=>{S.schedSaved=true;renderPool();};
+  document.querySelectorAll('[data-dispo]').forEach(b=>b.onclick=()=>{const d=b.dataset.dispo;P.dispos=P.dispos.includes(d)?P.dispos.filter(x=>x!==d):[...P.dispos,d];renderPool();});
+}
+
+/* ---------- Result categories tab ---------- */
+function renderCats(){
+  const un=S.results.filter(r=>!r.c).length;
+  const nr=S.results.filter(r=>r.c==='Not reached');
+  const hasVL=S.results.some(r=>r.n==='Voicemail left');
+  const vmOk=S.vmResult&&nr.some(r=>r.n===S.vmResult);
+  $('tab-cats').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>Result categories</h3><span class="small muted">Org Settings › Dispositions · one category for each result</span></div><div class="card-b">
+    ${un?`<div class="note warn">${I.alert}<span><b>${un} result${un>1?'s have':' has'} no category.</b> On campaign calls an uncategorised result ends the lead: it is never dialed again, even when nobody answered. Pick a category for each one.</span></div>`:`<div class="note ok">${I.check}<span>Every result has a category.</span></div>`}
+  </div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>Result</th><th>Category</th><th>What happens to the lead</th></tr></thead><tbody>
+  ${S.results.map((r,i)=>`<tr><td><b>${esc(r.n)}</b>${r.n===S.vmResult?' <span class="pill vio">Voicemail button</span>':''}</td><td><select class="sel inp ${r.c?'':'bad'}" data-cat="${i}" aria-label="Category for ${esc(r.n)}" style="max-width:220px"><option value="">No category</option>${CATS.map(c=>`<option ${c[0]===r.c?'selected':''}>${c[0]}</option>`).join('')}</select></td><td class="small ${r.c?'':'muted'}">${r.c?CATS.find(c=>c[0]===r.c)[1]:'Ends the lead, because it has no category.'}</td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="card-b"><p class="hint">Categories also decide the never-reached callbacks and the reports. "Not reached" and "Callback" put the lead back on the callback schedule.</p></div></div>
+
+  <div class="card full"><div class="card-h"><h3>Result for the voicemail button</h3></div><div class="card-b">
+    <p class="hint">When an agent presses <b>Machine: drop voicemail</b>, the call is saved with this result. It must be in <b>Not reached</b>, so the lead stays in rotation.</p>
+    <div class="f"><label for="vm-res">Saved as</label><select class="sel" id="vm-res" ${nr.length?'':'disabled'}><option value="">Choose a Not reached result</option>${nr.map(r=>`<option ${r.n===S.vmResult?'selected':''}>${esc(r.n)}</option>`).join('')}</select></div>
+    ${vmOk?`<div class="note ok">${I.check}<span>The button saves <b>${esc(S.vmResult)}</b>. The lead stays in rotation.</span></div>`:`<div class="note bad">${I.alert}<span>No result chosen yet, so the voicemail button refuses every call.</span></div>`}
+    ${hasVL?'':`<div class="row"><button class="btn outline sm" type="button" id="add-vl">Add "Voicemail left" as Not reached</button></div>`}
+  </div></div>
+  </div>`;
+  document.querySelectorAll('[data-cat]').forEach(x=>x.onchange=e=>{const r=S.results[+x.dataset.cat];r.c=e.target.value;if(r.n===S.vmResult&&r.c!=='Not reached')S.vmResult='';renderCats();});
+  $('vm-res').onchange=e=>{S.vmResult=e.target.value;renderCats();};
+  const av=$('add-vl');if(av)av.onclick=()=>{S.results.push({n:'Voicemail left',c:'Not reached'});S.vmResult='Voicemail left';renderCats();};
+}
+
+function escClose(e){if(e.key==='Escape')closeModal();}
+function closeModal(){$('modal-root').innerHTML='';document.removeEventListener('keydown',escClose);}
+
+
+function showTab(t){
+  S.tab=t;
+  document.querySelectorAll('[role=tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
+  ['company','pool','cats'].forEach(x=>$('tab-'+x).hidden=x!==t);
+  ({company:renderCompany,pool:renderPool,cats:renderCats})[t]();
+}
+function reset(){
+  S=fresh();save();
+  showTab('company');
+}
+document.querySelectorAll('[role=tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('d-theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';};
+$('d-reset').onclick=reset;
+reset();
+})();
+</script>

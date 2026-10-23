@@ -1,0 +1,178 @@
+diff --git a/autoload_configs/amd.conf.xml b/autoload_configs/amd.conf.xml
+new file mode 100644
+index 0000000..71c5a44
+--- /dev/null
++++ b/autoload_configs/amd.conf.xml
+@@ -0,0 +1,14 @@
++
++<configuration name="amd.conf" description="mod_amd Configuration">
++  <settings>
++    <param name="silence_threshold" value="256"/>
++    <param name="maximum_word_length" value="5000"/>
++    <param name="maximum_number_of_words" value="3"/>
++    <param name="between_words_silence" value="50"/>
++    <param name="min_word_length" value="100"/>
++    <param name="total_analysis_time" value="5000"/>
++    <param name="after_greeting_silence" value="800"/>
++    <param name="greeting" value="1500"/>
++    <param name="initial_silence" value="2500"/>
++  </settings>
++</configuration>
+diff --git a/autoload_configs/avmd.conf.xml b/autoload_configs/avmd.conf.xml
+new file mode 100644
+index 0000000..cfd710f
+--- /dev/null
++++ b/autoload_configs/avmd.conf.xml
+@@ -0,0 +1,74 @@
++<configuration name="avmd.conf" description="AVMD config">
++	<settings>
++
++	<!-- Edit these settings to change default behaviour
++		 of each avmd session. Settings can be overwritten
++		 by values passed dynamically per each session -->
++
++
++		<!-- Global settings -->
++
++			<!-- define/undefine this to enable/disable logging of avmd
++				 intermediate computations to log -->
++			<param name="debug" value="0"/>
++
++			<!-- define/undef this to enable/disable verbose logging (and reporting to the console)
++				 of detection status and other diagnostics like parameters avmd session has been started with,
++				 change of configuration parameters, beep detection status after session ended
++				 (stop event is fired independently of this setting and beep status included there) -->
++			<param name="report_status" value="1"/>
++
++			<!-- define/undefine this to enable/disable faster computation
++				 of arcus cosine - table will be created mapping floats
++				 to integers and returning arc cos values given these integer
++				 indices into table -->
++			<param name="fast_math" value="0"/>
++		<!-- Global settings end -->
++
++
++		<!-- Per call (session) settings. These settings can be overwritten
++			 with custom/different values per each avmd session -->
++
++			<!-- define/undefine this to classify avmd beep detection as valid
++				 only when there is required number of consecutive elements
++				 in the SMA buffer without reset -->
++			<param name="require_continuous_streak" value="1"/>
++
++			<!-- required number of consecutive elements in the SMA buffer
++				 without reset. This parameter helps to avoid false beeps, bigger this value is
++				smaller the probability of getting false detection -->
++			<param name="sample_n_continuous_streak" value="3"/>
++
++			<!-- define number of samples to skip starting from the beginning
++				 of the frame and/or after reset  has happened. This serves the purpose of skipping first few
++				estimations on each frame, as these estimations may be inaccurate. This parameter also helps
++				to give more robust detections when it's value is increased (up to scertain limit of about 60). -->
++			<param name="sample_n_to_skip" value="0"/>
++
++			<param name="require_continuous_streak_amp" value="1"/>
++			<param name="sample_n_continuous_streak_amp" value="3"/>
++
++			<!-- define/undefine this to enable/disable simplified estimation
++				 of frequency based on approximation of sin(x) with (x)
++				 in the range x=[0,PI/2] -->
++			<param name="simplified_estimation" value="1"/>
++
++			<!-- define/undefine to enable/disable avmd on internal channel -->
++			<param name="inbound_channel" value="0"/>
++
++			<!-- define/undefine to enable/disable avmd on external channel -->
++			<param name="outbound_channel" value="1"/>
++
++			<!-- determines the mode of detection, default is both amplitude and frequency -->
++			<param name="detection_mode" value="2"/>
++
++			<!-- number of detection threads running per each avmd session -->
++			<param name="detectors_n" value="36"/>
++
++			<!-- number of lagged detection threads running per each avmd session -->
++			<param name="detectors_lagged_n" value="1"/>
++
++		<!-- Per call settings end -->
++	</settings>
++</configuration>
++
+diff --git a/autoload_configs/modules.conf.xml b/autoload_configs/modules.conf.xml
+index e8e204f..9cf185f 100755
+--- a/autoload_configs/modules.conf.xml
++++ b/autoload_configs/modules.conf.xml
+@@ -77,6 +77,12 @@
+     <!--<load module="mod_smpp"/>-->
+     <!--<load module="mod_random"/>-->
+     <load module="mod_httapi"/>
++    <!-- Voicemail beep detection (bundled; settings in avmd.conf.xml) -->
++    <load module="mod_avmd"/>
++    <!-- Human-or-machine detection (webitel/mod_amd, grafted in
++         docker/Dockerfile; settings in amd.conf.xml). Sets amd_result /
++         amd_cause on the channel. -->
++    <load module="mod_amd"/>
+     <!--<load module="mod_translate"/>-->
+ 
+     <!-- SNOM Module -->
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index e778b3a..eb1d5ad 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -16,6 +16,12 @@ ARG SPANDSP_SHA=7977601
+ ARG DEEPGRAM_MODULES_REPO=https://github.com/deepgram/freeswitch_modules.git
+ ARG DEEPGRAM_MODULES_SHA=ec6940e3147afe64e4dc07566b7cba99531020b4
+ 
++# Out-of-tree source for mod_amd (human-or-machine answering-machine detection,
++# a port of Asterisk's app_amd; CC0 licence). Not part of FreeSWITCH 1.10.12.
++# Pinned to the last commit that changed the module's code; bump intentionally.
++ARG AMD_MODULE_REPO=https://github.com/webitel/mod_amd.git
++ARG AMD_MODULE_SHA=52e6bc6930b10df67a572253e4c5af7d212ecf9f
++
+ ENV DEBIAN_FRONTEND=noninteractive
+ 
+ # Minimum build deps for FreeSWITCH with its default module set.
+@@ -56,6 +62,8 @@ RUN git clone https://github.com/freeswitch/spandsp /usr/src/libs/spandsp \
+     && git -C /usr/src/libs/spandsp checkout ${SPANDSP_SHA}
+ RUN git clone ${DEEPGRAM_MODULES_REPO} /usr/src/libs/deepgram_modules \
+     && git -C /usr/src/libs/deepgram_modules checkout ${DEEPGRAM_MODULES_SHA}
++RUN git clone ${AMD_MODULE_REPO} /usr/src/libs/mod_amd \
++    && git -C /usr/src/libs/mod_amd checkout ${AMD_MODULE_SHA}
+ 
+ # Build SignalWire deps (order matters: libks first, then sofia-sip/spandsp).
+ RUN cd /usr/src/libs/libks && cmake . -DCMAKE_INSTALL_PREFIX=/usr -DWITH_LIBBACKTRACE=1 && make -j"$(nproc)" install
+@@ -75,6 +83,13 @@ RUN cp -r /usr/src/libs/deepgram_modules/modules/mod_deepgram_transcribe \
+     && sed -i 's#src/mod/applications/mod_abstraction/Makefile#src/mod/applications/mod_deepgram_transcribe/Makefile\n\t\t&#' configure.ac \
+     && grep -q 'mod_deepgram_transcribe/Makefile' configure.ac
+ 
++# Same graft for mod_amd (answering-machine detection). Same tripwire.
++RUN mkdir -p /usr/src/freeswitch/src/mod/applications/mod_amd \
++    && cp /usr/src/libs/mod_amd/mod_amd.c /usr/src/libs/mod_amd/Makefile.am \
++          /usr/src/freeswitch/src/mod/applications/mod_amd/ \
++    && sed -i 's#src/mod/applications/mod_abstraction/Makefile#src/mod/applications/mod_amd/Makefile\n\t\t&#' configure.ac \
++    && grep -q 'mod_amd/Makefile' configure.ac
++
+ RUN ./bootstrap.sh -j
+ 
+ # Use prod's modules.conf directly instead of sed-juggling defaults.
+diff --git a/docker/modules.conf b/docker/modules.conf
+index 000fad8..4f05d2f 100644
+--- a/docker/modules.conf
++++ b/docker/modules.conf
+@@ -1,6 +1,6 @@
+ #applications/mod_abstraction
+ applications/mod_av
+-#applications/mod_avmd
++applications/mod_avmd
+ #applications/mod_bert
+ #applications/mod_blacklist
+ #applications/mod_callcenter
+@@ -13,6 +13,8 @@ applications/mod_curl
+ applications/mod_db
+ # out-of-tree; source grafted into the tree by docker/Dockerfile
+ applications/mod_deepgram_transcribe
++# out-of-tree; source grafted into the tree by docker/Dockerfile (webitel/mod_amd)
++applications/mod_amd
+ ##applications/mod_directory
+ #applications/mod_distributor
+ applications/mod_dptools

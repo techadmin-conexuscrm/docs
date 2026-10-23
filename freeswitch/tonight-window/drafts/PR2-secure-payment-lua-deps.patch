@@ -1,0 +1,20 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index e778b3a..c37d18e 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -105,6 +105,15 @@ COPY requirements.txt /tmp/requirements.txt
+ RUN pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements.txt \
+     && rm /tmp/requirements.txt
+ 
++# LuaSec + LuaSocket for mod_lua (Lua 5.2), used by scripts/secure_payment.lua
++# to post the card to the CRM over verified, pinned TLS. Kept as its own layer
++# after the FreeSWITCH build so adding it doesn't rebuild FreeSWITCH.
++# Do NOT replace with mod_curl: every API call fires an API event carrying its
++# full argument line, which would put card digits on the event socket.
++RUN apt-get update && apt-get install -y --no-install-recommends lua-sec lua-socket \
++    && rm -rf /var/lib/apt/lists/* \
++    && test -f /usr/lib/x86_64-linux-gnu/lua/5.2/ssl.so -o -f /usr/lib/aarch64-linux-gnu/lua/5.2/ssl.so
++
+ # Also point FS's compiled-in script_dir at the bind-mounted scripts dir, so
+ # tools that consult $script_directory (mod_lua, fs_cli `lua`/`luarun`, etc.)
+ # find scripts in the repo. Default for this build is

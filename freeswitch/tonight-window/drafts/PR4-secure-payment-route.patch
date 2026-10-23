@@ -1,0 +1,611 @@
+diff --git a/.gitignore b/.gitignore
+index fe4fd80..00032b8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -9,3 +9,4 @@ recording/*
+ ivr_prompts/*
+ __pycache__/*
+ *.pyc
++secure_payment.secret
+diff --git a/dialplan/default.xml b/dialplan/default.xml
+index a127afc..0ea9289 100644
+--- a/dialplan/default.xml
++++ b/dialplan/default.xml
+@@ -1,6 +1,10 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <include>
+   <context name="default">
++    <!-- Extensions kept one per file in dialplan/default/ (secure_payment).
++         freeswitch.xml only reads dialplan/*.xml, so they are pulled in here,
++         ahead of the digits-only "transfer" extension. -->
++    <X-PRE-PROCESS cmd="include" data="default/*.xml"/>
+     <extension name="transfer">
+       <condition field="destination_number" expression="^(\d+)$">
+         <action application="python" data="api.app"/>
+diff --git a/dialplan/default/10_secure_payment.xml b/dialplan/default/10_secure_payment.xml
+new file mode 100644
+index 0000000..91e80dd
+--- /dev/null
++++ b/dialplan/default/10_secure_payment.xml
+@@ -0,0 +1,55 @@
++<include>
++  <!--
++    Silent secure keypad entry (customer leg only).
++
++    Reached ONLY by the CRM's uuid_transfer of the CUSTOMER leg
++    (POST /v1/telephony/secure-payment/start), after the CRM has masked the
++    call recording (uuid_record <uuid> mask <path>, confirmed +OK) and parked
++    the agent leg (hangup_after_bridge=false, park_after_bridge=true).
++
++    What is deliberately NOT here (all of it was in the July draft):
++      - no drop_dtmf / drop_dtmf_masking_digits: the agent leg is not bridged
++        during entry, so there is nothing to mask and no beep is played;
++      - no record_session_mask on this channel: masking is done by the CRM on
++        whichever channel carries the recording, and confirmed;
++      - no global `loglevel` change (that changed the level for every call on
++        the box): session_loglevel limits only this channel;
++      - no channel variable ever holds a digit (no play_and_get_digits or read
++        with a variable name, no crm_payment_* variables), so CDRs and
++        CHANNEL_* events stay clean.
++
++    Installed from ConexusCRM-BE docs/dialer/freeswitch/ (keep in sync).
++    Script: scripts/secure_payment.lua. Apply with `reloadxml`.
++    See docs/dialer/secure-payment-verification.md.
++  -->
++  <extension name="secure_payment">
++    <condition field="destination_number" expression="^secure_payment$"/>
++    <!-- Only a CRM-started entry: a 48-hex session id set by the CRM. A call
++         that dials "secure_payment" any other way goes nowhere. -->
++    <condition field="${secure_payment_session}" expression="^[0-9a-f]{48}$">
++      <action application="session_loglevel" data="info"/>
++      <!-- After the reconnect, the customer leg ends when the agent hangs up. -->
++      <action application="set" data="hangup_after_bridge=true"/>
++      <action application="set" data="park_after_bridge=false"/>
++      <action application="lua" data="secure_payment.lua"/>
++      <!--
++        FALLBACK. Reached only when the script did NOT reconnect the customer
++        itself: the file is missing or doesn't compile, it died before its
++        pcall, or its uuid_bridge failed. (When the script reconnects with
++        uuid_bridge, or hangs up, this channel leaves the dialplan and these
++        two actions never run.)
++        1. Tell the CRM the entry is over, the same CUSTOM event the script
++           sends (ids only), so it restores the agent leg and unmasks the
++           recording now instead of at the 3-minute watchdog.
++        2. Bridge the customer back to the parked agent leg. `intercept`
++           picks up a parked channel by uuid. If the agent leg is gone,
++           intercept fails and the call ends, which is all that is left to do.
++        Verify on staging: docs/dialer/secure-payment-verification.md, drill
++        "Script fails to load".
++      -->
++      <action application="event" data="Event-Name=CUSTOM,Event-Subclass=secure_payment::progress,Secure-Payment-Call-Id=${secure_payment_call_id},Secure-Payment-Session=${secure_payment_session},Secure-Payment-State=failed"/>
++      <action application="intercept" data="${secure_payment_agent_uuid}"/>
++      <anti-action application="hangup" data="CALL_REJECTED"/>
++    </condition>
++  </extension>
++</include>
+diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
+new file mode 100644
+index 0000000..8bdd087
+--- /dev/null
++++ b/scripts/secure_payment.lua
+@@ -0,0 +1,500 @@
++--[[
++  secure_payment.lua: silent secure keypad entry, customer leg only.
++
++  The CRM (POST /v1/telephony/secure-payment/start) has already:
++    1. masked every recording on the call and confirmed +OK,
++    2. set hangup_after_bridge=false / park_after_bridge=true on the agent leg,
++    3. set secure_payment_session / secure_payment_call_id /
++       secure_payment_agent_uuid on THIS channel (ids only),
++    4. uuid_transfer'd THIS channel (the customer) to the secure_payment
++       extension, which runs this script.
++  The agent leg is parked: there is no audio path between customer and agent,
++  so the agent hears no voice, no RFC 2833 events and no in-band tones, and no
++  masking beep is needed (or played).
++
++  This script:
++    - collects card number, expiry, CVV and ZIP with session:getDigits, one
++      digit at a time (never play_and_get_digits / read with a variable name),
++      so no digit is ever stored in a channel variable, a CDR or an ESL event;
++    - '*' at any prompt returns the customer to the agent;
++    - fires CUSTOM secure_payment::progress events with field names, counts
++      and states only, never digits;
++    - posts the card over HTTPS straight from Lua (LuaSec) to the CRM's
++      tokenize endpoint, which hands it to the gateway's vault. It does NOT use
++      mod_curl's `curl` API: every API call fires an API event carrying its
++      full argument line (API-Command-Argument), so the card would reach any
++      ESL client subscribed to API or ALL events;
++    - always reconnects the customer to the agent at the end (pcall), and the
++      CRM's watchdog does it too if this script never gets there.
++
++  Requires on the FreeSWITCH host: LuaSec + LuaSocket for the Lua version
++  mod_lua is built with (e.g. Debian: lua-sec, lua-socket), the CA bundle at
++  CA_FILE, prompts in the prompt directory, the secret file and the TLS pins
++  (below). The API's certificate is checked by name and pin before anything
++  is sent; nothing is sent over plain HTTP.
++
++  Lua strings can't be wiped: setting them to nil only ends their reachable
++  lifetime. Core dumps must be off and swap encrypted on this host.
++  See docs/dialer/secure-payment-verification.md.
++--]]
++
++local api = freeswitch.API()
++
++-- ── configuration (no secrets in this file) ─────────────────────────────────
++-- vars.xml:
++--   <X-PRE-PROCESS cmd="set" data="crm_secure_payment_tokenize_url=https://api.example.com/api/v1/telephony/secure-payment/tokenize"/>
++--   <X-PRE-PROCESS cmd="set" data="crm_secure_payment_secret_file=/etc/freeswitch/secure_payment.secret"/>
++--   <X-PRE-PROCESS cmd="set" data="crm_secure_payment_tls_pins=<sha256 of a cert in the API's chain>[,...]"/>
++-- The secret file holds TELEPHONY_PAYMENT_SECRET, owner freeswitch, mode 0400.
++local TOKENIZE_URL = freeswitch.getGlobalVariable("crm_secure_payment_tokenize_url")
++local SECRET_FILE  = freeswitch.getGlobalVariable("crm_secure_payment_secret_file")
++                     or "/etc/freeswitch/secure_payment.secret"
++local PROMPT_DIR   = freeswitch.getGlobalVariable("crm_secure_payment_prompt_dir")
++                     or "/usr/share/freeswitch/sounds/secure_payment"
++local CA_FILE      = freeswitch.getGlobalVariable("crm_secure_payment_ca_file")
++                     or "/etc/ssl/certs/ca-certificates.crt"
++
++local SESSION_ID    = session:getVariable("secure_payment_session")
++local CALL_ID       = session:getVariable("secure_payment_call_id")
++local AGENT_UUID    = session:getVariable("secure_payment_agent_uuid")
++local CUSTOMER_UUID = session:get_uuid()
++
++local MAX_ATTEMPTS     = 3     -- per field, and card attempts at the gateway
++local FIRST_DIGIT_MS   = 10000
++local INTER_DIGIT_MS   = 5000
++local HTTP_TIMEOUT_S   = 15    -- the API gives the gateway 10 s (TOKENIZE_TIMEOUT_MS)
++
++local finished = false         -- a final event has been sent
++local hung_up = false
++
++-- ── logging: never a digit ──────────────────────────────────────────────────
++local function log(level, message)
++  freeswitch.consoleLog(level, string.format("[secure_payment call=%s] %s\n",
++    tostring(CALL_ID), message))
++end
++
++-- ── progress events: field, counts, state. Never digits. ───────────────────
++local function progress(state, field, entered, of, attempt)
++  local e = freeswitch.Event("CUSTOM", "secure_payment::progress")
++  e:addHeader("Secure-Payment-Call-Id", CALL_ID or "")
++  e:addHeader("Secure-Payment-Session", SESSION_ID or "")
++  e:addHeader("Secure-Payment-State", state)
++  if field then e:addHeader("Secure-Payment-Field", field) end
++  if entered then e:addHeader("Secure-Payment-Entered", tostring(entered)) end
++  if of then e:addHeader("Secure-Payment-Of", tostring(of)) end
++  if attempt then e:addHeader("Secure-Payment-Attempt", tostring(attempt)) end
++  e:fire()
++end
++
++local function final(state)
++  if finished then return end
++  finished = true
++  progress(state)
++end
++
++-- Customer hung up mid-entry: tell the CRM, which ends the agent leg so the
++-- call settles normally ("Customer hung up during payment").
++function secure_payment_on_hangup(s, status, arg)
++  hung_up = true
++  final("customer_hangup")
++end
++session:setHangupHook("secure_payment_on_hangup")
++
++local function play(name)
++  if session:ready() then session:streamFile(PROMPT_DIR .. "/" .. name) end
++end
++
++-- ── validation ──────────────────────────────────────────────────────────────
++local function luhn_valid(number)
++  local sum, alternate = 0, false
++  for i = #number, 1, -1 do
++    local digit = tonumber(number:sub(i, i))
++    if not digit then return false end
++    if alternate then
++      digit = digit * 2
++      if digit > 9 then digit = digit - 9 end
++    end
++    sum = sum + digit
++    alternate = not alternate
++  end
++  return sum % 10 == 0
++end
++
++local function valid_pan(d) return #d >= 13 and #d <= 19 and luhn_valid(d) end
++
++local function valid_expiry(d)
++  if not d:match("^%d%d%d%d$") then return false end
++  local month, year = tonumber(d:sub(1, 2)), tonumber(d:sub(3, 4))
++  if month < 1 or month > 12 then return false end
++  local now = os.date("*t")
++  local cy, cm = now.year % 100, now.month
++  if year < cy or (year == cy and month < cm) then return false end
++  return year <= cy + 20
++end
++
++local function is_amex(pan) return pan:sub(1, 2) == "34" or pan:sub(1, 2) == "37" end
++
++-- ── collection: one digit at a time, nothing stored on the channel ──────────
++-- Returns digits, or nil plus "star" | "timeout" | "hangup".
++local function read_field(field, prompt, min_len, max_len, expected, attempt)
++  play(prompt)
++  local digits, count = {}, 0
++  progress("collecting", field, 0, expected, attempt)
++  while count < max_len do
++    if not session:ready() then return nil, "hangup" end
++    local d = session:getDigits(1, "", count == 0 and FIRST_DIGIT_MS or INTER_DIGIT_MS)
++    if d == nil or d == "" then
++      if count >= min_len then break end
++      return nil, "timeout"
++    end
++    if d == "*" then return nil, "star" end
++    -- A "#" before any digit is the end of the previous fixed-length field
++    -- (it filled up before the customer pressed "#"). Ignore it rather than
++    -- end this field empty and play "not valid" (runbook B8).
++    if d == "#" and count > 0 then break end
++    if d:match("^%d$") then
++      count = count + 1
++      digits[count] = d
++      progress("collecting", field, count, expected, attempt)
++      if expected and count == expected and max_len == expected then break end
++    end
++  end
++  local value = table.concat(digits)
++  digits = nil
++  return value
++end
++
++-- Prompts until valid, MAX_ATTEMPTS times. Returns value or nil, reason.
++local function collect(field, prompt, min_len, max_len, expected, validator)
++  for attempt = 1, MAX_ATTEMPTS do
++    local value, why = read_field(field, prompt, min_len, max_len, expected, attempt)
++    if not value then return nil, why end
++    if validator(value) then
++      progress("field_ok", field, #value, expected, attempt)
++      return value
++    end
++    value = nil
++    progress("field_invalid", field, nil, expected, attempt)
++    log("info", field .. " invalid on attempt " .. attempt)
++    if attempt < MAX_ATTEMPTS then play("invalid_try_again.wav") end
++  end
++  return nil, "invalid"
++end
++
++-- ── tokenize: HTTPS from Lua, never through the FreeSWITCH API ──────────────
++-- LuaSec's ssl.https checks the certificate chain but NOT that the
++-- certificate belongs to the host in the URL, so a certificate for any other
++-- name signed by any trusted CA would pass. The connection is therefore made
++-- by hand here and, before a single byte of the request is sent:
++--   1. TLS 1.2 or 1.3 only (no older protocol), SNI set to the URL host;
++--   2. the chain must verify against CA_FILE;
++--   3. the certificate's subjectAltName DNS names (or CN when it has none)
++--      must match the URL host;
++--   4. one certificate in the presented chain (leaf or intermediate) must
++--      match a configured SHA-256 pin. No pin configured = no tokenize
++--      (fail closed).
++-- Pins: crm_secure_payment_tls_pins, a comma-separated list of SHA-256
++-- certificate fingerprints (hex, colons optional), read from the channel
++-- first, then the global variables. Pinning the issuing intermediate keeps
++-- working across certificate renewals; pinning the leaf is stricter but
++-- must be updated on every renewal. See secure-payment-verification.md.
++
++local function read_secret()
++  local f = io.open(SECRET_FILE, "r")
++  if not f then return nil end
++  local secret = f:read("*l")
++  f:close()
++  if secret and #secret >= 32 and secret:match("^[%w%-_%.~+/=]+$") then return secret end
++  return nil
++end
++
++local function tls_pins()
++  local raw = session:getVariable("crm_secure_payment_tls_pins")
++    or freeswitch.getGlobalVariable("crm_secure_payment_tls_pins")
++  if not raw or raw == "" then return nil end
++  local pins, count = {}, 0
++  for item in raw:gmatch("[^,%s]+") do
++    local hex = item:gsub(":", ""):lower()
++    if #hex ~= 64 or not hex:match("^%x+$") then return nil end
++    pins[hex] = true
++    count = count + 1
++  end
++  if count == 0 then return nil end
++  return pins
++end
++
++-- https://host[:port]/path, host a DNS name (an IP can't be checked by name).
++local function parse_url(url)
++  local host, port, path = url:match("^https://([%w%.%-]+):(%d+)(/[%w%-%._~/]*)$")
++  if not host then
++    host, path = url:match("^https://([%w%.%-]+)(/[%w%-%._~/]*)$")
++    port = "443"
++  end
++  if not host or host:match("^[%d%.]+$") then return nil end
++  return host:lower(), tonumber(port), path
++end
++
++-- RFC 6125: exact match, or "*." as the whole left-most label covering
++-- exactly one label (never "*.com").
++local function name_matches(pattern, host)
++  pattern = pattern:lower()
++  if pattern == host then return true end
++  local suffix = pattern:match("^%*(%.[%w%-]+%.[%w%-%.]+)$")
++  if not suffix then return false end
++  local first, rest = host:match("^([%w%-]+)(%..+)$")
++  return first ~= nil and rest == suffix
++end
++
++local function certificate_names(cert)
++  local names = {}
++  local ok, exts = pcall(function() return cert:extensions() end)
++  if ok and type(exts) == "table" then
++    local san = exts["2.5.29.17"]
++    if type(san) == "table" and type(san.dNSName) == "table" then
++      for _, n in ipairs(san.dNSName) do names[#names + 1] = n end
++    end
++  end
++  if #names == 0 then
++    for _, entry in ipairs(cert:subject() or {}) do
++      if entry.name == "CN" or entry.oid == "2.5.4.3" then names[#names + 1] = entry.value end
++    end
++  end
++  return names
++end
++
++local function digest_hex(cert)
++  local ok, d = pcall(function() return cert:digest("sha256") end)
++  if not ok or type(d) ~= "string" then return nil end
++  return d:gsub(":", ""):lower()
++end
++
++-- Opens a TLS connection that passed every check above, or returns nil and
++-- a reason: "setup" (missing library, config or pin) or "transport"
++-- (unreachable, handshake, protocol, chain, name or pin failure).
++local function open_verified(host, port, pins)
++  local ok_socket, socket = pcall(require, "socket")
++  local ok_ssl, ssl = pcall(require, "ssl")
++  if not ok_socket or not ok_ssl then return nil, "setup", "LuaSec/LuaSocket not installed" end
++  local tcp = socket.tcp()
++  tcp:settimeout(HTTP_TIMEOUT_S)
++  if not tcp:connect(host, port) then tcp:close(); return nil, "transport", "connect failed" end
++  local conn = ssl.wrap(tcp, {
++    mode = "client",
++    protocol = "any",                                   -- TLS 1.2 and 1.3 ...
++    options = { "all", "no_sslv2", "no_sslv3", "no_tlsv1", "no_tlsv1_1" }, -- ... and nothing older
++    verify = { "peer", "fail_if_no_peer_cert" },
++    cafile = CA_FILE,
++  })
++  if not conn then tcp:close(); return nil, "transport", "tls setup failed" end
++  conn:sni(host)
++  conn:settimeout(HTTP_TIMEOUT_S)
++  if not conn:dohandshake() then conn:close(); return nil, "transport", "handshake failed" end
++
++  local info = conn:info() or {}
++  if info.protocol ~= "TLSv1.2" and info.protocol ~= "TLSv1.3" then
++    conn:close(); return nil, "transport", "protocol not TLS 1.2/1.3"
++  end
++  if conn.getpeerverification and conn:getpeerverification() ~= true then
++    conn:close(); return nil, "transport", "chain not verified"
++  end
++  local leaf = conn:getpeercertificate()
++  if not leaf then conn:close(); return nil, "transport", "no certificate" end
++  local name_ok = false
++  for _, n in ipairs(certificate_names(leaf)) do
++    if name_matches(n, host) then name_ok = true; break end
++  end
++  if not name_ok then conn:close(); return nil, "transport", "certificate name does not match host" end
++  local pinned = false
++  local chain = conn:getpeerchain() or {}
++  chain[#chain + 1] = leaf
++  for _, cert in ipairs(chain) do
++    local d = digest_hex(cert)
++    if d and pins[d] then pinned = true; break end
++  end
++  if not pinned then conn:close(); return nil, "transport", "certificate pin mismatch" end
++  return conn
++end
++
++local function receive_body(conn, headers)
++  local length = tonumber(headers["content-length"] or "")
++  if length then return conn:receive(length) end
++  if (headers["transfer-encoding"] or ""):lower():match("chunked") then
++    local parts = {}
++    while true do
++      local size_line = conn:receive("*l")
++      local size = size_line and tonumber(size_line:match("^%x+"), 16)
++      if not size then return nil end
++      if size == 0 then break end
++      parts[#parts + 1] = conn:receive(size)
++      conn:receive("*l")
++    end
++    return table.concat(parts)
++  end
++  return conn:receive("*a")
++end
++
++-- Checked before the customer is asked for anything: API reachable and its
++-- certificate right. Sends nothing.
++local function probe_api()
++  local host, port = parse_url(TOKENIZE_URL or "")
++  local pins = tls_pins()
++  if not host then return false, "setup", "tokenize url not a https://hostname/path URL" end
++  if not pins then return false, "setup", "no valid crm_secure_payment_tls_pins" end
++  local conn, kind, why = open_verified(host, port, pins)
++  if not conn then return false, kind, why end
++  conn:close()
++  return true
++end
++
++-- Returns true, last4 | false, reason, retryable
++local function tokenize(pan, expiry, cvv, zip)
++  local host, port, path = parse_url(TOKENIZE_URL or "")
++  local pins = tls_pins()
++  local secret = read_secret()
++  if not host or not pins or not secret then
++    log("err", "tokenize not configured (url, pins or secret)")
++    return false, "setup", false
++  end
++  local conn, kind, why = open_verified(host, port, pins)
++  if not conn then
++    log("err", "tokenize refused before sending: " .. why)
++    return false, kind, false
++  end
++  -- JSON by hand: every value is digits or a checked id, nothing to escape.
++  local body = '{"callId":"' .. CALL_ID .. '","sessionId":"' .. SESSION_ID ..
++    '","pan":"' .. pan .. '","expiry":"' .. expiry .. '","cvv":"' .. cvv ..
++    '","zip":"' .. zip .. '"}'
++  local request = "POST " .. path .. " HTTP/1.1\r\n" ..
++    "Host: " .. host .. "\r\n" ..
++    "Content-Type: application/json\r\n" ..
++    "Content-Length: " .. #body .. "\r\n" ..
++    "X-Telephony-Secret: " .. secret .. "\r\n" ..
++    "Connection: close\r\n\r\n" .. body
++  body, secret = nil, nil
++  local sent = conn:send(request)
++  request = nil
++  if not sent then conn:close(); log("err", "tokenize send failed (transport)"); return false, "transport", false end
++  -- Never log the request. The reply holds no card data.
++  local status_line = conn:receive("*l")
++  local code = status_line and tonumber(status_line:match("^HTTP/1%.[01] (%d%d%d)"))
++  local headers = {}
++  while true do
++    local line = conn:receive("*l")
++    if not line or line == "" then break end
++    local name, value = line:match("^([^:]+):%s*(.*)$")
++    if name then headers[name:lower()] = value end
++  end
++  local reply = code and receive_body(conn, headers) or nil
++  conn:close()
++  if not code or not reply then
++    log("err", "tokenize reply unreadable (transport)")
++    return false, "transport", false
++  end
++  if code == 200 and reply:match('"success"%s*:%s*true') then
++    return true, reply:match('"last4"%s*:%s*"(%d%d%d%d)"')
++  end
++  local retryable = reply:match('"retryable"%s*:%s*true') ~= nil
++  log("info", "tokenize not saved, http " .. tostring(code))
++  return false, "declined", retryable
++end
++
++-- ── reconnect ───────────────────────────────────────────────────────────────
++local function reconnect()
++  if hung_up or not session:ready() then return end
++  local agent_up = api:executeString("uuid_exists " .. AGENT_UUID)
++  if agent_up and agent_up:match("^true") then
++    play("returning_to_agent.wav")
++    api:executeString("uuid_bridge " .. CUSTOMER_UUID .. " " .. AGENT_UUID)
++  else
++    log("warning", "agent leg gone; ending the call")
++    play("agent_unavailable.wav")
++    session:hangup("NORMAL_CLEARING")
++  end
++end
++
++-- ── main ────────────────────────────────────────────────────────────────────
++local function preflight()
++  if not (SESSION_ID and SESSION_ID:match("^%x+$") and #SESSION_ID == 48) then
++    return false, "session id missing"
++  end
++  if not (CALL_ID and CALL_ID:match("^%x+%-%x+%-%x+%-%x+%-%x+$")) then
++    return false, "call id missing"
++  end
++  -- AGENT_UUID goes into API commands: strict uuid only.
++  if not (AGENT_UUID and AGENT_UUID:match("^%x+%-%x+%-%x+%-%x+%-%x+$")) then
++    return false, "agent uuid missing"
++  end
++  if not (TOKENIZE_URL and TOKENIZE_URL:match("^https://")) then
++    return false, "tokenize url missing or not https"
++  end
++  return true
++end
++
++local function main()
++  local ready, why = preflight()
++  if not ready then
++    log("err", "refusing to collect: " .. why)
++    play("unable_to_process.wav")
++    return "failed"
++  end
++  -- API reachable and its certificate right, before the customer keys
++  -- anything (sends nothing).
++  local reachable, kind, reason = probe_api()
++  if not reachable then
++    log("err", "tokenize endpoint not usable (" .. kind .. "): " .. reason)
++    play("unable_to_process.wav")
++    return "failed"
++  end
++  play("payment_intro.wav")   -- "...press star at any time to go back to your agent"
++
++  for card_attempt = 1, MAX_ATTEMPTS do
++    local pan, r1 = collect("card", "enter_card_number.wav", 13, 19, 16, valid_pan)
++    if not pan then return r1 == "star" and "cancelled" or "failed" end
++    local amex = is_amex(pan)
++
++    local expiry, r2 = collect("expiry", "enter_expiry.wav", 4, 4, 4, valid_expiry)
++    if not expiry then pan = nil; return r2 == "star" and "cancelled" or "failed" end
++
++    local cvv_len = amex and 4 or 3
++    local cvv, r3 = collect("cvv", amex and "enter_cvv_amex.wav" or "enter_cvv.wav",
++      cvv_len, cvv_len, cvv_len, function(d) return #d == cvv_len end)
++    if not cvv then pan, expiry = nil, nil; return r3 == "star" and "cancelled" or "failed" end
++
++    local zip, r4 = collect("zip", "enter_zip.wav", 5, 5, 5,
++      function(d) return d:match("^%d%d%d%d%d$") ~= nil end)
++    if not zip then pan, expiry, cvv = nil, nil, nil; return r4 == "star" and "cancelled" or "failed" end
++
++    play("one_moment.wav")
++    local saved, reason, retryable = tokenize(pan, expiry, cvv, zip)
++    pan, expiry, cvv, zip = nil, nil, nil, nil
++    collectgarbage("collect")
++
++    if saved then
++      play("payment_captured.wav")
++      return "completed"
++    end
++    -- A transport or setup failure ends the entry at once: asking for the
++    -- whole card again can't help while the API or its certificate is wrong.
++    if reason == "transport" or reason == "setup" or not retryable or card_attempt == MAX_ATTEMPTS then
++      play("unable_to_process.wav")
++      return "failed"
++    end
++    play("card_not_accepted_try_again.wav")
++  end
++  return "failed"
++end
++
++-- Pin this channel's log level for the whole entry: FreeSWITCH logs DTMF at
++-- DEBUG. (The dialplan sets it too; the global level must be INFO or above.)
++session:execute("session_loglevel", "info")
++
++local ok, result = pcall(main)
++if not ok then
++  log("err", "unhandled error in secure_payment (details withheld)")
++  result = "failed"
++end
++if not hung_up then
++  final(result or "failed")
++  reconnect()
++end
++collectgarbage("collect")
+diff --git a/vars.xml b/vars.xml
+index 977ef71..1b574f0 100755
+--- a/vars.xml
++++ b/vars.xml
+@@ -116,4 +116,15 @@
+   <X-PRE-PROCESS cmd="set" data="video_mute_png=$${images_dir}/default-mute.png"/>
+   <X-PRE-PROCESS cmd="set" data="video_no_avatar_png=$${images_dir}/default-avatar.png"/>
+ 
++  <!-- Secure card entry (scripts/secure_payment.lua). No secret here: the
++       shared secret is in secure_payment.secret (git-ignored, root, 0400).
++       Pins (public): SHA-256 of every Let's Encrypt intermediate, so a
++       certificate renewal that switches intermediate keeps working.
++       Order: YE1 YE2 YE3 YR1 YR2 YR3 (issuing/backup, valid to 2028-09-02),
++       then E5-E9 R10-R14 (retired, valid to 2027-03-12). If the API ever
++       moves off Let's Encrypt, these must change. -->
++  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_tokenize_url=https://api.tryconexus.com/api/v1/telephony/secure-payment/tokenize"/>
++  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_secret_file=/etc/freeswitch/secure_payment.secret"/>
++  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_prompt_dir=/etc/freeswitch/sounds/secure_payment"/>
++  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_tls_pins=a2372d06431e9716365eeed47ec020351497d182fcc038e457e58168a03cac07,97658de8c68dfa98ace1e5028a63d54a1aae911b3e21471076c6850cd08cbab4,82bcfc482cc19f71e6f98f4a027616ebda6d47096d408b336160d1c0ef8b995a,13949634d99cd6fd6aa80bc034fefacceb1969feef986586713ecdbb05758d3f,238b85a0099c65b970477d5724f1a1d475ce5058cffe4efa8733899bdb863c47,35500cb63b8d9769528d65d87220f51c069807a595acbf2fb6eca38fbe0a4bd2,e788d14b0436b5120bbee3f15c15badf08c1407fe72568a4f16f9151c380e1e3,065ab7d2a050f947587121765d8d070c0e1330d5798faa42c2072749ed293762,54715420224c5b65beed018dc3940d7338c577e322d5488f633d8c6a8fed61b2,ac1274542267f17b525535b5563bf731febb182533b46a82dc869cb64eb528c0,4185df97806c2ba76f1d79823f112ffa639a49ccdc990908102067ab6412b886,9d7c3f1aa6ad2b2ec0d5cf1e246f8d9ae6cbc9fd0755ad37bb974b1f2fb603f3,591e9ce6c863d3a079e9fabe1478c7339a26b21269dde795211361024ae31a44,131fce7784016899a5a00203a9efc80f18ebbd75580717edc1553580930836ec,d3b128216a843f8ef1321501f5df52a5df52939ee2c19297712cd3de4d419354,24d45aa9b8d6053d281f3842c8cc0c6c1af7ccdfd42dd5c12f6a74fa9323f7a2"/>
+ </include>

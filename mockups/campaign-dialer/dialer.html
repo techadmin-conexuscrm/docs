@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign Dialer Agent</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap");
+/* The real dialer's frame and the app's own tokens (ConexusCRM-FE src/index.css), as in the approved dialer-order prototype. */
+:root{
+  --page:220 14% 93%; --background:210 40% 98%; --foreground:222 47% 11%; --card:0 0% 100%;
+  --primary:221 83% 53%; --primary-soft:214 100% 97%; --muted:210 40% 96%; --muted-fg:215 16% 42%;
+  --destructive:0 73% 48%; --destructive-soft:0 86% 97%; --border:220 13% 89%; --input:220 13% 80%;
+  --success:160 84% 28%; --success-soft:152 81% 95%; --warning:30 80% 33%; --warning-soft:48 100% 95%;
+  --violet:262 83% 58%; --violet-fg:263 70% 42%; --info:262 83% 58%; --logo:221 70% 28%;
+  --shadow:0 4px 14px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --font:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page:222 47% 3%; --background:222 47% 6%; --foreground:210 40% 96%; --card:222 47% 8%;
+  --primary:217 91% 60%; --primary-soft:222 47% 14%; --muted:217 33% 14%; --muted-fg:215 20% 68%;
+  --destructive:0 73% 62%; --destructive-soft:0 50% 14%; --border:217 33% 18%; --input:217 33% 26%;
+  --success:152 76% 46%; --success-soft:152 50% 12%; --warning:43 96% 58%; --warning-soft:30 40% 12%;
+  --violet:263 70% 70%; --violet-fg:263 90% 82%; --info:263 70% 70%; --logo:210 40% 96%;
+  --shadow:0 4px 14px rgba(0,0,0,.35); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --page:222 47% 3%; --background:222 47% 6%; --foreground:210 40% 96%; --card:222 47% 8%;
+  --primary:217 91% 60%; --primary-soft:222 47% 14%; --muted:217 33% 14%; --muted-fg:215 20% 68%;
+  --destructive:0 73% 62%; --destructive-soft:0 50% 14%; --border:217 33% 18%; --input:217 33% 26%;
+  --success:152 76% 46%; --success-soft:152 50% 12%; --warning:43 96% 58%; --warning-soft:30 40% 12%;
+  --violet:263 70% 70%; --violet-fg:263 90% 82%; --info:263 70% 70%; --logo:210 40% 96%;
+  --shadow:0 4px 14px rgba(0,0,0,.35); color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:hsl(var(--page));color:hsl(var(--foreground));font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.num,.mono{font-variant-numeric:tabular-nums}.mono{font-family:var(--mono)}
+svg{width:1em;height:1em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid hsl(var(--primary));outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;display:grid;gap:12px;min-width:0}
+.demo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1px dashed hsl(var(--input));border-radius:10px;background:hsl(var(--card))}
+.demo h1{font-size:15px;margin:0 8px 0 0}
+.demo .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:hsl(var(--muted-fg))}
+.sp{flex:1}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid hsl(var(--border));border-radius:999px;padding:4px 10px;background:hsl(var(--background))}
+.tg input{accent-color:hsl(var(--primary))}
+.frame{container-type:inline-size;background:hsl(var(--background));border:1px solid hsl(var(--border));border-radius:12px;overflow:hidden;box-shadow:0 10px 30px -12px rgba(15,23,42,.25);min-width:0}
+.hdr{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 12px;border-bottom:1px solid hsl(var(--border));background:hsl(var(--card))}
+.logo{font-weight:800;letter-spacing:-.02em;font-size:20px;color:hsl(var(--logo))}
+.badge{background:hsl(var(--primary-soft));color:hsl(var(--primary));font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid hsl(var(--success)/.35);background:hsl(var(--success-soft));color:hsl(var(--success));font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.pill.warn{border-color:hsl(var(--warning)/.4);background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.pill.mut{border-color:hsl(var(--border));background:hsl(var(--muted));color:hsl(var(--muted-fg))}
+.pill::before{content:"";width:7px;height:7px;border-radius:9px;background:currentColor}
+.avatar{width:30px;height:30px;border-radius:999px;background:hsl(var(--primary-soft));color:hsl(var(--primary));display:grid;place-items:center;font-size:12px;font-weight:700}
+.who b{display:block;font-size:14px;line-height:1.1}.who span{font-size:12px;color:hsl(var(--muted-fg))}
+.main{padding:12px}
+.main>*,.cols>*,.grid>*{min-width:0}
+.grid{display:flex;flex-direction:column;gap:12px}
+.colL,.colR{display:flex;flex-direction:column;gap:12px;min-width:0}
+@container (min-width:780px){
+  .main{padding:16px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,400px);gap:16px;align-items:start}
+  .colR{position:sticky;top:12px}
+}
+@container (max-width:779px){.who,.badge,.hide-narrow{display:none}}
+.card{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.stripe{height:4px;background:hsl(var(--violet))}
+.stripe.ring{background:hsl(var(--primary));animation:pulse 1.4s ease-in-out infinite}
+.stripe.wrapup{background:hsl(var(--info))}
+.stripe.ready{background:hsl(var(--success))}
+.stripe.paused{background:hsl(var(--warning))}
+.stripe.preview{background:hsl(var(--primary))}
+@keyframes pulse{50%{opacity:.45}}
+.pad{padding:16px}
+.row{display:flex;align-items:center;gap:8px}.wrapr{flex-wrap:wrap}
+.muted{color:hsl(var(--muted-fg))}.small{font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;border:1px solid hsl(var(--violet)/.3);background:hsl(var(--violet)/.1);color:hsl(var(--violet-fg))}
+.chip::before{content:"";width:6px;height:6px;border-radius:9px;background:hsl(var(--violet))}
+.soft{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.soft.warn{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.soft.ok{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.soft.bad{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.soft.vio{background:hsl(var(--violet)/.12);color:hsl(var(--violet-fg))}
+.title{font-size:24px;font-weight:600;margin:4px 0 0;line-height:1.2}
+.timer{font-size:28px;font-weight:600}
+.controls{display:grid;gap:6px;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:16px}
+@container (min-width:1080px){.controls{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}}
+.ctl{height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid hsl(var(--border));border-radius:8px;background:hsl(var(--background));font-size:12px;font-weight:500;padding:0 2px;min-width:0}
+.ctl svg{width:20px;height:20px}
+.ctl span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctl.on{border-color:hsl(var(--primary)/.45);background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.ctl.danger{background:hsl(var(--destructive));border-color:hsl(var(--destructive));color:hsl(var(--card))}
+.ctl.machine{border-color:hsl(var(--warning)/.5);background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.ctl[disabled]{opacity:.5;cursor:not-allowed}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;font-size:14px;white-space:nowrap}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:hsl(var(--primary));color:hsl(var(--card))}
+.btn.outline{background:hsl(var(--background));border-color:hsl(var(--input))}
+.btn.success{background:hsl(var(--success));color:hsl(var(--card))}
+.btn.warn{background:hsl(var(--warning));color:hsl(var(--card))}
+.btn.ghost{background:transparent;color:hsl(var(--muted-fg));padding:0 8px}
+.btn.sm{min-height:30px;padding:0 10px;font-size:13px}
+.btn.lg{min-height:44px;font-size:15px;padding:0 18px}
+.btn.block{width:100%}
+.btn.hl{box-shadow:0 0 0 3px hsl(var(--primary)/.35)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.mini-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid hsl(var(--border));font-weight:600;flex-wrap:wrap}
+.mini-b{padding:12px 14px;display:grid;gap:8px;font-size:13px}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;font-size:13px;margin:0}
+.kv dt{color:hsl(var(--muted-fg))}.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.seg{border:1px solid hsl(var(--input));border-radius:8px;padding:6px 12px;font-size:13px;display:inline-flex;gap:6px;align-items:center;background:hsl(var(--background))}
+.seg[aria-pressed="true"]{border-color:hsl(var(--primary));color:hsl(var(--primary));font-weight:600;background:hsl(var(--primary-soft))}
+.cd{height:6px;border-radius:4px;background:hsl(var(--muted));overflow:hidden}
+.cd i{display:block;height:100%;background:hsl(var(--primary));transition:width 1s linear}
+.cd.warn i{background:hsl(var(--warning))}
+.autobar{height:4px;border-radius:4px;background:hsl(var(--muted));overflow:hidden;margin-top:4px}
+.autobar i{display:block;height:100%;background:hsl(var(--success));transition:width 1s linear}
+.note{display:flex;gap:8px;align-items:flex-start;border-radius:8px;padding:8px 10px;font-size:13px;border:1px solid}
+.note svg{margin-top:3px}
+.note.info{border-color:hsl(var(--primary)/.3);background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.note.warn{border-color:hsl(var(--warning)/.45);background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.note.bad{border-color:hsl(var(--destructive)/.35);background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.note.ok{border-color:hsl(var(--success)/.35);background:hsl(var(--success-soft));color:hsl(var(--success))}
+.whisper{display:flex;gap:10px;align-items:center;border:1px solid hsl(var(--success)/.35);background:hsl(var(--success-soft));color:hsl(var(--success));border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+.wave{display:inline-flex;gap:2px;align-items:flex-end;height:14px}
+.wave i{width:3px;background:currentColor;border-radius:2px;animation:wv 1s ease-in-out infinite}
+.wave i:nth-child(2){animation-delay:.15s}.wave i:nth-child(3){animation-delay:.3s}
+@keyframes wv{0%,100%{height:4px}50%{height:14px}}
+@media (prefers-reduced-motion:reduce){.stripe.ring,.wave i,.dotp{animation:none}.cd i,.autobar i{transition:none}}
+.ready-big{display:grid;place-items:center;gap:10px;text-align:center;padding:28px 16px}
+.dotp{width:14px;height:14px;border-radius:99px;background:hsl(var(--success));box-shadow:0 0 0 0 hsl(var(--success)/.5);animation:ping 1.8s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 14px hsl(var(--success)/0)}100%{box-shadow:0 0 0 0 hsl(var(--success)/0)}}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:420px}
+.stats div{border:1px solid hsl(var(--border));border-radius:8px;padding:8px;display:grid}
+.stats b{font-size:18px}.stats span{font-size:11px;color:hsl(var(--muted-fg))}
+.hist{display:grid;gap:8px}
+.hi{border:1px solid hsl(var(--border));border-radius:10px;padding:8px 10px;display:grid;gap:4px;font-size:13px}
+.hi .top{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hi .when{margin-left:auto;font-size:12px;color:hsl(var(--muted-fg))}
+.hi p{margin:0;color:hsl(var(--muted-fg))}
+.lnk{color:hsl(var(--primary));text-decoration:underline;text-underline-offset:2px;background:none;border:0;padding:0;font-size:13px}
+.reasons{display:grid;gap:6px}
+.reasons button{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid hsl(var(--border));border-radius:8px;padding:8px 10px;background:hsl(var(--background))}
+.reasons button[aria-pressed="true"]{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary));background:hsl(var(--primary-soft)/.5)}
+.reasons small{display:block;color:hsl(var(--muted-fg));font-size:12px}
+.inp{height:36px;width:100%;border:1px solid hsl(var(--input));border-radius:8px;background:hsl(var(--background));padding:0 10px;font-size:14px;min-width:0}
+.inp.bad{border-color:hsl(var(--destructive))}
+.err{color:hsl(var(--destructive));font-size:12px;margin:0}
+.folded{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;border-style:dashed;box-shadow:none;flex-wrap:wrap}
+.inc{border:2px solid hsl(var(--primary)/.45)}
+.script{border-left:3px solid hsl(var(--violet));padding:6px 10px;background:hsl(var(--violet)/.06);border-radius:0 8px 8px 0;font-size:13px}
+.sel{height:36px;border:1px solid hsl(var(--input));border-radius:8px;background:hsl(var(--background));padding:0 8px;font-size:14px;max-width:100%}
+.menu{position:absolute;right:0;top:calc(100% + 6px);background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:10px;box-shadow:var(--shadow);padding:6px;display:grid;min-width:200px;z-index:5}
+.menu button{border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:6px}
+.menu button:hover{background:hsl(var(--muted))}
+.rel{position:relative}
+[hidden]{display:none!important}
+/* Moved from the admin mockup: its own styles, kept as they were, scoped to the supervisor/admin sections. */
+.adm{display:grid;gap:12px;min-width:0}
+.adm .stack{display:grid;gap:12px;min-width:0}
+.adm .pill{border:0}.adm .pill::before{display:none}
+.adm .main{padding:12px;display:grid;gap:12px;min-width:0}
+.adm .main>*,.adm .cols>*,.adm .grid>*{min-width:0}
+@container (min-width:780px){.adm .main{padding:16px}}
+.adm .camp{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.adm .camp h2{margin:0;font-size:20px;line-height:1.2}
+.adm .status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
+.adm .status::before{content:"";width:7px;height:7px;border-radius:9px;background:currentColor}
+.adm .status.run{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.adm .status.pause{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.adm .status.stop{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.adm .tabs{display:flex;gap:4px;border-bottom:1px solid hsl(var(--border));overflow-x:auto;scrollbar-width:thin}
+.adm .tabs button{border:0;background:transparent;padding:10px 12px;font-weight:600;color:hsl(var(--muted-fg));border-bottom:2px solid transparent;white-space:nowrap}
+.adm .tabs button[aria-selected="true"]{color:hsl(var(--primary));border-color:hsl(var(--primary))}
+.adm .cols{display:grid;gap:12px;min-width:0}
+@container (min-width:900px){.adm .cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+.adm .card{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;box-shadow:var(--shadow);min-width:0}
+.adm .card-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid hsl(var(--border))}
+.adm .card-h h3{margin:0;font-size:15px}
+.adm .card-b{padding:12px 14px;display:grid;gap:10px;min-width:0}
+.adm .full{grid-column:1/-1}
+.adm .muted{color:hsl(var(--muted-fg))}.adm .small{font-size:12px}
+.adm .hint{font-size:12px;color:hsl(var(--muted-fg));margin:0}
+.adm .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.adm .opt{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:10px 12px;border:1px solid hsl(var(--border));border-radius:10px;align-items:start;text-align:left;background:hsl(var(--card));width:100%}
+.adm .opt.sel{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary));background:hsl(var(--primary-soft)/.5)}
+.adm .opt[disabled]{opacity:.55;cursor:not-allowed}
+.adm .radio{width:16px;height:16px;border-radius:99px;border:2px solid hsl(var(--input));margin-top:2px}
+.adm .opt.sel .radio{border-color:hsl(var(--primary));box-shadow:inset 0 0 0 3px hsl(var(--card));background:hsl(var(--primary))}
+.adm .opt b{font-weight:600}.adm .opt .d{grid-column:2;font-size:12px;color:hsl(var(--muted-fg))}
+.adm .modes{display:grid;gap:8px}
+@container (min-width:700px){.adm .modes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.adm .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;font-size:14px;white-space:nowrap}
+.adm .btn svg{width:16px;height:16px}
+.adm .btn.primary{background:hsl(var(--primary));color:hsl(var(--card))}
+.adm .btn.outline{background:hsl(var(--background));border-color:hsl(var(--input))}
+.adm .btn.success{background:hsl(var(--success));color:hsl(var(--card))}
+.adm .btn.warn{background:hsl(var(--warning));color:hsl(var(--card))}
+.adm .btn.ghost{background:transparent;color:hsl(var(--muted-fg));padding:0 8px}
+.adm .btn.sm{min-height:30px;padding:0 10px;font-size:13px}
+.adm .btn[disabled]{opacity:.5;cursor:not-allowed}
+.adm .f label,.adm .flab{display:block;font-size:12px;font-weight:600;color:hsl(var(--muted-fg));margin-bottom:3px}
+.adm .inp,.adm select.sel,.adm textarea.inp{height:36px;width:100%;border:1px solid hsl(var(--input));border-radius:8px;background:hsl(var(--background));padding:0 10px;font-size:14px;min-width:0}
+.adm textarea.inp{height:auto;min-height:92px;padding:8px 10px;resize:vertical;line-height:1.4}
+.adm .inp.bad{border-color:hsl(var(--destructive))}
+.adm .fields{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@container (min-width:700px){.adm .fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.adm .switch{display:flex;align-items:flex-start;gap:10px;padding:8px 0}
+.adm .switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:hsl(var(--input));position:relative;flex:none;cursor:pointer;margin:0;transition:background .15s}
+.adm .switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:99px;background:hsl(var(--card));transition:left .15s}
+.adm .switch input:checked{background:hsl(var(--primary))}
+.adm .switch input:checked::after{left:19px}
+.adm .switch input:disabled{opacity:.5;cursor:not-allowed}
+.adm .switch b{display:block;font-weight:600}
+.adm .note{display:flex;gap:8px;align-items:flex-start;border-radius:8px;padding:8px 10px;font-size:13px;border:1px solid}
+.adm .note svg{margin-top:3px}
+.adm .note.info{border-color:hsl(var(--primary)/.3);background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.adm .note.warn{border-color:hsl(var(--warning)/.4);background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.adm .note.bad{border-color:hsl(var(--destructive)/.35);background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.adm .note.ok{border-color:hsl(var(--success)/.35);background:hsl(var(--success-soft));color:hsl(var(--success))}
+.adm .chk{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:13px}
+.adm .chk li{display:flex;gap:6px;align-items:center}
+.adm .chk li.y{color:hsl(var(--success))}.adm .chk li.n{color:hsl(var(--destructive))}
+.adm .gauge{display:grid;gap:6px}
+.adm .gtrack{position:relative;height:12px;border-radius:999px;background:linear-gradient(90deg,hsl(var(--success)) 0 66.6%,hsl(var(--warning)) 66.6% 83.3%,hsl(var(--destructive)) 83.3% 100%);opacity:.9}
+.adm .gneedle{position:absolute;top:-4px;width:4px;height:20px;border-radius:2px;background:hsl(var(--foreground));transform:translateX(-2px);transition:left .5s}
+.adm .gcap{position:absolute;top:-6px;bottom:-6px;width:0;border-left:2px dashed hsl(var(--foreground));opacity:.6}
+.adm .gscale{display:flex;justify-content:space-between;font-size:11px;color:hsl(var(--muted-fg))}
+.adm .big{font-size:26px;font-weight:700;line-height:1.1}
+.adm .tiles{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@container (min-width:780px){.adm .tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.adm .tile{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:12px 14px;display:grid;gap:2px;box-shadow:var(--shadow);min-width:0}
+.adm .tile .k{font-size:11px;font-weight:700;color:hsl(var(--muted-fg));text-transform:uppercase;letter-spacing:.05em}
+.adm .tile .v{font-size:24px;font-weight:700;line-height:1.15}
+.adm .tile .s{font-size:12px;color:hsl(var(--muted-fg))}
+.adm .tile.alert{border-color:hsl(var(--warning)/.6);background:hsl(var(--warning-soft))}
+.adm .tile.danger{border-color:hsl(var(--destructive)/.6);background:hsl(var(--destructive-soft))}
+.adm .scroll{overflow-x:auto;max-width:100%}
+.adm table.t{width:100%;border-collapse:collapse;font-size:13px}
+.adm table.t.wide{min-width:640px}
+.adm .t th{text-align:left;font-size:11px;font-weight:700;color:hsl(var(--muted-fg));text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid hsl(var(--border));white-space:nowrap}
+.adm .t td{padding:8px 10px;border-bottom:1px solid hsl(var(--border));vertical-align:middle}
+.adm .t tr:last-child td{border-bottom:0}
+.adm .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.adm .pill.ok{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.adm .pill.warn{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.adm .pill.bad{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.adm .pill.info{background:hsl(var(--primary-soft));color:hsl(var(--primary))}
+.adm .pill.mut{background:hsl(var(--muted));color:hsl(var(--muted-fg))}
+.adm .pill.vio{background:hsl(var(--violet)/.12);color:hsl(var(--violet-fg))}
+.adm .bars{display:grid;gap:6px}
+.adm .bar{display:grid;grid-template-columns:minmax(78px,110px) minmax(0,1fr) 54px;gap:8px;align-items:center;font-size:13px}
+.adm .bar .tr{height:10px;border-radius:5px;background:hsl(var(--muted));overflow:hidden}
+.adm .bar .tr i{display:block;height:100%;background:hsl(var(--primary));transition:width .4s}
+.adm .bar .tr i.cb{background:hsl(var(--violet))}
+.adm .bar .n{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.adm .chips{display:flex;flex-wrap:wrap;gap:6px}
+.adm .chipbtn{border:1px solid hsl(var(--input));border-radius:999px;padding:4px 10px;font-size:13px;background:hsl(var(--background))}
+.adm .chipbtn[aria-pressed="true"]{border-color:hsl(var(--success));background:hsl(var(--success-soft));color:hsl(var(--success));font-weight:600}
+.adm input[type=range]{width:100%;accent-color:hsl(var(--primary))}
+.adm .player{display:flex;align-items:center;gap:10px;border:1px solid hsl(var(--border));border-radius:10px;padding:8px 10px;min-width:0}
+.adm .player .wave{flex:1;height:22px;min-width:0;background:repeating-linear-gradient(90deg,hsl(var(--primary)/.55) 0 2px,transparent 2px 5px);border-radius:4px;mask:linear-gradient(90deg,#000,#0008 60%,#000)}
+.adm .rec{width:10px;height:10px;border-radius:99px;background:hsl(var(--destructive));animation:admpulse 1s infinite}
+@keyframes admpulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.adm .rec{animation:none}.adm .gneedle,.adm .bar .tr i{transition:none}}
+.adm .savebar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:hsl(var(--card));border-top:1px solid hsl(var(--border));border-radius:0 0 12px 12px}
+.adm .slow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.adm .steps4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:11px;font-weight:600;text-align:center}
+.adm .steps4 span{padding:6px 2px;border-radius:6px;background:hsl(var(--muted));color:hsl(var(--muted-fg))}
+.adm .steps4 span.on.s0{background:hsl(var(--success-soft));color:hsl(var(--success))}
+.adm .steps4 span.on.s1,.adm .steps4 span.on.s2{background:hsl(var(--warning-soft));color:hsl(var(--warning))}
+.adm .steps4 span.on.s3{background:hsl(var(--destructive-soft));color:hsl(var(--destructive))}
+.adm .modal{position:fixed;inset:0;background:rgba(2,6,23,.45);display:grid;place-items:center;padding:16px;z-index:10}
+.adm .modal .card{max-width:480px;width:100%}
+.adm dl.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+.adm dl.kv dt{color:hsl(var(--muted-fg))}.adm dl.kv dd{margin:0;text-align:right;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="demo" role="region" aria-label="Demo controls">
+    <h1>Campaign dialer: agent mockup</h1>
+    <span class="lbl">Try</span>
+    <button class="btn outline sm" type="button" id="d-conn">Connect a predictive call</button>
+    <button class="btn outline sm" type="button" id="d-cb">Connect a callback</button>
+    <label class="tg"><input type="checkbox" id="d-unsure"> "May be a machine"</label>
+    <label class="small muted" for="d-vm">Voicemail button</label><select class="sel" id="d-vm"><option value="">Allowed with written consent</option><option value="rec">No recording uploaded</option><option value="dnc">Number on do-not-call</option><option value="ans">Not answered yet</option><option value="client">Company: client confirms consent</option></select>
+    <button class="btn outline sm" type="button" id="d-pv">Offer a preview card</button>
+    <button class="btn outline sm" type="button" id="d-pvtoday">Preview: spoken to today</button>
+    <button class="btn outline sm" type="button" id="d-inb">Ring a queue call</button>
+    <span class="sp"></span>
+    <a class="btn ghost sm" href="index.html" style="text-decoration:none">Org Settings</a>
+    <button class="btn ghost sm" type="button" id="d-theme">Dark / light</button>
+    <button class="btn ghost sm" type="button" id="d-reset">Start over</button>
+  </div>
+  <p class="hint small muted" style="margin:0" id="hint">Fake data. Nothing dials. Press <b>Ready for calls</b>, then use the buttons above. Predictive calls arrive already connected, with no Answer button. A queue call that rings is never covered, and a preview card steps back when a call connects.</p>
+  <div class="demo" role="region" aria-label="Supervisor demo controls" id="sup-demo" hidden>
+    <h1>Supervisor and admin</h1>
+    <span class="lbl">Try</span>
+    <label class="tg"><input type="checkbox" id="d-amd"> Answering-machine detection installed</label>
+    <label class="tg"><input type="checkbox" id="d-rush"> Busy hour (more people answer)</label>
+    <label class="tg"><input type="checkbox" id="d-pilot" checked> Pilot: Auto dial 1 only</label>
+    <label class="tg"><input type="checkbox" id="d-late"> After 9 pm for every lead</label>
+    <button class="btn outline sm" type="button" id="d-abandon">Push abandon rate up</button>
+    <button class="btn outline sm" type="button" id="d-drain">Drain the pool</button>
+  </div>
+  <p class="hint small muted" style="margin:0" id="sup-hint" hidden>Fake data. Nothing dials and nothing is saved. Start the campaign, then open <b>Live monitor</b> to watch the pacing, the abandon gauge and the automatic slowdown.</p>
+
+  <div class="frame">
+    <header class="hdr">
+      <span class="logo">CONEXUS</span><span class="badge">DIALER</span>
+      <span class="small muted hide-narrow">Campaign: <b>Warranty renewals · October</b></span>
+      <span class="sp"></span>
+      <button class="seg" type="button" id="b-mycamp" aria-pressed="true">My campaigns: on</button>
+      <span class="pill" id="h-status">Phone ready</span>
+      <div class="rel"><button class="btn outline sm" type="button" id="b-pause" aria-haspopup="menu" aria-expanded="false">Pause</button>
+        <div class="menu" id="pause-menu" role="menu" hidden></div></div>
+      <span class="avatar">ML</span><span class="who"><b>Maria Lopez</b><span>Agent · AutoShield Partners</span></span>
+    </header>
+    <main class="main">
+      <div class="adm" style="margin-bottom:12px"><div class="tabs" role="tablist" aria-label="Dialer sections" id="sup-tabs">
+        <button role="tab" aria-selected="true" data-tab="mycalls" type="button">My calls</button>
+        <button role="tab" aria-selected="false" data-tab="campaigns" type="button">Campaigns</button>
+        <button role="tab" aria-selected="false" data-tab="leads" type="button">Lead lists &amp; do-not-call</button>
+        <button role="tab" aria-selected="false" data-tab="monitor" type="button">Live monitor</button>
+        <button role="tab" aria-selected="false" data-tab="rules" type="button">Calling rules</button>
+      </div></div>
+      <div class="grid" id="mycalls">
+      <div class="colL" id="left"></div>
+      <div class="colR" id="right"></div>
+    </div>
+      <div class="adm" id="sup" hidden>
+        <section id="tab-campaigns" class="stack" hidden>
+          <div id="camp-list"></div>
+          <div class="camp">
+            <h2>Warranty renewals · October</h2>
+            <span class="status pause" id="st">Paused</span>
+            <span class="small muted" id="st-why">New campaigns start paused.</span>
+            <span class="sp"></span>
+            <label class="small muted" for="camp-pick">Campaign</label>
+            <select class="sel" id="camp-pick" style="width:auto;max-width:220px"><option>Warranty renewals · October</option><option>Roadside upsell (draft)</option><option>Card on file follow-up</option></select>
+            <button class="btn success" type="button" id="b-cstart">Start campaign</button>
+            <button class="btn warn" type="button" id="b-cpause" hidden>Pause campaign</button>
+          </div>
+          <div id="tab-settings"></div>
+        </section>
+        <section id="tab-leads" hidden></section>
+        <section id="tab-monitor" hidden></section>
+        <section id="tab-rules" hidden></section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const I={
+  mic:'<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>',
+  hold:'<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  pad:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
+  xfer:'<svg viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>',
+  end:'<svg viewBox="0 0 24 24"><path d="M22 2 2 22M10.7 13.3a16 16 0 0 0 3.4 2.6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L9 9.8"/></svg>',
+  phone:'<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  vm:'<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><path d="M6 16h12"/></svg>',
+  alert:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>',
+  skip:'<svg viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></svg>'
+};
+const LEADS={
+  fresh:{name:'Jordan Ellis',phone:'(512) 555-0147',city:'Austin, TX',local:'2:14 pm',why:'Warranty on the 2022 Camry ends Nov 30',order:'O-004812 · Extended Warranty 12 mo · $189 · Nov 2025',consent:'Written consent · web form, 3 Sep 2026',cb:null},
+  callback:{name:'Renee Hall',phone:'(214) 555-0193',city:'Dallas, TX',local:'2:14 pm',why:'Abandoned cart: Extended Warranty 24 mo',order:'Cart started 8 Oct · not completed',consent:'Existing customer · bought Apr 2026',cb:{tries:4,last:'6 days ago',slots:'morning, afternoon, evening, morning'}}
+};
+const PV={
+  normal:{name:'Priya Shah',phone:'(737) 555-0161',city:'Round Rock, TX',local:'2:14 pm',today:null,otherClient:false,due:false,
+    hist:[{d:'Call back',who:'Dev Patel',when:'12 Oct · 4:40 pm',len:'3:12',note:'Interested in 24-month cover. Wants to check with her husband first.'},
+          {d:'No answer',who:'—',when:'9 Oct · 11:05 am',len:'0:00',note:''}],
+    order:'O-005130 · Roadside Assistance · $79 · Jul 2026',callback:'Scheduled: 28 Oct, afternoon'},
+  today:{name:'Marcus Webb',phone:'(469) 555-0128',city:'Plano, TX',local:'2:14 pm',today:{at:'11:02',who:'Ana',d:'Sale',next:'Call back this afternoon'},otherClient:true,due:true,
+    hist:[{d:'Sale',who:'Ana Torres',when:'Today · 11:02 am',len:'7:48',note:'Bought 24-month warranty. Asked for a call this afternoon to confirm the start date.'}],
+    order:'O-005402 · Extended Warranty 24 mo · $359 · today',callback:'Scheduled: today, afternoon'}
+};
+const DISPOS=['Sale','Call back','Not interested','Voicemail','Wrong number','Do not call'];
+const SKIPS=[['ni','Not interested','Retired from this campaign'],['ah','Already handled','No more calls today'],['cb','Call back on…','Pick a date'],['dnc','Do not call','Added to the do-not-call list'],['wn','Wrong number','Never called on this campaign again']];
+
+let S,timers={};
+function fresh(){return{mode:'idle',paused:null,pauseAfter:false,call:null,secs:0,wrapLeft:20,wrapPick:null,overdue:false,
+  pv:null,pvLeft:30,pvSkip:false,pvReason:null,pvDate:'',pvErr:'',pvWhy:'',pvWhyErr:'',folded:null,
+  inbound:null,inbLeft:10,todayCalls:11,talk:'52 min',unsure:false,toast:'',myCamps:true};}
+function clear(k){if(timers[k]){clearInterval(timers[k]);delete timers[k];}}
+function clearAll(){Object.keys(timers).forEach(clear);}
+const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+/* ---- header status ---- */
+function header(){
+  const h=$('h-status');
+  const m=S.mode;
+  const mc=$('b-mycamp');mc.setAttribute('aria-pressed',String(S.myCamps));mc.textContent='My campaigns: '+(S.myCamps?'on':'off');
+  if(S.paused){h.className='pill warn';h.textContent='Paused · '+S.paused;}
+  else if(!S.myCamps){h.className='pill mut';h.textContent='Campaign calls off';}
+  else if(m==='idle'){h.className='pill mut';h.textContent='Not in a campaign';}
+  else if(m==='ready'){h.className='pill';h.textContent='Ready for calls';}
+  else if(m==='call'){h.className='pill';h.textContent='On a call';}
+  else if(m==='wrap'){h.className='pill warn';h.textContent=S.overdue?'Not ready · wrap-up overdue':'Wrap-up';}
+  else if(m==='preview'){h.className='pill';h.textContent='Preview';}
+  $('b-pause').textContent=S.paused?"I'm back":(S.pauseAfter?'Pausing after this call':'Pause');
+}
+
+/* ---- left column ---- */
+function incomingCard(){
+  if(!S.inbound) return '';
+  return `<section class="card inc" aria-label="Incoming call" aria-live="assertive"><div class="stripe ring"></div><div class="pad">
+    <div class="row wrapr"><span class="chip">AutoShield Partners</span><span class="soft">Queue · Sales line</span><span class="sp"></span><span class="small muted">Ringing <span id="inb-r">${10-S.inbLeft}</span>s</span></div>
+    <h2 class="title">${esc(S.inbound.name)}</h2><div class="mono muted">${esc(S.inbound.phone)}</div>
+    <div class="row wrapr" style="margin-top:12px"><button class="btn success lg" type="button" id="inb-ans">${I.phone} Answer</button><button class="btn outline" type="button" id="inb-dec">Decline</button>
+    <span class="small muted">Answers by itself in <span id="inb-l">${S.inbLeft}</span>s</span></div>
+    <div class="autobar"><i id="inb-bar" style="width:${100*(10-S.inbLeft)/10}%"></i></div>
+    <p class="small muted" style="margin:10px 0 0">Campaign calls are held for you while this rings.</p>
+  </div></section>`;
+}
+function joinCard(){
+  return `<section class="card" aria-label="Campaign"><div class="stripe"></div><div class="ready-big">
+    <span class="chip">AutoShield Partners</span>
+    <h2 class="title" style="margin:0">Warranty renewals · October</h2>
+    <p class="muted" style="margin:0;max-width:440px">Calls arrive already connected: you'll hear a short tone, and the customer's details appear here. If a machine answers, press <b>Machine: drop voicemail</b>.</p>
+    <button class="btn success lg" type="button" id="b-join">${I.phone} Ready for calls</button>
+    <p class="small muted" style="margin:0">Your phone connects once and stays open until you pause or leave.</p>
+  </div></section>`;
+}
+function offCard(){
+  return `<section class="card" aria-label="My campaigns off"><div class="stripe"></div><div class="ready-big">
+    <span class="soft">My campaigns: off</span>
+    <h2 class="title" style="margin:0">Manual and queue calls only</h2>
+    <p class="muted" style="margin:0;max-width:440px">The dialer sends you no campaign calls and no preview cards. Your normal dialer and queue calls work as usual.</p>
+    <button class="btn primary lg" type="button" id="b-mcon">Turn on My campaigns</button></div></section>`;
+}
+function vmReason(){
+  const k=$('d-vm').value;
+  if(k==='ans') return "the customer hasn't answered yet";
+  if(k==='rec') return 'no voicemail recording uploaded for this campaign';
+  if(k==='dnc') return 'this number is on the do-not-call list';
+  if(k==='client') return null;
+  if(!/^Written consent/.test(S.call.consent||'')) return 'no written consent for this number';
+  return null;
+}
+function readyCard(){
+  if(S.paused) return `<section class="card" aria-label="Paused"><div class="stripe paused"></div><div class="ready-big">
+    <span class="soft warn">Paused · ${esc(S.paused)}</span>
+    <h2 class="title" style="margin:0">No new calls</h2>
+    <p class="muted" style="margin:0">You won't get campaign calls until you're back. The dialer stopped sending them the moment you paused.</p>
+    <button class="btn success lg" type="button" id="b-back">I'm back: ready for calls</button></div></section>`;
+  return `<section class="card" aria-label="Ready for calls"><div class="stripe ready"></div><div class="ready-big">
+    <span class="dotp" aria-hidden="true"></span>
+    <h2 class="title" style="margin:0">Campaign: ready for calls</h2>
+    <p class="muted" style="margin:0">Warranty renewals · October. The next call connects by itself, usually within 40 seconds.</p>
+    <div class="stats"><div><b class="num">${S.todayCalls}</b><span>calls today</span></div><div><b class="num">${S.talk}</b><span>talk time</span></div><div><b class="num">0:38</b><span>avg wait</span></div></div>
+    <button class="btn ghost sm" type="button" id="b-leave">Leave campaign</button></div></section>`;
+}
+function callCard(){
+  const c=S.call,vr=vmReason();
+  return `<section class="card" aria-label="Call in progress"><div class="stripe"></div><div class="pad">
+    ${S.secs<4?`<div class="whisper" role="status"><span class="wave" aria-hidden="true"><i></i><i></i><i></i></span>Connected · campaign call${c.cb?' · callback':''}</div>`:''}
+    <div class="row" style="align-items:flex-start;margin-top:${S.secs<4?'12px':'0'}"><div style="flex:1;min-width:0">
+      <div class="row wrapr"><span class="chip">AutoShield Partners</span><span class="soft">Campaign</span><span class="small muted">Warranty renewals · October</span>${c.cb?`<span class="soft vio">Callback: tried ${c.cb.tries} times, last ${esc(c.cb.last)}, never reached</span>`:''}${S.unsure?'<span class="soft warn">May be a machine</span>':''}</div>
+      <h2 class="title">${esc(c.name)}</h2><div class="mono muted">${esc(c.phone)} · ${esc(c.city)} · their time ${esc(c.local)}</div>
+    </div><div style="text-align:right"><div class="mono timer">${fmt(S.secs)}</div><div class="small muted">Connected · recording</div></div></div>
+    <div class="controls">
+      <button class="ctl" type="button">${I.mic}<span>Mute</span></button>
+      <button class="ctl" type="button">${I.hold}<span>Hold</span></button>
+      <button class="ctl" type="button">${I.pad}<span>Keypad</span></button>
+      <button class="ctl" type="button">${I.xfer}<span>Transfer</span></button>
+      <button class="ctl ${vr?'':'machine'}" type="button" id="b-mach" title="Machine: drop voicemail" ${vr?'disabled aria-describedby="mach-why"':''}>${I.vm}<span>Machine: drop voicemail</span></button>
+      <button class="ctl danger" type="button" id="b-end">${I.end}<span>End</span></button>
+    </div>
+    ${vr?`<p class="small muted" id="mach-why" style="margin:8px 0 0">Machine: drop voicemail is greyed out: ${esc(vr)}. Hang up and pick a result as usual.</p>`:`<p class="small muted" style="margin:8px 0 0">Hear a machine? One click leaves the recorded voicemail and frees you for the next call.${$('d-vm').value==='client'?' Consent confirmed by AutoShield Partners on 22 Oct 2026.':''}</p>`}
+    ${S.pauseAfter?`<div class="note warn" style="margin-top:12px">${I.alert}<span>You'll be paused when this call ends. No new call will come in.</span></div>`:''}
+  </div></section>`;
+}
+function wrapCard(){
+  const total=20;
+  return `<section class="card" aria-label="Wrap up"><div class="stripe wrapup"></div><div class="pad" style="display:grid;gap:10px">
+    <div class="row wrapr"><b style="font-size:16px">Wrap up the call</b><span class="muted">· ${esc(S.call.name)}</span><span class="sp"></span><span class="chip">AutoShield Partners</span></div>
+    ${S.overdue?`<div class="note warn">${I.alert}<span><b>Time's up.</b> You're set to Not ready, so no calls come in. Pick a result to get calls again.</span></div>`:
+    `<div class="row"><span class="small muted">Next call in</span><b class="num" id="wrap-n">${S.wrapLeft}s</b><span class="small muted">once you pick a result</span></div><div class="cd ${S.wrapLeft<=5?'warn':''}" id="wrap-cd"><i style="width:${100*S.wrapLeft/total}%"></i></div>`}
+    <div class="row wrapr" role="group" aria-label="Result">${DISPOS.map(d=>`<button type="button" class="seg" data-dispo="${esc(d)}" aria-pressed="${S.wrapPick===d}">${esc(d)}</button>`).join('')}</div>
+    <div class="row"><span class="sp"></span><button class="btn primary" type="button" id="b-wrapdone" ${S.wrapPick?'':'disabled'}>${S.pauseAfter?'Save and pause':'Save and take next call'}</button></div>
+  </div></section>`;
+}
+function previewCard(){
+  const p=S.pv, today=p.today;
+  const callHl=p.due, skipHl=!p.due;
+  return `<section class="card" aria-label="Preview"><div class="stripe preview"></div><div class="pad" style="display:grid;gap:12px">
+    <div class="row wrapr"><span class="chip">AutoShield Partners</span><span class="soft">Preview · already spoken to</span><span class="sp"></span><span class="small muted">Decide in <b class="num">${S.pvLeft}s</b></span></div>
+    <div class="cd ${S.pvLeft<=8?'warn':''}"><i style="width:${100*S.pvLeft/30}%"></i></div>
+    <div><h2 class="title">${esc(p.name)}</h2><div class="mono muted">${esc(p.phone)} · ${esc(p.city)} · their time ${esc(p.local)}</div></div>
+    ${today?`<div class="note warn">${I.alert}<span><b>Spoken to today at ${today.at} by ${esc(today.who)}</b> (${esc(today.d)} / ${esc(today.next)}).</span></div>`:''}
+    ${p.otherClient?`<div class="note info">${I.alert}<span>Contacted today by another campaign: yes.</span></div>`:''}
+    ${p.due?`<div class="note ok">${I.check}<span>A callback is due now: ${esc(p.callback)}.</span></div>`:''}
+    ${S.pvSkip?skipPicker():`
+    ${today?`<div><label class="small muted" for="pv-why" style="display:block;margin-bottom:3px">Why call again today? (one line, saved with the call)</label><input class="inp ${S.pvWhyErr?'bad':''}" id="pv-why" value="${esc(S.pvWhy)}" placeholder="e.g. Confirming the start date she asked about" aria-describedby="pv-why-err">${S.pvWhyErr?`<p class="err" id="pv-why-err" role="alert">${esc(S.pvWhyErr)}</p>`:''}</div>`:''}
+    <div class="row wrapr"><button class="btn ${callHl?'success hl':'outline'} lg" type="button" id="pv-call">${I.phone} Call now</button><button class="btn ${skipHl?'primary hl':'outline'} lg" type="button" id="pv-skip">${I.skip} Skip</button>
+    <span class="small muted">When time runs out, it's skipped and goes back in the pool.</span></div>`}
+    <p class="small muted" style="margin:0">Still counts toward 3 calls a day for this number.</p>
+  </div></section>`;
+}
+function skipPicker(){
+  return `<div style="display:grid;gap:8px"><b>Why skip?</b>
+    <div class="reasons" role="group" aria-label="Skip reason">${SKIPS.map(([k,l,d])=>`<button type="button" data-skip="${k}" aria-pressed="${S.pvReason===k}"><span><b>${l}</b><small>${d}</small></span></button>`).join('')}</div>
+    ${S.pvReason==='cb'?`<div><label class="small muted" for="pv-date" style="display:block;margin-bottom:3px">Call back on</label><input class="inp" type="date" id="pv-date" value="${esc(S.pvDate)}" min="2026-10-21"></div>`:''}
+    ${S.pvErr?`<p class="err" role="alert">${esc(S.pvErr)}</p>`:''}
+    <div class="row"><button class="btn ghost" type="button" id="pv-back">Back</button><span class="sp"></span><button class="btn primary" type="button" id="pv-skipgo">Skip this person</button></div></div>`;
+}
+function foldedCard(){
+  if(!S.folded) return '';
+  return `<section class="card folded" aria-label="Preview stepped back"><span class="soft">Preview</span><span><b>${esc(S.folded)}</b> stepped back for your call and went back in the pool. Nothing was dialed.</span></section>`;
+}
+
+/* ---- right column ---- */
+function rightCol(){
+  if(S.mode==='call'||(S.mode==='wrap'&&S.call)){
+    const c=S.call;
+    return `<section class="card" aria-label="Customer"><div class="mini-h">Customer<span class="sp"></span><span class="soft ok">${esc(c.consent.split(' · ')[0])}</span></div><div class="mini-b">
+      <dl class="kv"><dt>Why we're calling</dt><dd>${esc(c.why)}</dd><dt>Last order</dt><dd>${esc(c.order)}</dd><dt>Consent</dt><dd>${esc(c.consent)}</dd>${c.cb?`<dt>Tried</dt><dd>${c.cb.tries} times (${esc(c.cb.slots)}), never reached</dd>`:''}</dl>
+      ${c.cb?`<div class="script"><b>Opening line (callback):</b> "Hi ${esc(c.name.split(' ')[0])}, it's Maria from AutoShield. We've been trying to reach you about the warranty you looked at. Have you got a minute?"</div>`:
+      `<div class="script"><b>Opening line:</b> "Hi ${esc(c.name.split(' ')[0])}, it's Maria from AutoShield. Your warranty on the Camry ends on November 30. I can keep you covered in two minutes."</div>`}
+    </div></section>`;
+  }
+  if(S.mode==='preview'){
+    const p=S.pv;
+    return `<section class="card" aria-label="History"><div class="mini-h">History with AutoShield Partners</div><div class="mini-b">
+      <div class="hist">${p.hist.map(h=>`<div class="hi"><div class="top"><span class="soft ${h.d==='Sale'?'ok':h.d==='No answer'?'':'vio'}">${esc(h.d)}</span><span>${esc(h.who)}</span><span class="when">${esc(h.when)} · ${esc(h.len)}</span></div>${h.note?`<p>${esc(h.note)}</p>`:''}${h.len!=='0:00'?`<div class="row"><button type="button" class="lnk">${I.play} Recording</button><button type="button" class="lnk">Transcript</button></div>`:''}</div>`).join('')}</div>
+      <dl class="kv"><dt>Orders</dt><dd>${esc(p.order)}</dd><dt>Callback</dt><dd>${esc(p.callback)}</dd></dl>
+      <p class="small muted" style="margin:0">Only this company's calls and notes are shown.</p>
+    </div></section>`;
+  }
+  return `<section class="card" aria-label="Your day"><div class="mini-h">Today on this campaign</div><div class="mini-b">
+    <dl class="kv"><dt>Calls</dt><dd>${S.todayCalls}</dd><dt>Talk time</dt><dd>${S.talk}</dd><dt>Sales</dt><dd>2</dd><dt>Callbacks set</dt><dd>3</dd></dl>
+    <p class="small muted" style="margin:0">Reached a machine? <b>Machine: drop voicemail</b> leaves the recording and frees you.</p></div></section>`;
+}
+
+/* ---- render ---- */
+function render(){
+  header();
+  let L=incomingCard()+foldedCard();
+  if(!S.myCamps) L+=offCard();
+  else if(S.mode==='idle') L+=joinCard();
+  else if(S.mode==='ready') L+=readyCard();
+  else if(S.mode==='call') L+=callCard();
+  else if(S.mode==='wrap') L+=wrapCard();
+  else if(S.mode==='preview') L+=previewCard();
+  if(S.toast) L+=`<div class="note ok" role="status">${I.check}<span>${esc(S.toast)}</span></div>`;
+  $('left').innerHTML=L;$('right').innerHTML=rightCol();
+  bind();
+}
+function bind(){
+  const on=(id,f)=>{const e=$(id);if(e)e.onclick=f;};
+  on('b-join',()=>{S.mode='ready';S.toast='';render();});
+  on('b-leave',()=>{S.mode='idle';render();});
+  on('b-back',()=>{S.paused=null;S.overdue=false;render();});
+  on('b-end',endCall);
+  on('b-mach',dropVm);
+  on('b-mcon',()=>{S.myCamps=true;S.mode='idle';S.toast='';render();});
+  document.querySelectorAll('[data-dispo]').forEach(b=>b.onclick=()=>{S.wrapPick=b.dataset.dispo;render();});
+  on('b-wrapdone',finishWrap);
+  on('inb-ans',()=>{clear('inb');const n=S.inbound;S.inbound=null;foldPreview();startCall({...LEADS.fresh,name:n.name,phone:n.phone,why:'Inbound: called the sales line',cb:null});});
+  on('inb-dec',()=>{clear('inb');S.inbound=null;render();});
+  on('pv-call',pvCall);
+  on('pv-skip',()=>{S.pvSkip=true;render();});
+  on('pv-back',()=>{S.pvSkip=false;S.pvErr='';render();});
+  document.querySelectorAll('[data-skip]').forEach(b=>b.onclick=()=>{S.pvReason=b.dataset.skip;S.pvErr='';render();});
+  const d=$('pv-date');if(d)d.onchange=e=>{S.pvDate=e.target.value;};
+  const w=$('pv-why');if(w)w.oninput=e=>{S.pvWhy=e.target.value;};
+  on('pv-skipgo',pvSkipGo);
+}
+
+/* ---- flows ---- */
+function canConnect(){
+  if(!S.myCamps) return 'My campaigns is off, so the dialer sends you no campaign calls.';
+  if(S.paused) return 'You are paused, so the dialer sends you nothing.';
+  if(S.inbound) return 'A call is ringing for you, so campaign calls wait until it is answered or declined.';
+  if(S.mode==='idle') return 'Press Ready for calls first.';
+  if(S.mode==='call') return 'You are already on a call.';
+  if(S.mode==='wrap') return 'You are wrapping up. The next call comes after you pick a result.';
+  return null;
+}
+function say(msg){const h=$('hint');h.innerHTML='<b>Server says:</b> '+esc(msg);}
+function dropVm(){
+  if(S.mode!=='call'||vmReason())return;
+  clear('call');const n=S.call.name;S.call=null;S.mode='ready';S.todayCalls++;S.unsure=false;$('d-unsure').checked=false;S.folded=null;
+  if(S.pauseAfter){S.paused=S.pauseAfterReason;S.pauseAfter=false;}
+  S.toast=`Voicemail left for ${n}. Saved as "Voicemail left", so the lead stays in rotation. The message plays after the beep, and you're free.${S.paused?'':' Your next call is on its way.'}`;
+  render();
+  if(!S.paused)timers.next=setInterval(()=>{clear('next');if(S.mode==='ready'&&!S.paused&&!S.inbound&&S.myCamps)startCall({...LEADS.fresh,name:'Tasha Green',phone:'(512) 555-0139'});},3000);
+}
+function toggleMyCamps(){
+  if(S.myCamps){
+    if(S.mode==='call'||S.mode==='wrap'){say('Finish this call and pick a result first. Then you can turn My campaigns off.');return;}
+    if(S.mode==='preview'){clear('pv');S.pv=null;S.pvSkip=false;}
+    S.myCamps=false;S.mode='idle';S.paused=null;S.toast='';
+  }else{S.myCamps=true;S.mode='idle';}
+  render();
+}
+function startCall(lead){
+  clearAll();S.call=lead;S.mode='call';S.secs=0;S.toast='';S.unsure=$('d-unsure').checked;
+  timers.call=setInterval(()=>{S.secs++;if(S.mode==='call'){const t=document.querySelector('.timer');if(t)t.textContent=fmt(S.secs);if(S.secs===4)render();}},1000);
+  render();
+}
+function foldPreview(){if(S.mode==='preview'&&S.pv){S.folded=S.pv.name;clear('pv');S.pv=null;S.pvSkip=false;}}
+function connect(kind){
+  if(S.mode==='preview'){foldPreview();}
+  const why=canConnect();if(why){say(why);return;}
+  startCall({...LEADS[kind]});
+}
+function endCall(){
+  clear('call');S.mode='wrap';S.wrapLeft=20;S.wrapPick=null;S.overdue=false;S.unsure=false;$('d-unsure').checked=false;
+  timers.wrap=setInterval(()=>{S.wrapLeft--;if(S.wrapLeft<=0){clear('wrap');S.overdue=true;render();return;}
+    const n=$('wrap-n'),c=$('wrap-cd');if(n)n.textContent=S.wrapLeft+'s';if(c){c.firstElementChild.style.width=(100*S.wrapLeft/20)+'%';c.classList.toggle('warn',S.wrapLeft<=5);}},1000);
+  render();
+}
+function finishWrap(){
+  clear('wrap');S.todayCalls++;S.mode='ready';S.call=null;S.folded=null;
+  if(S.pauseAfter){S.paused=S.pauseAfterReason;S.pauseAfter=false;}
+  if(S.overdue){S.overdue=false;}
+  S.toast='Saved: '+S.wrapPick+'.';render();
+}
+function offerPreview(kind){
+  if(S.mode!=='ready'||S.paused||S.inbound){say(canConnect()||'Preview cards only go to a free, ready agent.');return;}
+  S.pv=PV[kind];S.mode='preview';S.pvLeft=30;S.pvSkip=false;S.pvReason=null;S.pvDate='';S.pvErr='';S.pvWhy='';S.pvWhyErr='';S.folded=null;S.toast='';
+  timers.pv=setInterval(()=>{S.pvLeft--;if(S.pvLeft<=0){clear('pv');S.mode='ready';S.toast=`Time ran out: ${S.pv.name} was skipped and went back in the pool.`;S.pv=null;render();return;}
+    const b=document.querySelector('[aria-label="Preview"] .num');if(b)b.textContent=S.pvLeft+'s';const bar=document.querySelector('[aria-label="Preview"] .cd');if(bar){bar.firstElementChild.style.width=(100*S.pvLeft/30)+'%';bar.classList.toggle('warn',S.pvLeft<=8);}},1000);
+  render();
+}
+function pvCall(){
+  if(S.pv.today&&!S.pvWhy.trim()){S.pvWhyErr='Add a short reason to call again today.';render();const w=$('pv-why');if(w)w.focus();return;}
+  clear('pv');const p=S.pv;S.pv=null;
+  startCall({name:p.name,phone:p.phone,city:p.city,local:p.local,why:p.today?'Callback she asked for: '+p.today.next:'Follow-up on the call of 12 Oct',order:p.order,consent:'Existing customer · bought Jul 2026',cb:null});
+}
+function pvSkipGo(){
+  if(!S.pvReason){S.pvErr='Pick a reason.';render();return;}
+  if(S.pvReason==='cb'&&!S.pvDate){S.pvErr='Pick the date to call back.';render();return;}
+  clear('pv');const n=S.pv.name;const r=SKIPS.find(x=>x[0]===S.pvReason);
+  S.pv=null;S.mode='ready';
+  S.toast=S.pvReason==='cb'?`Skipped: ${n} will be offered again on ${S.pvDate}.`:`Skipped: ${n} (${r[1]}). ${r[2]}.`;
+  render();
+}
+function ringInbound(){
+  if(S.inbound) return;
+  if(S.mode==='call'){say('You are on a call, so the queue call is not offered to you. It goes to the next free agent.');return;}
+  S.inbound={name:'Alex Moreno',phone:'(512) 555-0182'};S.inbLeft=10;
+  timers.inb=setInterval(()=>{S.inbLeft--;if(S.inbLeft<=0){clear('inb');const n=S.inbound;S.inbound=null;foldPreview();startCall({...LEADS.fresh,name:n.name,phone:n.phone,why:'Inbound: called the sales line',cb:null});return;}
+    const r=$('inb-r'),l=$('inb-l'),b=$('inb-bar');if(r)r.textContent=10-S.inbLeft;if(l)l.textContent=S.inbLeft;if(b)b.style.width=(100*(10-S.inbLeft)/10)+'%';},1000);
+  render();
+}
+
+/* ---- pause menu ---- */
+const REASONS=['Break','Lunch','Bio','Coaching','Training','Meeting','Off for the day'];
+function openPause(){
+  if(S.paused){S.paused=null;S.overdue=false;render();return;}
+  const m=$('pause-menu');m.innerHTML=REASONS.map(r=>`<button role="menuitem" type="button" data-r="${r}">${r}</button>`).join('');m.hidden=false;$('b-pause').setAttribute('aria-expanded','true');
+  m.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{closePause();const r=b.dataset.r;
+    if(S.mode==='call'||S.mode==='wrap'){S.pauseAfter=true;S.pauseAfterReason=r;}
+    else{if(S.mode==='preview'){clear('pv');S.toast=`${S.pv.name} went back in the pool.`;S.pv=null;}S.paused=r;if(S.mode==='idle')S.mode='ready';S.mode='ready';}
+    render();});
+  m.querySelector('button').focus();
+}
+function closePause(){$('pause-menu').hidden=true;$('b-pause').setAttribute('aria-expanded','false');}
+$('b-pause').onclick=e=>{e.stopPropagation();if($('pause-menu').hidden)openPause();else closePause();};
+document.addEventListener('click',e=>{if(!e.target.closest('.rel'))closePause();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePause();});
+
+$('d-conn').onclick=()=>connect('fresh');
+$('d-cb').onclick=()=>connect('callback');
+$('d-pv').onclick=()=>offerPreview('normal');
+$('d-pvtoday').onclick=()=>offerPreview('today');
+$('d-inb').onclick=ringInbound;
+$('b-mycamp').onclick=toggleMyCamps;
+$('d-vm').onchange=()=>{if(S.mode==='call')render();};
+$('d-unsure').onchange=e=>{if(S.mode==='call'){S.unsure=e.target.checked;render();}};
+$('d-theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';};
+$('d-reset').onclick=()=>{clearAll();S=fresh();$('d-unsure').checked=false;$('d-vm').value='';render();};
+S=fresh();render();
+})();
+</script>
+<div class="adm" id="modal-root"></div>
+<script>
+/* Supervisor and admin sections, moved from the admin mockup. Own scope, so nothing clashes with the agent view above. */
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const I={
+  alert:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>',
+  x:'<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  up:'<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  mic:'<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>'
+};
+const AGENTS=[
+  {id:'a1',name:'Maria Lopez',on:true},{id:'a2',name:'Ana Torres',on:true},{id:'a3',name:'Dev Patel',on:true},
+  {id:'a4',name:'Sam Okafor',on:true},{id:'a5',name:'Lee Chen',on:false},{id:'a6',name:'Jo Rivera',on:false}];
+const NUMBERS=[{n:'+1 (512) 555-0100',a:'512',p:'VoIP Innovations'},{n:'+1 (214) 555-0177',a:'214',p:'VoIP Innovations'},{n:'+1 (737) 555-0142',a:'737',p:'SignalWire'}];
+const DISPOS=['Sale','Call back','Not interested','Voicemail','No answer','Left message','Wrong number','Do not call'];
+const REACHED_DEFAULT=['Sale','Call back','Not interested'];
+const DNC_DISPOS=['Wrong number','Do not call'];
+const VCM={records:'Require a written-consent record',client:'Client confirms consent for all its leads'};
+const ATTEST='I confirm, on behalf of AutoShield Partners, that every lead this company dials has given the consent required by law for prerecorded messages, and that AutoShield Partners, not NewCallHQ, is responsible for that consent.';
+const CS_SRC=['Web form','Signed paper form','E-signature','Recorded written agreement'];
+const CRM=['Warranty renewals 2026','Roadside assistance','Extended warranty: web'];
+const CATS=[['Reached','Spoken to. Ends the callbacks.'],['Not reached','Back into rotation on the callback schedule.'],['Sale','Ends the lead in this campaign.'],['Callback','Back into rotation at the agreed time.'],['Do not call','Added to the do-not-call list. Never called again.'],['Wrong number','Never called on this number again.']];
+
+let S,tick=null;
+function fresh(){return{
+  tab:'mycalls',status:'paused',mode:3,maxAbandon:3,crm:0,
+  company:true,globalPause:false,coVm:'autoshield-default-vm.mp3 · 0:18',coRec:false,coRecSecs:0,expMsg:'',
+  camps:[{name:'Warranty renewals · October',agents:4,crm:'Warranty renewals 2026'},{name:'Roadside upsell (draft)',mode:'Auto dial 1',status:'pause',stTxt:'Paused',agents:0,crm:'Roadside assistance'},{name:'Card on file follow-up',mode:'Auto dial 1',status:'pause',stTxt:'Paused',agents:2,crm:'Extended warranty: web'}],
+  results:[{n:'Sale',c:'Sale'},{n:'Call back',c:'Callback'},{n:'Not interested',c:'Reached'},{n:'Voicemail',c:''},{n:'No answer',c:''},{n:'Left message',c:''},{n:'Wrong number',c:'Wrong number'},{n:'Do not call',c:'Do not call'}],vmResult:'',
+  consent:[
+    {num:'+1 (512) 555-0147',name:'Jordan Ellis',src:'Web form · autoshield.com/quote',date:'3 Sep 2026',proof:'Form text v3 · IP and time stored',st:'active'},
+    {num:'+1 (737) 555-0161',name:'Priya Shah',src:'Signed paper form (scanned)',date:'12 Aug 2026',proof:'consent-shah.pdf',st:'active'},
+    {num:'+1 (214) 555-0193',name:'Renee Hall',src:'CSV import · webinar-signups.csv, row 88',date:'2 Oct 2026',proof:'Sign-up checkbox',st:'withdrawn',wd:'Admin: Jo Rivera · 18 Oct'}],
+  consentImport:null,
+  schedSrc:'company',schedSaved:false,
+  vmConsent:'records',attHist:[{who:'Jo Rivera · Company admin',when:'14 Oct 2026 · 09:40',from:'Client confirms consent for all its leads',to:'Require a written-consent record',ver:'v1'}],
+  vmOn:true,vmBeep:true,vmFile:'warranty-vm-v2.mp3 · 0:24',recording:false,recSecs:0,
+  sh:'Hi, this is AutoShield Partners calling for telemarketing purposes. We\'re sorry we missed you. To reach us, call 1-800-555-0199. To stop these calls, press 9 now.',
+  shFile:'safe-harbor-v1.mp3 · 0:09',
+  start:8,end:21,perDay:3,spacing:2,callerId:0,local:true,wrap:20,
+  pvOn:true,pvSecs:30,pvShare:20,pvOcc:true,
+  agents:AGENTS.map(a=>({...a})),
+  lists:[
+    {name:'Abandoned carts · Sep–Oct',src:'Orders filter',rows:1840,w:1120,c:0,n:720},
+    {name:'Warranty expiring Q4',src:'Orders filter',rows:2310,w:610,c:1700,n:0},
+    {name:'Webinar sign-ups (CSV)',src:'CSV upload',rows:960,w:960,c:0,n:0}],
+  dnc:[{num:'+1 (305) 555-0123',src:'Pressed 9 (opt-out)',when:'Today 10:41'},{num:'+1 (469) 555-0188',src:'Disposition: Do not call',when:'Today 09:15'},{num:'+1 (512) 555-0110',src:'Admin: Jo Rivera',when:'Yesterday'}],
+  registry:false,
+  pool:{on:true,back:90,mix:70,max:20,reached:30,dispos:[...REACHED_DEFAULT],
+    sched:[{p:'Day 1',n:3,every:'2 h apart, morning / afternoon / evening'},{p:'Days 2–7',n:1,every:'once a day, time slot rotates'},{p:'Days 8–30',n:1,every:'every 3 days'},{p:'Month 2–6',n:1,every:'once a week'}]},
+  live:{lines:0,ready:0,talk:0,wrap:0,paused:1,answer:18,ab30:1.4,abToday:0.9,vm:0,fresh:1284,cb:3410,pv:46,skips:{'Not interested':9,'Already handled':5,'Call back on date':7,'Do not call':2,'Wrong number':1},spokenSkip:23,eff:0,joinMs:420,dialed:0,humans:0,abandons:0,overdue:0,agentVm:0}
+};}
+
+
+/* ---------- Settings tab ---------- */
+function modeCard(m,title,desc){
+  const needsAmd=m>1&&!$('d-amd').checked;
+  const pilot=m>1&&$('d-pilot').checked;
+  return `<button type="button" class="opt ${S.mode===m?'sel':''}" data-mode="${m}" ${pilot?'disabled':''} ${needsAmd&&!pilot?'aria-describedby="amd-note"':''}><span class="radio"></span><b>${title}</b><span class="d">${desc}${pilot?' <b>Coming after the pilot.</b>':''}</span></button>`;
+}
+function shChecks(t){
+  const s=t.toLowerCase();
+  return [
+    ['Company name',/autoshield/.test(s)],
+    ['Says "telemarketing purposes"',/telemarketing purposes/.test(s)],
+    ['Callback number',/\d{3}[\s.-]?\d{3}[\s.-]?\d{4}/.test(s)],
+    ['Press-a-key opt-out',/press\s+\d/.test(s)],
+    ['No sales pitch or offer',!/(offer|discount|deal|save|free)/.test(s)]];
+}
+function renderSettings(){
+  const amd=$('d-amd').checked;
+  const checks=shChecks(S.sh);const shOk=checks.every(c=>c[1]);
+  $('tab-settings').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>How it dials</h3><span class="small muted">One setting per campaign. The dialer never goes above it.</span></div><div class="card-b">
+    <div class="modes">
+      ${modeCard(3,'Predictive 3','Up to 3 numbers ringing for each free agent. Most talk time when few people pick up. Slows itself down to stay under the abandon limit.')}
+      ${modeCard(2,'Predictive 2','Up to 2 numbers for each free agent. A safer middle step, and the best setting when many people pick up.')}
+      ${modeCard(1,'Auto dial 1','One number at a time for each free agent. A free agent is always waiting, so nobody who answers is ever left on hold.')}
+    </div>
+    ${S.mode>1&&!amd?`<div class="note warn" id="amd-note">${I.alert}<span>Predictive needs answering-machine detection on the phone system, and it isn't installed yet. You can save this, but the campaign will run as <b>Auto dial 1</b> until it is.</span></div>`:''}
+    <p class="hint">With only a few agents, Predictive 3 often runs at about 1.5–2 lines per agent. That's the automatic slowdown keeping you legal, not a fault.</p>
+    ${$('d-pilot').checked?`<p class="hint">For the pilot every campaign runs as <b>Auto dial 1</b>: it rings the agent first, then the customer, so nobody who answers is left waiting. Predictive 2 and 3 switch on after the pilot, once answering-machine detection is installed.</p>`:''}
+    <div class="fields"><div class="f"><label for="crm">CRM campaign (orders, products and scripts come from it)</label><select class="sel" id="crm">${CRM.map((x,i)=>`<option value="${i}" ${i===S.crm?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Dropped calls (abandon rate)</h3></div><div class="card-b">
+    <div class="f"><label for="ab">Highest allowed, last 30 days: <b id="ab-v">${S.maxAbandon.toFixed(1)}%</b></label><input type="range" id="ab" min="1" max="3" step="0.5" value="${S.maxAbandon}"></div>
+    ${gauge(S.live.ab30)}
+    <p class="hint">The law allows 3% at most, so the slider stops there. The dialer slows down at ${(S.maxAbandon*2/3).toFixed(1)}%, slows down hard at ${(S.maxAbandon*5/6).toFixed(1)}%, and pauses the campaign at ${S.maxAbandon.toFixed(1)}%.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Voicemail drop</h3><span class="pill ${S.vmOn&&amd?'ok':'mut'}">${S.vmOn?(amd?'On':'Waits for machine detection'):'Off'}</span></div><div class="card-b">
+    <label class="switch"><input type="checkbox" id="vm-on" ${S.vmOn?'checked':''}><span><b>Leave a recorded voicemail on answering machines</b><span class="small muted">No agent is involved. The line hangs up afterwards.</span></span></label>
+    <label class="switch"><input type="checkbox" id="vm-beep" ${S.vmBeep?'checked':''} ${S.vmOn?'':'disabled'}><span><b>Wait for the beep</b><span class="small muted">If there is no beep, it plays after 3 seconds of silence.</span></span></label>
+    ${S.recording?`<div class="player"><span class="rec"></span><b>Recording…</b><span class="mono" id="rec-t">0:${String(S.recSecs).padStart(2,'0')}</span><span class="sp"></span><button class="btn outline sm" type="button" id="rec-stop">Stop</button></div>`
+      :`<div class="player">${I.play}<span class="wave"></span><span class="small mono">${esc(S.vmFile)}</span></div>`}
+    <div class="row"><button class="btn outline sm" type="button" id="vm-up">${I.up} Upload file</button><button class="btn outline sm" type="button" id="vm-rec" ${S.recording?'disabled':''}>${I.mic} Record</button><span class="small muted">MP3 or WAV, 30 seconds at most</span></div>
+    <p class="hint">Agents' <b>Machine: drop voicemail</b> button plays this same recording. Manual dialer calls use the company default (<b>Org Settings › Dialer</b>).</p>
+    <div class="note info">${I.alert}<span>Recorded voicemail needs consent. This company: <b>${VCM[S.vmConsent]}</b>. ${S.vmConsent==='client'?'Every lead not on a do-not-call list can get one.':`Written-consent records cover <b>${pct(S.lists.reduce((a,l)=>a+l.w,0),S.lists.reduce((a,l)=>a+l.rows,0))}</b> of leads in this campaign. For everyone else the line just hangs up on the machine.`}</span></div>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>"No agent free" message</h3><span class="pill ${shOk?'ok':'bad'}" id="sh-pill">${shOk?'Ready':'Missing parts'}</span></div><div class="card-b">
+    <p class="hint">Plays within 2 seconds when a person answers and every agent is busy. The phone system plays it by itself, even if our servers are slow.</p>
+    <div class="f"><label for="sh">What it says</label><textarea class="inp ${shOk?'':'bad'}" id="sh" aria-describedby="sh-chk">${esc(S.sh)}</textarea></div>
+    <ul class="chk" id="sh-chk">${checks.map(c=>`<li class="${c[1]?'y':'n'}">${c[1]?I.check:I.x} ${c[0]}</li>`).join('')}</ul>
+    <div class="player">${I.play}<span class="wave"></span><span class="small mono">${esc(S.shFile)}</span></div>
+    <div class="row"><button class="btn outline sm" type="button" id="sh-up">${I.up} Upload recording</button><span class="small muted">10 seconds at most. Pressing 9 adds the number to your do-not-call list and hangs up.</span></div>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>When and how often</h3><span class="small muted">This campaign's override of the company default (Org Settings › Dialer)</span></div><div class="card-b">
+    <div class="fields three">
+      <div class="f"><label for="h-s">From (lead's local time)</label><select class="sel" id="h-s">${hours(8,20,S.start)}</select></div>
+      <div class="f"><label for="h-e">Until</label><select class="sel" id="h-e">${hours(9,21,S.end)}</select></div>
+      <div class="f"><label for="pd">Attempts per number per day</label><select class="sel" id="pd">${[1,2,3].map(n=>`<option ${n===S.perDay?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="f"><label for="sp">Wait between attempts</label><select class="sel" id="sp">${[1,2,3,4].map(n=>`<option value="${n}" ${n===S.spacing?'selected':''}>${n} hour${n>1?'s':''}</option>`).join('')}</select></div>
+      <div class="f"><label for="wr">Wrap-up countdown</label><select class="sel" id="wr">${[10,15,20,30,45,60].map(n=>`<option value="${n}" ${n===S.wrap?'selected':''}>${n} seconds</option>`).join('')}</select></div>
+    </div>
+    <p class="hint">Never earlier than 8am or later than 9pm. Florida, Oklahoma and Maryland stop at 8pm. Counts are per phone number across every campaign and client this call centre dials for, and manual calls count too.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Caller ID</h3></div><div class="card-b">
+    <div class="f"><label for="cid">Main number for this campaign</label><select class="sel" id="cid">${NUMBERS.map((x,i)=>`<option value="${i}" ${i===S.callerId?'selected':''}>${x.n} · ${x.p}</option>`).join('')}</select></div>
+    <label class="switch"><input type="checkbox" id="local" ${S.local?'checked':''}><span><b>Use a local number when we own one</b><span class="small muted">You own numbers in ${NUMBERS.map(x=>x.a).join(', ')}. A lead in 214 sees +1 (214) 555-0177.</span></span></label>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Preview lane</h3><span class="small muted">People we've already spoken to</span></div><div class="card-b">
+    <label class="switch"><input type="checkbox" id="pv-on" ${S.pvOn?'checked':''}><span><b>Offer them to agents as a card: Call or Skip</b><span class="small muted">They never ring predictively. The agent sees the last call and the notes first.</span></span></label>
+    <div class="fields">
+      <div class="f"><label for="pv-s">Countdown on the card</label><select class="sel" id="pv-s" ${S.pvOn?'':'disabled'}>${[15,20,30,45,60].map(n=>`<option value="${n}" ${n===S.pvSecs?'selected':''}>${n} seconds</option>`).join('')}</select></div>
+      <div class="f"><label for="pv-sh">Share of agent time: <b>${S.pvShare}%</b></label><input type="range" id="pv-sh" min="0" max="50" step="5" value="${S.pvShare}" ${S.pvOn?'':'disabled'}></div>
+    </div>
+    <label class="switch"><input type="checkbox" id="pv-occ" ${S.pvOcc?'checked':''} ${S.pvOn?'':'disabled'}><span><b>Count preview time as busy in reports</b></span></label>
+  </div></div>
+
+  <div class="card full"><div class="card-h"><h3>Agents on this campaign</h3><span class="small muted">${S.agents.filter(a=>a.on).length} of ${S.agents.length}</span></div><div class="card-b">
+    <div class="chips">${S.agents.map(a=>`<button type="button" class="chipbtn" data-agent="${a.id}" aria-pressed="${a.on}">${a.on?'✓ ':''}${esc(a.name)}</button>`).join('')}</div>
+    <p class="hint">Each agent still presses <b>Ready for calls</b> in the dialer. Being on the list never starts their phone ringing by itself.</p>
+  </div></div>
+  </div>
+  <div class="savebar"><span class="small muted" id="saved">All changes saved.</span><span class="sp"></span><button class="btn primary sm" type="button" id="save">Save</button></div>`;
+  bindSettings();
+}
+const hours=(a,b,sel)=>{let o='';for(let h=a;h<=b;h++)o+=`<option value="${h}" ${h===sel?'selected':''}>${h===12?'12 pm':h>12?(h-12)+' pm':h+' am'}</option>`;return o;};
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':'0%';
+function gauge(v){
+  const max=4,left=Math.min(100,100*v/max),cap=100*S.maxAbandon/max;
+  return `<div class="gauge" role="img" aria-label="Abandon rate ${v.toFixed(1)} percent, limit ${S.maxAbandon} percent"><div class="row"><span class="big">${v.toFixed(1)}%</span><span class="small muted">last 30 days · limit ${S.maxAbandon.toFixed(1)}%</span></div>
+  <div class="gtrack" style="background:linear-gradient(90deg,hsl(var(--success)) 0 ${cap*2/3}%,hsl(var(--warning)) ${cap*2/3}% ${cap}%,hsl(var(--destructive)) ${cap}% 100%)"><span class="gcap" style="left:${cap}%"></span><span class="gneedle" style="left:${left}%"></span></div>
+  <div class="gscale"><span>0%</span><span>1%</span><span>2%</span><span>3%</span><span>4%</span></div></div>`;
+}
+function dirty(){const s=$('saved');if(s){s.textContent='Unsaved changes.';}}
+function bindSettings(){
+  document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{S.mode=+b.dataset.mode;renderSettings();dirty();});
+  $('ab').oninput=e=>{S.maxAbandon=+e.target.value;renderSettings();dirty();};
+  $('vm-on').onchange=e=>{S.vmOn=e.target.checked;renderSettings();dirty();};
+  $('vm-beep').onchange=e=>{S.vmBeep=e.target.checked;dirty();};
+  $('vm-up').onclick=()=>{S.vmFile='warranty-vm-v3.mp3 · 0:21';renderSettings();dirty();};
+  $('vm-rec').onclick=()=>{S.recording=true;S.recSecs=0;renderSettings();const t=setInterval(()=>{if(!S.recording){clearInterval(t);return;}S.recSecs++;const el=$('rec-t');if(el)el.textContent='0:'+String(S.recSecs).padStart(2,'0');if(S.recSecs>=30){S.recording=false;S.vmFile='recorded-now.wav · 0:30';clearInterval(t);renderSettings();}},1000);};
+  const rs=$('rec-stop');if(rs)rs.onclick=()=>{S.recording=false;S.vmFile=`recorded-now.wav · 0:${String(Math.max(1,S.recSecs)).padStart(2,'0')}`;renderSettings();dirty();};
+  $('sh').oninput=e=>{S.sh=e.target.value;const c=shChecks(S.sh);$('sh-chk').innerHTML=c.map(x=>`<li class="${x[1]?'y':'n'}">${x[1]?I.check:I.x} ${x[0]}</li>`).join('');const ok=c.every(x=>x[1]);e.target.classList.toggle('bad',!ok);const pl=$('sh-pill');pl.className='pill '+(ok?'ok':'bad');pl.textContent=ok?'Ready':'Missing parts';dirty();};
+  $('sh-up').onclick=()=>{S.shFile='safe-harbor-v2.mp3 · 0:08';renderSettings();dirty();};
+  [['h-s','start'],['h-e','end'],['pd','perDay'],['sp','spacing'],['wr','wrap'],['cid','callerId'],['pv-s','pvSecs'],['crm','crm']].forEach(([id,k])=>$(id).onchange=e=>{S[k]=+e.target.value;if(S.start>=S.end){S.end=Math.min(21,S.start+1);}renderSettings();dirty();});
+  $('local').onchange=e=>{S.local=e.target.checked;dirty();};
+  $('pv-on').onchange=e=>{S.pvOn=e.target.checked;renderSettings();dirty();};
+  $('pv-sh').oninput=e=>{S.pvShare=+e.target.value;e.target.previousElementSibling.querySelector('b').textContent=S.pvShare+'%';dirty();};
+  $('pv-occ').onchange=e=>{S.pvOcc=e.target.checked;dirty();};
+  document.querySelectorAll('[data-agent]').forEach(b=>b.onclick=()=>{const a=S.agents.find(x=>x.id===b.dataset.agent);a.on=!a.on;renderSettings();dirty();});
+  $('save').onclick=()=>{$('saved').textContent='Saved just now.';};
+}
+
+/* ---------- Leads & DNC tab ---------- */
+function renderLeads(){
+  const tot=S.lists.reduce((a,l)=>({rows:a.rows+l.rows,w:a.w+l.w,c:a.c+l.c,n:a.n+l.n}),{rows:0,w:0,c:0,n:0});
+  $('tab-leads').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>Lead lists</h3><span class="sp"></span><button class="btn outline sm" type="button" id="up-csv">${I.up} Upload CSV</button><button class="btn outline sm" type="button" id="from-orders">From orders…</button></div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>List</th><th>Source</th><th>Numbers</th><th>Written consent</th><th>Existing customer</th><th>No consent</th><th>Can auto-dial</th></tr></thead><tbody>
+  ${S.lists.map(l=>`<tr><td><b>${esc(l.name)}</b>${l.proc?' <span class="pill info">Checking…</span>':''}</td><td>${esc(l.src)}</td><td class="num">${l.rows.toLocaleString()}</td><td class="num"><span class="pill ok">${l.w.toLocaleString()}</span></td><td class="num"><span class="pill info">${l.c.toLocaleString()}</span></td><td class="num"><span class="pill ${l.n?'warn':'mut'}">${l.n.toLocaleString()}</span></td><td class="num"><b>${(l.w+l.c).toLocaleString()}</b></td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="card-b"><div class="bars">
+    <div class="bar"><span>Written consent</span><span class="tr"><i style="width:${100*tot.w/tot.rows}%;background:hsl(var(--success))"></i></span><span class="n">${pct(tot.w,tot.rows)}</span></div>
+    <div class="bar"><span>Existing customer</span><span class="tr"><i style="width:${100*tot.c/tot.rows}%"></i></span><span class="n">${pct(tot.c,tot.rows)}</span></div>
+    <div class="bar"><span>No consent</span><span class="tr"><i style="width:${100*tot.n/tot.rows}%;background:hsl(var(--warning))"></i></span><span class="n">${pct(tot.n,tot.rows)}</span></div></div>
+    <p class="hint"><b>No consent</b> leads are never auto-dialed. They go to the Preview lane, where an agent chooses to call, and only inside the 3-month window after their enquiry. Existing customers are auto-dialed for 18 months after their last purchase, but get no recorded voicemail. In Florida, Oklahoma and Maryland only written consent counts.</p>
+    <p class="hint">Uploading matches people by phone number and never overwrites a customer's details. It creates no orders.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>Your do-not-call list</h3><span class="pill bad">${(1288+S.dnc.length-3).toLocaleString()} numbers</span></div><div class="card-b">
+    <form class="row" id="dnc-form" novalidate><div class="f" style="flex:1;min-width:160px"><label for="dnc-in">Add a number</label><input class="inp" id="dnc-in" inputmode="tel" placeholder="(555) 555-0123" aria-describedby="dnc-err"></div><button class="btn outline" type="submit" style="align-self:flex-end">Add</button></form>
+    <p class="hint" id="dnc-err" role="alert"></p>
+    <div class="scroll"><table class="t"><thead><tr><th>Number</th><th>Why</th><th>When</th></tr></thead><tbody>
+    ${S.dnc.slice(0,5).map(d=>`<tr><td class="mono">${esc(d.num)}</td><td>${esc(d.src)}</td><td class="small muted">${esc(d.when)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="hint">Checked before every campaign call and every preview call. Kept for at least 5 years. Pressing 9 on the "no agent free" message adds a number instantly.</p>
+  </div></div>
+
+  <div class="card"><div class="card-h"><h3>National Do Not Call Registry</h3><span class="pill ${S.registry?'ok':'warn'}">${S.registry?'Checking':'Waiting for your subscription'}</span></div><div class="card-b">
+    <label class="switch"><input type="checkbox" id="reg" ${S.registry?'checked':''}><span><b>Check the national registry</b><span class="small muted">Numbers are re-checked at least every 31 days.</span></span></label>
+    <div class="note info">${I.alert}<span>Not needed for people inside the exemptions: customers up to 18 months after their last purchase, enquiries up to 3 months, or anyone with written consent. Auto-dial only calls those people. The registry check lets agents preview-call people outside them.</span></div>
+  </div></div>
+
+  <div class="card full"><div class="card-h"><h3>Written consent records</h3><span class="pill ok">${(3115+S.consent.filter(c=>c.st==='active').length).toLocaleString()} active</span><span class="sp"></span><button class="btn outline sm" type="button" id="cs-imp" ${S.consentImport?'disabled':''}>${I.up} Import CSV</button></div><div class="card-b">
+    <form class="row" id="cs-form" novalidate>
+      <div class="f" style="flex:1;min-width:160px"><label for="cs-num">Phone number</label><input class="inp" id="cs-num" inputmode="tel" placeholder="(555) 555-0123" aria-describedby="cs-err"></div>
+      <div class="f" style="flex:1;min-width:160px"><label for="cs-src">Where it came from</label><select class="sel" id="cs-src">${CS_SRC.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div>
+      <div class="f" style="flex:1;min-width:160px"><label for="cs-proof">Proof (file or reference)</label><input class="inp" id="cs-proof" placeholder="e.g. consent-ellis.pdf"></div>
+      <button class="btn outline" type="submit" style="align-self:flex-end">Add</button></form>
+    <p class="hint" id="cs-err" role="alert"></p>
+    ${S.consentImport?`<div class="note warn">${I.alert}<span><b>consent-october.csv: 214 rows. 209 added, 5 not added.</b> Fix these rows and import them again:</span></div>
+    <ul class="chk">${S.consentImport.map(b=>`<li class="n">${I.x} Row ${b[0]}: ${esc(b[1])}</li>`).join('')}</ul>`:''}
+    <div class="scroll"><table class="t wide"><thead><tr><th>Number</th><th>Customer</th><th>Where it came from</th><th>Given</th><th>Proof</th><th>Status</th><th></th></tr></thead><tbody>
+    ${S.consent.map((c,i)=>`<tr><td class="mono">${esc(c.num)}</td><td>${esc(c.name)}</td><td>${esc(c.src)}</td><td class="small muted">${esc(c.date)}</td><td class="small">${esc(c.proof)}</td><td>${c.st==='active'?'<span class="pill ok">Active</span>':`<span class="pill mut">Withdrawn</span><div class="small muted">${esc(c.wd)}</div>`}</td><td>${c.st==='active'?`<button class="btn outline sm" type="button" data-wd="${i}">Withdraw</button>`:''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="hint">Needed for every recorded voicemail, including the agents' <b>Machine: drop voicemail</b> button, and for auto-dial in Florida, Oklahoma and Maryland. Withdrawing keeps the record and its history: nothing is deleted, and the number gets no recorded voicemail from that moment. Exports neutralise spreadsheet formulas.</p>
+    <p class="hint">When <b>Client confirms consent for all its leads</b> is on (Org Settings › Dialer), the voicemail button doesn't need these records. Now: <b>${VCM[S.vmConsent]}</b>.</p>
+  </div></div>
+  </div>`;
+  $('cs-form').onsubmit=e=>{e.preventDefault();const v=$('cs-num').value.replace(/\D/g,'');const err=$('cs-err');
+    const d=v.length===11&&v[0]==='1'?v.slice(1):v;
+    if(d.length!==10){err.textContent='Enter a 10-digit US or Canada number.';err.style.color='hsl(var(--destructive))';$('cs-num').classList.add('bad');return;}
+    S.consent.unshift({num:`+1 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`,name:'Matched by number',src:$('cs-src').value+' · added by you',date:'Today',proof:$('cs-proof').value.trim()||'None attached',st:'active'});renderLeads();$('cs-err').textContent='Added. Recorded voicemails are allowed for this number from now on.';};
+  $('cs-imp').onclick=()=>{S.consentImport=[[7,'the phone number has 9 digits'],[31,'no date the consent was given'],[58,'same number as row 12'],[102,'"where it came from" is empty'],[190,'the date is in the future']];
+    S.consent.push({num:'+1 (469) 555-0175',name:'Gail Morton',src:'CSV import · consent-october.csv, row 3',date:'28 Sep 2026',proof:'E-sign envelope 7F2A',st:'active'},{num:'+1 (512) 555-0133',name:'Omar Haddad',src:'CSV import · consent-october.csv, row 4',date:'30 Sep 2026',proof:'Web form text v3',st:'active'});renderLeads();};
+  document.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>{const c=S.consent[+b.dataset.wd];c.st='withdrawn';c.wd='Admin: you · just now';renderLeads();});
+  $('up-csv').onclick=()=>{S.lists.push({name:'Trade show leads (CSV)',src:'CSV upload',rows:412,w:0,c:0,n:0,proc:true});renderLeads();setTimeout(()=>{const l=S.lists[S.lists.length-1];l.proc=false;l.w=188;l.c=64;l.n=160;renderLeads();},1400);};
+  $('from-orders').onclick=()=>{S.lists.push({name:'Refunded · last 90 days',src:'Orders filter',rows:233,w:41,c:192,n:0});renderLeads();};
+  $('dnc-form').onsubmit=e=>{e.preventDefault();const v=$('dnc-in').value.replace(/\D/g,'');const err=$('dnc-err');
+    const d=v.length===11&&v[0]==='1'?v.slice(1):v;
+    if(d.length!==10){err.textContent='Enter a 10-digit US or Canada number.';err.style.color='hsl(var(--destructive))';$('dnc-in').classList.add('bad');return;}
+    S.dnc.unshift({num:`+1 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`,src:'Admin: you',when:'Just now'});renderLeads();$('dnc-err').textContent='Added. It won\'t be called from any campaign.';};
+  $('reg').onchange=e=>{S.registry=e.target.checked;renderLeads();};
+}
+
+/* ---------- Live monitor ---------- */
+function slowStep(){
+  const L=S.live,m=S.maxAbandon;
+  if(S.status==='autopaused') return 3;
+  if(L.ab30>=m*5/6) return 2;
+  if(L.ab30>=m*2/3) return 1;
+  return 0;
+}
+function effectiveMode(){return S.mode>1&&!$('d-amd').checked?1:S.mode;}
+function renderMonitor(){
+  const L=S.live,st=slowStep(),running=S.status==='running';
+  const low=L.fresh+L.cb<600;
+  const labels=['Normal','Slowing down','Slowing down hard','Paused at the limit'];
+  const skipTotal=Object.values(L.skips).reduce((a,b)=>a+b,0);
+  $('tab-monitor').innerHTML=`
+  ${S.status==='autopaused'?`<div class="note bad">${I.alert}<span><b>The campaign paused itself.</b> Dropped calls reached ${S.maxAbandon.toFixed(1)}% over 30 days. It can be started again once the rate falls below ${(S.maxAbandon*2/3).toFixed(1)}%.</span></div>`:''}
+  ${!running&&S.status!=='autopaused'?`<div class="note info">${I.alert}<span>The campaign is paused. Press <b>Start campaign</b> to watch it run.</span></div>`:''}
+  ${whyCard()}
+  <div class="card"><div class="card-b"><div class="slow">
+    <b>Automatic slowdown</b><span class="pill ${['ok','warn','warn','bad'][st]}">${labels[st]}</span><span class="small muted">Set to <b>${S.mode} line${S.mode>1?'s':''}</b> per agent · running at <b class="num">${running?L.eff.toFixed(1):'0.0'}</b>${effectiveMode()!==S.mode?' (Auto dial 1 until machine detection is installed)':''}</span></div>
+    <div class="steps4" aria-hidden="true">${labels.map((l,i)=>`<span class="s${i} ${i===st?'on':''}">${l}</span>`).join('')}</div>
+  </div></div>
+  <div class="tiles">
+    <div class="tile"><span class="k">Lines dialing</span><span class="v num">${L.lines}</span><span class="s">${L.dialed} dialed today</span></div>
+    <div class="tile"><span class="k">Agents</span><span class="v num">${L.ready+L.talk+L.wrap}</span><span class="s">${L.ready} ready · ${L.talk} talking · ${L.wrap} wrap-up · ${L.paused} paused</span></div>
+    <div class="tile"><span class="k">People answering</span><span class="v num">${L.answer}%</span><span class="s">last 30 minutes</span></div>
+    <div class="tile ${L.ab30>=S.maxAbandon*2/3?'alert':''} ${S.status==='autopaused'?'danger':''}"><span class="k">Dropped calls, 30 days</span><span class="v num">${L.ab30.toFixed(1)}%</span><span class="s">limit ${S.maxAbandon.toFixed(1)}% · today ${L.abToday.toFixed(1)}%</span></div>
+    <div class="tile"><span class="k">Voicemails left today</span><span class="v num">${L.vm}</span><span class="s">${$('d-amd').checked?'after the beep, written consent only':'waiting for machine detection'}</span></div>
+    <div class="tile"><span class="k">Answer to agent</span><span class="v num">${(L.joinMs/1000).toFixed(1)} s</span><span class="s">typical · must stay under 2 s</span></div>
+    <div class="tile ${low?'alert':''}"><span class="k">Pool</span><span class="v num">${(L.fresh+L.cb).toLocaleString()}</span><span class="s">${L.fresh.toLocaleString()} fresh leads · ${L.cb.toLocaleString()} callbacks waiting</span></div>
+    <div class="tile"><span class="k">Skipped today: already spoken to</span><span class="v num">${L.spokenSkip}</span><span class="s">same number, any campaign or client</span></div>
+    <div class="tile"><span class="k">Leads due now</span><span class="v num">${dueNow().toLocaleString()}</span><span class="s">${$('d-late').checked?'all outside calling hours · rescheduled for the morning':'the rest wait for their callback time'}</span></div>
+    <div class="tile"><span class="k">Calls today</span><span class="v num">${L.dialed.toLocaleString()}</span><span class="s">${L.humans.toLocaleString()} answered · ${L.answer}% answer rate</span></div>
+    <div class="tile ${L.overdue?'alert':''}"><span class="k">Wrap-up overdue</span><span class="v num">${L.overdue}</span><span class="s">set to Not ready until they pick a result</span></div>
+    <div class="tile"><span class="k">Voicemails left by agents</span><span class="v num">${L.agentVm}</span><span class="s">Machine: drop voicemail · lead stays in rotation</span></div>
+  </div>
+  ${low?`<div class="note warn">${I.alert}<span><b>The pool is running low.</b> At this pace it lasts about ${Math.max(5,Math.round((L.fresh+L.cb)/Math.max(1,L.lines*6)))} minutes. Add a list, or widen "how far back" for callbacks.</span></div>`:''}
+  <div class="cols">
+  <div class="card"><div class="card-h"><h3>Preview lane</h3><span class="pill vio">${L.pv} waiting</span></div><div class="card-b">
+    <div class="small muted">Skipped today: <b>${skipTotal}</b></div>
+    <div class="bars">${Object.entries(L.skips).map(([k,v])=>`<div class="bar"><span>${k}</span><span class="tr"><i class="cb" style="width:${100*v/Math.max(1,...Object.values(L.skips))}%"></i></span><span class="n">${v}</span></div>`).join('')}</div>
+  </div></div>
+  <div class="card"><div class="card-h"><h3>Dropped calls, 30 days</h3></div><div class="card-b">${gauge(L.ab30)}
+    <dl class="kv"><dt>People who answered</dt><dd class="num">${(5210+L.humans).toLocaleString()}</dd><dt>Got the "no agent free" message</dt><dd class="num">${(72+L.abandons).toLocaleString()}</dd><dt>Pressed 9 to stop calls</dt><dd class="num">14</dd></dl></div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Agents</h3></div><div class="scroll"><table class="t wide"><thead><tr><th>Agent</th><th>State</th><th>For</th><th>Calls today</th><th>Talk time</th></tr></thead><tbody>
+  ${agentRows()}</tbody></table></div></div>`;
+}
+function dueNow(){const L=S.live;return $('d-late').checked?0:Math.round((L.fresh+L.cb)*.08);}
+function whyCard(){
+  const L=S.live,active=S.agents.filter(a=>a.on).length-L.paused;
+  const w=[['Campaign dialing is on for the company',S.company],
+    ['No super-admin "Pause everything"',!S.globalPause],
+    ['This campaign is started',S.status==='running'],
+    ['Dropped calls are under the limit',S.status!=='autopaused'],
+    ['At least one agent on the campaign pressed Ready for calls',S.agents.some(a=>a.on)&&(S.status!=='running'||active>0)],
+    ["Some leads are inside calling hours (their local time)",!$('d-late').checked],
+    ['Leads are due now',dueNow()>0]];
+  const n=w.filter(x=>!x[1]).length;
+  return `<div class="card"><div class="card-h"><h3>Why isn't it dialing?</h3><span class="pill ${n?'bad':'ok'}">${n?n+' reason'+(n>1?'s':''):'Dialing normally'}</span></div><div class="card-b">
+    <ul class="chk">${w.map(x=>`<li class="${x[1]?'y':'n'}">${x[1]?I.check:I.x} ${esc(x[0])}</li>`).join('')}</ul></div></div>`;
+}
+function agentRows(){
+  const on=S.agents.filter(a=>a.on);const L=S.live;let r=0,t=0,w=0;
+  return on.map((a,i)=>{let s,c;
+    if(S.status!=='running'){s='Not ready';c='mut';}
+    else if(i===on.length-1&&L.paused){s='Paused · Lunch';c='warn';}
+    else if(t<L.talk){t++;s='Talking';c='info';}
+    else if(w<L.wrap){w++;if(L.overdue){s='Wrap-up overdue';c='bad';}else{s='Wrap-up';c='vio';}}
+    else{r++;s='Ready';c='ok';}
+    return `<tr><td><b>${esc(a.name)}</b></td><td><span class="pill ${c}">${s}</span></td><td class="num">${(i*37+11)%60}s</td><td class="num">${14+i*3}</td><td class="num">${48+i*9} min</td></tr>`;}).join('');
+}
+function syncCo(){try{const v=JSON.parse(localStorage.getItem('cdm-co')||'null');if(v){S.company=v.company!==false;S.vmConsent=v.vmConsent==='client'?'client':'records';}}catch(e){}}
+function step(){
+  syncCo();
+  if(!S.company&&S.status==='running'){S.status='paused';setStatus('Paused: campaign dialing was switched off for the company.');}
+  if(S.status!=='running') return;
+  const L=S.live,on=S.agents.filter(a=>a.on).length,rush=$('d-rush').checked;
+  const active=Math.max(0,on-L.paused);
+  L.answer=Math.max(8,Math.min(40,Math.round((rush?30:17)+(Math.random()*4-2))));
+  L.talk=Math.min(active,Math.max(0,Math.round(active*(rush?.55:.4)+(Math.random()*2-1))));
+  L.wrap=Math.min(active-L.talk,Math.random()<.5?1:0);
+  L.ready=Math.max(0,active-L.talk-L.wrap);
+  L.overdue=L.wrap&&Math.random()<.35?1:0;
+  if($('d-late').checked){L.lines=0;L.eff=0;if(S.tab==='monitor')renderMonitor();return;}
+  if(Math.random()<.12)L.agentVm++;
+  const st=slowStep(),mode=effectiveMode();
+  const p=L.answer/100;
+  let eff=mode;if(mode>1){eff=Math.min(mode,1+ (0.9/Math.max(.08,p))*0.18);if(L.ready<2)eff=1;if(st===1)eff=Math.min(eff,2,1+(eff-1)/2);if(st>=2)eff=1;}
+  L.eff=eff;
+  L.lines=Math.round(L.ready*L.eff);
+  const dials=L.lines+Math.round(Math.random()*2);L.dialed+=dials;
+  const humans=Math.round(dials*p);L.humans+=humans;
+  if(Math.random()<.04*(eff-1)) {L.abandons++;L.abToday=Math.min(9,L.abToday+.1);}
+  if($('d-amd').checked&&S.vmOn&&Math.random()<.5)L.vm++;
+  L.fresh=Math.max(0,L.fresh-Math.round(dials*S.pool.mix/100));
+  L.cb=Math.max(0,L.cb-(S.pool.on?Math.round(dials*(100-S.pool.mix)/100):0));
+  if(L.fresh===0&&L.cb===0){S.status='paused';setStatus('Paused: the pool is empty.');}
+  if(Math.random()<.15)L.spokenSkip++;
+  if(Math.random()<.1)L.pv=Math.max(0,L.pv+(Math.random()<.5?1:-1));
+  L.joinMs=Math.round(350+Math.random()*250);
+  if(L.ab30>=S.maxAbandon){S.status='autopaused';setStatus('Paused itself at the abandon limit.');}
+  else if(L.ab30>S.live.ab30Base){L.ab30=Math.max(L.ab30Base,L.ab30-0.02);}
+  if(S.tab==='monitor')renderMonitor();
+}
+function setStatus(why){
+  if(S.tab==='campaigns'&&$('tab-campaigns').innerHTML)setTimeout(()=>{if(S.tab==='campaigns')renderCampaigns();},0);
+  const st=$('st');
+  st.className='status '+(S.status==='running'?'run':S.status==='autopaused'?'stop':'pause');
+  st.textContent=S.status==='running'?'Running':S.status==='autopaused'?'Paused automatically':'Paused';
+  $('st-why').textContent=why||'';
+  $('b-cstart').hidden=S.status==='running';$('b-cpause').hidden=S.status!=='running';
+  if(S.status!=='running'){const L=S.live;L.lines=0;L.ready=0;L.talk=0;L.wrap=0;L.eff=0;L.overdue=0;}
+  if(S.tab==='monitor')renderMonitor();
+}
+function startCheck(){
+  const probs=[];
+  if(!S.company)probs.push('Campaign dialing is switched off for this company (Org Settings › Dialer).');
+  if(S.globalPause)probs.push('A super admin paused all campaign dialing (Pause everything).');
+  if(!shChecks(S.sh).every(c=>c[1]))probs.push('The "no agent free" message is missing a required part.');
+  if(!S.agents.some(a=>a.on))probs.push('No agents are on this campaign.');
+  if(S.lists.reduce((a,l)=>a+l.w+l.c,0)===0)probs.push('No leads can be auto-dialed.');
+  if(S.status==='autopaused'&&S.live.ab30>=S.maxAbandon*2/3)probs.push(`Dropped calls are still at ${S.live.ab30.toFixed(1)}%. It can start again below ${(S.maxAbandon*2/3).toFixed(1)}%.`);
+  const em=$('d-pilot').checked?1:effectiveMode();
+  $('modal-root').innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><div class="card"><div class="card-h"><h3 id="mh">${probs.length?'Can\'t start yet':'Start this campaign?'}</h3></div><div class="card-b">
+  ${probs.length?`<ul class="chk">${probs.map(p=>`<li class="n">${I.x} ${esc(p)}</li>`).join('')}</ul>`:
+  `<dl class="kv"><dt>How it dials</dt><dd>${em===1?'Auto dial 1':'Predictive '+em}</dd><dt>Hours</dt><dd>${S.start}:00–${S.end}:00 lead's time</dd><dt>Agents</dt><dd>${S.agents.filter(a=>a.on).length}</dd><dt>Can auto-dial</dt><dd>${S.lists.reduce((a,l)=>a+l.w+l.c,0).toLocaleString()} numbers</dd><dt>Voicemail drop</dt><dd>${S.vmOn&&$('d-amd').checked?'On':'Off'}</dd></dl>
+  <p class="hint">Calls go out as soon as agents press <b>Ready for calls</b>. You can pause at any time, and it stops new calls within a second.</p>`}
+  <div class="row" style="justify-content:flex-end"><button class="btn outline" type="button" id="m-x">${probs.length?'Close':'Cancel'}</button>${probs.length?'':'<button class="btn success" type="button" id="m-go">Start</button>'}</div></div></div></div>`;
+  $('m-x').onclick=closeModal;const g=$('m-go');if(g)g.onclick=()=>{S.status='running';closeModal();setStatus('Started just now.');};
+  const mx=$('m-x');setTimeout(()=>(g||mx).focus(),0);
+  document.addEventListener('keydown',escClose);
+}
+function escClose(e){if(e.key==='Escape')closeModal();}
+function closeModal(){$('modal-root').innerHTML='';document.removeEventListener('keydown',escClose);$('b-cstart').focus();}
+
+/* ---------- Calling rules tab ---------- */
+const RULES=[['Federal (every state)','8 am – 9 pm','3 a day per number (our cap)','Existing customer or written consent','TCPA, 47 CFR 64.1200(c)(1)'],
+  ['Florida','8 am – 8 pm','3 on the same subject','Written consent only','FTSA, Fla. Stat. 501.059 and 501.616'],
+  ['Oklahoma','8 am – 8 pm','3 on the same subject','Written consent only','OTSA'],
+  ['Maryland','8 am – 8 pm','3 on the same subject','Written consent only','Stop the Spam Calls Act']];
+const HELD=[['Dana Price','FL','Billing address','8:04 pm','Florida stops at 8 pm','Today 7:51 pm','Tomorrow 8:00 am','Scheduled'],
+  ['Luis Ortega','TX','Area code 214','9:02 pm','Federal 9 pm limit','Today 8:40 pm','Tomorrow 8:00 am','Scheduled'],
+  ['Kim Nguyen','OK','Time zone on file','7:58 pm','No dial in the last 2 minutes','Today 7:30 pm','Tomorrow 8:00 am','Scheduled'],
+  ['Tom Becker','MD','Billing address','7:12 am','Before 8 am','Today 6:55 am','Today 8:00 am','Released'],
+  ['Ava Brooks','CA','Area code 415','7:30 am','Before 8 am','Today 10:20 am','Today 8:00 am','Released']];
+function renderRules(){
+  const f=S.heldState||'',g=S.heldStatus||'';
+  const rows=HELD.filter(h=>(!f||h[1]===f)&&(!g||h[7]===g));
+  $('tab-rules').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>Calling rules by state</h3><span class="pill mut">Read only</span></div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>State</th><th>Hours (lead's time)</th><th>Per 24 hours</th><th>Auto-dial needs</th><th>Law</th><th>Review</th></tr></thead><tbody>
+  ${RULES.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td class="small">${r[4]}</td><td><span class="pill warn">Pending lawyer review</span></td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="card-b"><p class="hint">Your narrowing: this campaign calls ${S.start}:00–${S.end}:00 in the lead's time (Settings tab). Other states come from the lawyer. Only a super admin changes a rule's review status, date, reviewer or law name, and every change is logged: who, when, old → new.</p></div></div>
+
+  <div class="card full"><div class="card-h"><h3>Held for calling hours</h3><span class="sp"></span><button class="btn outline sm" type="button" id="held-csv">${I.down} Export CSV</button></div><div class="card-b">
+    <div class="fields three">
+      <div class="f"><label for="held-st">State</label><select class="sel" id="held-st"><option value="">All states</option>${['FL','TX','OK','MD','CA'].map(x=>`<option ${x===f?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="f"><label for="held-ss">Status</label><select class="sel" id="held-ss"><option value="">All</option>${['Scheduled','Released'].map(x=>`<option ${x===g?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="f"><label for="held-d">Date</label><select class="sel" id="held-d"><option>Today</option><option>Yesterday</option><option>Last 7 days</option></select></div>
+    </div>
+    ${S.expMsg?`<div class="note ok" role="status">${I.check}<span>${esc(S.expMsg)}</span></div>`:''}
+  </div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>Customer</th><th>State</th><th>Local time from</th><th>Held at (their time)</th><th>Rule</th><th>Lead arrived</th><th>Next allowed</th><th>Status</th></tr></thead><tbody>
+  ${rows.length?rows.map(h=>`<tr><td><b>${esc(h[0])}</b></td><td>${h[1]}</td><td class="small">${h[2]}</td><td class="num">${h[3]}</td><td class="small">${h[4]}</td><td class="small muted">${h[5]}</td><td>${h[6]}</td><td><span class="pill ${h[7]==='Scheduled'?'info':'ok'}">${h[7]}</span></td></tr>`).join(''):'<tr><td colspan="8" class="muted">Nothing held for these filters.</td></tr>'}
+  </tbody></table></div>
+  <div class="card-b"><p class="hint">A held lead is never dropped. It goes back into rotation at its next allowed time, and the retry isn't used up. Only this company's leads are shown, 50 per page.</p></div></div>
+  </div>`;
+  $('held-st').onchange=e=>{S.heldState=e.target.value;S.expMsg='';renderRules();};
+  $('held-ss').onchange=e=>{S.heldStatus=e.target.value;S.expMsg='';renderRules();};
+  $('held-csv').onclick=()=>{S.expMsg=`Export ready: ${rows.length} rows, with spreadsheet formulas neutralised. (Mockup: nothing is downloaded.)`;renderRules();};
+}
+
+/* ---------- All campaigns tab ---------- */
+function campRow(c,i){
+  if(i===0){const st=S.status;c={...c,mode:S.mode===1||$('d-pilot').checked?'Auto dial 1':'Predictive '+S.mode,status:st==='running'?'run':st==='autopaused'?'stop':'pause',stTxt:st==='running'?'Running':st==='autopaused'?'Paused automatically':'Paused',agents:S.agents.filter(a=>a.on).length,crm:CRM[S.crm]};}
+  return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.mode)}</td><td><span class="status ${c.status}">${c.stTxt}</span></td><td class="num">${c.agents}</td><td>${esc(c.crm)}</td><td><button class="btn outline sm" type="button" data-edit="${i}">Edit</button></td></tr>`;
+}
+function renderCampaigns(){
+  $('camp-list').innerHTML=`<div class="cols">
+  <div class="card full"><div class="card-h"><h3>Campaigns</h3><span class="small muted">${S.camps.length}</span><span class="sp"></span><button class="btn primary sm" type="button" id="camp-new" ${S.company?'':'disabled'}>New campaign</button></div>
+  <div class="scroll"><table class="t wide"><thead><tr><th>Campaign</th><th>How it dials</th><th>Status</th><th>Agents</th><th>CRM campaign</th><th></th></tr></thead><tbody>
+  ${S.camps.map(campRow).join('')}
+  </tbody></table></div>
+  <div class="card-b"><p class="hint">A new campaign starts paused. Open it to set agents, caller ID, hours, caps and the wrap-up countdown, then press <b>Start campaign</b>.</p></div></div>
+
+  <div class="card"><div class="card-h"><h3>Pause everything</h3><span class="pill vio">Super admins only</span></div><div class="card-b">
+    ${S.globalPause?`<div class="note bad">${I.alert}<span><b>All campaign dialing is paused</b> for every company, by a super admin at 2:14 pm. Each campaign stays paused until its admins start it again.</span></div>
+    <div class="row"><button class="btn outline" type="button" id="g-resume">Allow dialing again</button></div>`
+    :`<div class="note info">${I.alert}<span>Stops new calls on every campaign of every company within a second. Calls already connected carry on.</span></div>
+    <div class="row"><button class="btn warn" type="button" id="g-pause">Pause everything</button></div>`}
+  </div></div>
+  </div>`;
+  const nw=$('camp-new');if(nw)nw.onclick=()=>{const n=S.camps.filter(c=>c.name.startsWith('New campaign')).length;const name='New campaign'+(n?' '+(n+1):'')+' (draft)';S.camps.push({name,mode:'Auto dial 1',status:'pause',stTxt:'Paused',agents:0,crm:CRM[0]});const o=document.createElement('option');o.textContent=name;$('camp-pick').appendChild(o);pickCamp(S.camps.length-1);};
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>pickCamp(+b.dataset.edit));
+  const gp=$('g-pause');if(gp)gp.onclick=()=>{S.globalPause=true;if(S.status==='running'){S.status='paused';setStatus('Paused by a super admin: Pause everything.');}S.camps.forEach((c,i)=>{if(i>0){c.status='pause';c.stTxt='Paused';}});renderCampaigns();};
+  const gr=$('g-resume');if(gr)gr.onclick=()=>{S.globalPause=false;renderCampaigns();};
+}
+function pickCamp(i){$('camp-pick').selectedIndex=i;document.querySelector('.camp h2').textContent=S.camps[i].name;showTab('campaigns');}
+function showTab(t){
+  S.tab=t;syncCo();
+  document.querySelectorAll('#sup-tabs [role=tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
+  const sup=t!=='mycalls';
+  $('mycalls').hidden=sup;$('sup').hidden=!sup;$('sup-demo').hidden=!sup;$('sup-hint').hidden=!sup;
+  ['campaigns','leads','monitor','rules'].forEach(x=>$('tab-'+x).hidden=x!==t);
+  if(sup)({campaigns:()=>{renderCampaigns();renderSettings();},leads:renderLeads,monitor:renderMonitor,rules:renderRules})[t]();
+}
+function reset(){
+  const t=S?S.tab:'mycalls';
+  S=fresh();S.live.ab30Base=1.4;if($('d-pilot').checked)S.mode=1;
+  $('camp-pick').selectedIndex=0;[...$('camp-pick').options].slice(3).forEach(o=>o.remove());document.querySelector('.camp h2').textContent=S.camps[0].name;
+  showTab(t);setStatus('New campaigns start paused.');
+}
+document.querySelectorAll('#sup-tabs [role=tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('b-cstart').onclick=startCheck;
+$('b-cpause').onclick=()=>{S.status='paused';setStatus('Paused by you. New calls stopped.');};
+$('d-amd').onchange=()=>{if(S.tab==='campaigns')renderSettings();else if(S.tab==='monitor')renderMonitor();};
+$('d-rush').onchange=()=>{};
+$('d-pilot').onchange=e=>{if(e.target.checked&&S.mode>1)S.mode=1;showTab(S.tab);};
+$('d-late').onchange=()=>{if(S.tab==='monitor')renderMonitor();};
+$('camp-pick').onchange=e=>{pickCamp(e.target.selectedIndex);};
+$('d-abandon').onclick=()=>{S.live.ab30=Math.min(3.2,S.live.ab30+0.5);S.live.ab30Base=Math.min(3.2,S.live.ab30);if(S.live.ab30>=S.maxAbandon&&S.status==='running'){S.status='autopaused';setStatus('Paused itself at the abandon limit.');}showTab('monitor');};
+$('d-drain').onclick=()=>{S.live.fresh=120;S.live.cb=260;showTab('monitor');};
+$('d-reset').addEventListener('click',reset);
+reset();
+tick=setInterval(step,1500);
+})();
+</script>
+</body>
+</html>
