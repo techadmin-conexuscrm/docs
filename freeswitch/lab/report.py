@@ -157,7 +157,14 @@ if pci:
         if "error" not in o:
             p("| %s | `%s` | `%s` | `%s` |" % (o["case"], o.get("recv_dtmf_log_digits_B") or "-", o.get("dtmf_events_on_B") or "-", o.get("digits_dialed_B") or "-"))
     p("")
-    keyed = [o for o in pci if "error" not in o and not o["case"].startswith("X") and len(o.get("dtmf_events_on_B") or "") >= 6]
+    # Which calls actually keyed a card, counted from what the robot SENT
+    # (keys_sent, the runner's own record). Counting the DTMF events seen on
+    # the channel instead would make this check vacuous the moment it passes:
+    # sensitive_dtmf (the fix) empties dtmf_events_on_B, so every keyed call
+    # would drop out of the denominator and the three rows would report
+    # "PASS 0/0" on no evidence.
+    keyed = [o for o in pci if "error" not in o and not o["case"].startswith("X")
+             and sum(k[2] for k in (o.get("keys_sent") or [])) >= 6]
     has = lambda v: any(x in (v or "") for x in ("4111111111111111", "378282246310005", "1230947", "04298264"))
     for label, key in (("card digits in freeswitch.log + console (RECV DTMF, INFO)", "recv_dtmf_log_digits_B"),
                        ("card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed)", "digits_dialed_B"),

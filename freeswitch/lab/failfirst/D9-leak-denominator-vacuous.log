@@ -1,0 +1,13 @@
+# report.py leak rows, same run data (matrix of 2026-10-23 22:43 UTC), before and after the denominator fix.
+# Before: 'keyed' was counted from dtmf_events_on_B, the very field sensitive_dtmf empties,
+# so once the leak was fixed every keyed call left the denominator and the gate passed on no evidence.
+
+## before (vacuous):
+| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 0/0 |
+| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 0/0 |
+| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 0/0 |
+
+## after (18 calls really keyed a card, none leaked):
+| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 18/18 |
+| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 18/18 |
+| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 18/18 |

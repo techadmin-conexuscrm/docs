@@ -1,6 +1,6 @@
 # FreeSWITCH lab: results
 
-Generated 2026-10-23 22:43 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab`.
+Generated 2026-10-23 22:54 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab`.
 Drafts: docs `02bb132` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
 Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits) between the lab FreeSWITCH (the drafts' image and config) and a far-end FreeSWITCH, on a private docker network with no way out. Test values only. How to re-run: `README.md`.
 ## Summary
@@ -70,9 +70,9 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 5 PCI | P27_dtmf_across_bridge_after_entry | PASS 1/1 |
 | 5 experiment | X01_sensitive_dtmf_experiment | PASS 1/1 |
 | 5 experiment | X02_global_debug_experiment | PASS 1/1 |
-| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 0/0 |
-| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 0/0 |
-| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 0/0 |
+| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 18/18 |
+| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 18/18 |
+| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 18/18 |
 | 6 ESL/logs | E1 | PASS 1/1 |
 | 6 ESL/logs | E2 | PASS 1/1 |
 | 6 ESL/logs | E3 | PASS 1/1 |
