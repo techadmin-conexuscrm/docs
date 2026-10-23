@@ -24,10 +24,10 @@ index a127afc..0ea9289 100644
          <action application="python" data="api.app"/>
 diff --git a/dialplan/default/10_secure_payment.xml b/dialplan/default/10_secure_payment.xml
 new file mode 100644
-index 0000000..d77dd51
+index 0000000..3d7f15e
 --- /dev/null
 +++ b/dialplan/default/10_secure_payment.xml
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,65 @@
 +<include>
 +  <!--
 +    Silent secure keypad entry (customer leg only).
@@ -78,7 +78,8 @@ index 0000000..d77dd51
 +        uuid_bridge, or hangs up, this channel leaves the dialplan and these
 +        two actions never run.)
 +        1. Tell the CRM the entry is over, the same CUSTOM event the script
-+           sends (ids only), so it restores the agent leg and unmasks the
++           sends (ids only; reason "setup", because the script never got to
++           the customer), so it restores the agent leg and unmasks the
 +           recording now instead of at the 3-minute watchdog.
 +        2. Bridge the customer back to the parked agent leg. `intercept`
 +           picks up a parked channel by uuid. If the agent leg is gone,
@@ -86,7 +87,7 @@ index 0000000..d77dd51
 +        Verify on staging: docs/dialer/secure-payment-verification.md, drill
 +        "Script fails to load".
 +      -->
-+      <action application="event" data="Event-Name=CUSTOM,Event-Subclass=secure_payment::progress,Secure-Payment-Call-Id=${secure_payment_call_id},Secure-Payment-Session=${secure_payment_session},Secure-Payment-State=failed"/>
++      <action application="event" data="Event-Name=CUSTOM,Event-Subclass=secure_payment::progress,Secure-Payment-Call-Id=${secure_payment_call_id},Secure-Payment-Session=${secure_payment_session},Secure-Payment-State=failed,Secure-Payment-Reason=setup"/>
 +      <action application="intercept" data="${secure_payment_agent_uuid}"/>
 +      <anti-action application="hangup" data="CALL_REJECTED"/>
 +    </condition>
@@ -94,10 +95,10 @@ index 0000000..d77dd51
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..6b33cbe
+index 0000000..2059dda
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,520 @@
+@@ -0,0 +1,542 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -179,7 +180,7 @@ index 0000000..6b33cbe
 +end
 +
 +-- ── progress events: field, counts, state. Never digits. ───────────────────
-+local function progress(state, field, entered, of, attempt)
++local function progress(state, field, entered, of, attempt, reason)
 +  local e = freeswitch.Event("CUSTOM", "secure_payment::progress")
 +  e:addHeader("Secure-Payment-Call-Id", CALL_ID or "")
 +  e:addHeader("Secure-Payment-Session", SESSION_ID or "")
@@ -188,13 +189,23 @@ index 0000000..6b33cbe
 +  if entered then e:addHeader("Secure-Payment-Entered", tostring(entered)) end
 +  if of then e:addHeader("Secure-Payment-Of", tostring(of)) end
 +  if attempt then e:addHeader("Secure-Payment-Attempt", tostring(attempt)) end
++  if reason then e:addHeader("Secure-Payment-Reason", reason) end
 +  e:fire()
 +end
 +
-+local function final(state)
++-- The final event. State: completed | cancelled | failed | customer_hangup
++-- (what the CRM acts on). A "failed" also carries a coarse reason, so the
++-- CRM can tell a system fault from a customer who gave up:
++--   setup      config, secret, pins or libraries wrong on this box
++--   transport  API unreachable, TLS check failed, connection dropped
++--   declined   the gateway refused the card (last try, or not retryable)
++--   timeout    no key in time          invalid  3 invalid entries
++--   hangup     the channel went away   error    unexpected script error
++-- Never a digit.
++local function final(state, reason)
 +  if finished then return end
 +  finished = true
-+  progress(state)
++  progress(state, nil, nil, nil, nil, state == "failed" and (reason or "error") or nil)
 +end
 +
 +-- Customer hung up mid-entry: tell the CRM, which ends the agent leg so the
@@ -545,7 +556,19 @@ index 0000000..6b33cbe
 +  if not (TOKENIZE_URL and TOKENIZE_URL:match("^https://")) then
 +    return false, "tokenize url missing or not https"
 +  end
++  -- The secret is first needed at tokenize, after the customer has keyed
++  -- the whole card: check it now, before anything is asked for.
++  if not read_secret() then
++    return false, "secret file missing, unreadable or malformed"
++  end
 +  return true
++end
++
++-- A field that ended without a value: "*" is the customer's choice, the
++-- rest are failures with their reason.
++local function field_failed(why)
++  if why == "star" then return "cancelled" end
++  return "failed", why
 +end
 +
 +local function main()
@@ -553,7 +576,7 @@ index 0000000..6b33cbe
 +  if not ready then
 +    log("err", "refusing to collect: " .. why)
 +    play("unable_to_process.wav")
-+    return "failed"
++    return "failed", "setup"
 +  end
 +  -- API reachable and its certificate right, before the customer keys
 +  -- anything (sends nothing).
@@ -561,26 +584,26 @@ index 0000000..6b33cbe
 +  if not reachable then
 +    log("err", "tokenize endpoint not usable (" .. kind .. "): " .. reason)
 +    play("unable_to_process.wav")
-+    return "failed"
++    return "failed", kind
 +  end
 +  play("payment_intro.wav")   -- "...press star at any time to go back to your agent"
 +
 +  for card_attempt = 1, MAX_ATTEMPTS do
 +    local pan, r1 = collect("card", "enter_card_number.wav", 13, 19, 16, valid_pan)
-+    if not pan then return r1 == "star" and "cancelled" or "failed" end
++    if not pan then return field_failed(r1) end
 +    local amex = is_amex(pan)
 +
 +    local expiry, r2 = collect("expiry", "enter_expiry.wav", 4, 4, 4, valid_expiry)
-+    if not expiry then pan = nil; return r2 == "star" and "cancelled" or "failed" end
++    if not expiry then pan = nil; return field_failed(r2) end
 +
 +    local cvv_len = amex and 4 or 3
 +    local cvv, r3 = collect("cvv", amex and "enter_cvv_amex.wav" or "enter_cvv.wav",
 +      cvv_len, cvv_len, cvv_len, function(d) return #d == cvv_len end)
-+    if not cvv then pan, expiry = nil, nil; return r3 == "star" and "cancelled" or "failed" end
++    if not cvv then pan, expiry = nil, nil; return field_failed(r3) end
 +
 +    local zip, r4 = collect("zip", "enter_zip.wav", 5, 5, 5,
 +      function(d) return d:match("^%d%d%d%d%d$") ~= nil end)
-+    if not zip then pan, expiry, cvv = nil, nil, nil; return r4 == "star" and "cancelled" or "failed" end
++    if not zip then pan, expiry, cvv = nil, nil, nil; return field_failed(r4) end
 +
 +    play("one_moment.wav")
 +    local saved, reason, retryable = tokenize(pan, expiry, cvv, zip)
@@ -595,11 +618,11 @@ index 0000000..6b33cbe
 +    -- whole card again can't help while the API or its certificate is wrong.
 +    if reason == "transport" or reason == "setup" or not retryable or card_attempt == MAX_ATTEMPTS then
 +      play("unable_to_process.wav")
-+      return "failed"
++      return "failed", reason
 +    end
 +    play("card_not_accepted_try_again.wav")
 +  end
-+  return "failed"
++  return "failed", "declined"
 +end
 +
 +-- No key may reach a log line, a DTMF event or digits_dialed (see the top
@@ -608,13 +631,13 @@ index 0000000..6b33cbe
 +-- help: it can only make a channel more verbose than the global level.)
 +session:setVariable("sensitive_dtmf", "true")
 +
-+local ok, result = pcall(main)
++local ok, result, reason = pcall(main)
 +if not ok then
 +  log("err", "unhandled error in secure_payment (details withheld)")
-+  result = "failed"
++  result, reason = "failed", "error"
 +end
 +if not hung_up then
-+  final(result or "failed")
++  final(result or "failed", reason)
 +  reconnect()
 +end
 +collectgarbage("collect")
