@@ -1,0 +1,3 @@
+# lab.py pci P24 with secure_payment.lua from PR4 at docs 6ce2e56 (before a100e44): the watchdog takes the call at 180.03 s mid-field
+{"case": "P24_watchdog_mid_field", "final_state": null, "mock_requests": 2, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "card_not_accepted_try_again.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "card_not_accepted_try_again.wav", "enter_card_number.wav", "enter_expiry.wav"], "pass": false, "error": null}
+{"case": "P24_watchdog_mid_field", "stored_recording": {"uploads": 1, "wall_s": 187.28, "uploaded_after_hangup_s": 10.32, "stored_s": 187.14}, "pass": false}

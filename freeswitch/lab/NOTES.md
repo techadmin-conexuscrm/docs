@@ -1,7 +1,11 @@
 ## What the lab found (plain words)
 
 Severity is for tonight's window. "Draft" = one of the five drafts; "BE" = a
-ConexusCRM-BE branch the drafts serve. The drafts were not changed.
+ConexusCRM-BE branch the drafts serve. Items 1-17 are the first run's
+findings, each with what has been done since; items 18-24 came from the
+independent review of the lab and were fixed in the second pass. The table
+in `results.md` is the run on the fixed drafts; `failfirst/` holds the runs
+that show each new test failing before its fix.
 
 ### Stop-ship for secure card entry (PR4 + PR5 as drafted)
 
@@ -39,6 +43,10 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
      the keys and the entry completed normally.
    - Cleanup if this ever ran on a real call: the CDR json files and the
      FreeSWITCH log on the box.
+   - **Fixed in PR4**: `sensitive_dtmf=true` is the extension's first action
+     (and the script sets it again). Since the second pass it is also
+     **unset when the entry ends** (item 21): left on, FreeSWITCH drops every
+     key the customer presses across a bridge for the rest of the call.
 
 2. **If the API drops the connection mid-request, the customer's call hangs
    forever and burns a CPU core (P11).** A crashed or restarted API process,
@@ -54,6 +62,9 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    customer leg was still up after the agent hung up); only a FreeSWITCH
    restart does. Four of these would saturate a 4-core box.
    Fix: stop reading after the first failed read (return "transport" at once).
+   **Fixed in PR4** (every read stops at the first failure; since the second
+   pass all reads are also non-blocking, item 22): P11 now ends "failed"
+   with "unable to process" and the customer back with the agent.
 
 ### Voicemail drop (BE-17 / PR13, and what PR1 makes possible)
 
@@ -93,10 +104,27 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    the long talker was held 25 s in dead air and then hung up (an abandoned
    call, far past the 2-second connect window); the lab now counts that as a
    failure.
+   **Fixed** in ConexusCRM-BE `claude/campaign-be17-voicemail-drop` (merged
+   up to pr13 and pr14) and in RUNBOOK F3: wait for 1.5 s of quiet
+   (`wait_for_silence:200 75 0 30000`). Every voicemail case now drops after
+   the beep, or after a greeting with no beep (about 2 s after the line goes
+   quiet). **Not fixed: the human guard.** Pressed on a person, BE-17 still
+   plays the message (be17/runbook human rows fail). A guard needs AMD
+   started at answer on dialer calls and the drop refused unless
+   `amd_result` is MACHINE (BE-12's work, not BE-17's). AMD started at the
+   button press, mid-greeting, cannot tell (simulated: greetings come out
+   HUMAN). The same applies to RUNBOOK F1 `amdtest`, which starts AMD after
+   the greeting has begun: read its verdict with that in mind.
 4. **BE-17 plays an https link, and `playback:https://...` needs mod_httapi,
    which does not load with this repo's config** (no `httapi.conf.xml`:
    "open of httapi.conf failed"). In the lab the https drop failed to play.
-   Check `module_exists mod_httapi` on the real box (E1 already lists it).
+   **Fixed**: PR1 adds a minimal `httapi.conf.xml` (file cache only). That
+   then showed a second fault: mod_httapi sends a HEAD before the GET and
+   gives up when it fails, and a presigned S3 link is signed for GET only
+   (S3 refuses the HEAD). BE-17 now plays `https://(nohead=true)<host/path>`
+   (mod_httapi's own URL parameter). Note: mod_httapi's file cache never
+   verifies the server's certificate (it turns peer verification off for
+   https and has no setting for it).
 
 ### AMD and the backend (BE-12 is not built yet; these are its inputs)
 
@@ -151,7 +179,9 @@ ConexusCRM-BE branch the drafts serve. The drafts were not changed.
    (a plain `docker run`, any path around compose): `esl_password` is empty
    and mod_event_socket falls back to its built-in default, `ClueCon`, which
    is then accepted (E8). Only the ACL (127.0.0.1 and the API box) stands in
-   the way. Low effort fix: refuse to start when it is empty.
+   the way. **Fixed in PR3**: `vars.xml` sets `esl_password` with
+   `exec-set`: the variable when set and not empty, otherwise 48 random hex
+   digits nobody knows (E8 passes).
 10. The password is also written, expanded, into the preprocessed config
     `/var/log/freeswitch/freeswitch.xml.fsxml` (mode 0644, in the `fs_log`
     volume). Root-only on the host; worth knowing.
@@ -202,3 +232,59 @@ wrong name before anything is sent; the API being down is caught before the
 customer types anything; `#` after a fixed-length field doesn't spill into
 the next one (B8); typing ahead during the intro works; the dialplan fallback
 (script missing) reconnects the customer at once and unmasks.
+
+### Found by the review of the lab, fixed in the second pass
+
+18. **The lab passed a held, then hung-up person, and a drop over the beep**
+    (see items 3 and 7; amdbeep human rows, PLAYBACK_START timing).
+19. **The pre-entry probe only proved the TLS front end** (PR4,
+    `probe_api`). With the API app down behind Caddy (a restart, a crash,
+    the migration restart loop), a wrong `TELEPHONY_PAYMENT_SECRET` on the
+    API, or no secret file, the customer keyed the whole card and then heard
+    "unable". **Fixed**: the probe is one authenticated request with the ids
+    and no card. The API checks the secret first (401) and then the body,
+    so the app itself answers 400 `{"issues": ...}`; a 502/503 is the front
+    end with no app behind it. P22 (app 502) and P23 (secret mismatch) are
+    refused before the intro; P21 (no secret file) too.
+20. **A queue caller's callback key "0" took over secure entry** (PR4).
+    `scripts/api/app.py` binds `queue,0` to the callback opt-in on the
+    caller's channel and clears it only on a queue timeout. During entry
+    every key went through that binding first: the first "0" ran the opt-in
+    (prompt, hang-up) mid-card, and the other keys were copied into
+    `last_non_matching_digits` (CDR, CHANNEL_HANGUP). **Fixed**:
+    `clear_digit_action all` before the script (P26). **Not fixed here
+    (needs its own freeswitch-conf PR):** the binding stays on the caller for
+    the whole answered call, so a caller who presses 0 while talking to an
+    agent (or after a transfer) is told "we will call you back" and hung up.
+    app.py should clear the `queue` realm once the caller is bridged.
+21. **`sensitive_dtmf` stayed on after the entry** (item 1's fix): every
+    key the customer pressed afterwards was dropped at the bridge, so an
+    outside menu the agent transfers them to never heard "1 to confirm".
+    **Fixed**: the script unsets it as its last step and the dialplan
+    fallback does too (P27: the agent's phone receives a key pressed after
+    the entry). Left over: if the script never ends (the API's 3-minute
+    watchdog takes the call), the variable stays; `end-secure-entry.ts`
+    should unset it too (ConexusCRM-BE, separate change).
+22. **A slow card save stopped the call recording** (PR4, `tokenize`). The
+    blocking LuaSec read kept the customer's channel from reading media, so
+    the recording stopped growing; upload-audio, which uploads and deletes a
+    recording that has not grown for 10 s, uploaded it mid-call and the rest
+    of the call (the sale confirmation, the consent to the charge) was lost.
+    The lab now runs upload-audio: on the previous PR4, P09 (20 s backend)
+    and P25 (12 s saves) were uploaded 17 s and 75 s before hang-up as
+    headerless files. **Fixed**: every socket is non-blocking; the script
+    waits in `session:sleep(100)`, which keeps media flowing; one 15 s
+    deadline covers a request from connect to last byte. Every PCI case now
+    checks the stored recording: one upload, after hang-up, the whole call.
+    Left over (separate freeswitch-conf PR): upload-audio's "idle 10 s =
+    finished" rule still bites on any other stall; it should upload on
+    CHANNEL_HANGUP/RECORD_STOP instead.
+23. **The script's retries outran the API's 3-minute watchdog** (PR4).
+    Fixed by the static review (a100e44: no key after 150 s, no new card
+    attempt with under 55 s left). Measured here: P24 (a person's pace,
+    every card declined) and P25 (12 s saves) end with "unable to process"
+    at 135-144 s, never at the watchdog.
+24. **The lab's L5 check** counted every `RECV DTMF` line; with item 21 a
+    key pressed after the entry is logged on purpose. L5 now fails on any
+    key logged inside a secure-entry window.
+
