@@ -498,10 +498,13 @@ Each gap has a proposed BE addition, small and behind the same `CAMPAIGN_DIALER_
 
 ## 6. U1 contract for U2–U6 (as built on `claude/campaign-fe-foundation`)
 
+**Backend baseline.** Types, requests and the e2e mock follow the campaign stack's head, `claude/campaign-pr14-company-pool-monitor-tiles` **39874d6a** (re-synced 23 Oct from the older `campaign-be18-consent-mode` 48bbdd37). That head has built **G-4** (company-wide never-reached settings), **G-7/G-8** (monitor tiles), **G-9** (the call's campaign card), **G-10** (Preview fields on My campaigns, and the `dialer:preview_offered` push), **G-12b** (the consent sources) and **G-13** (voicemail consent per client and placing company). Still **not built**: G-1 lead lists, G-2 registry, G-3 consent coverage, G-5 pool summary, G-11 agent stats, G-12a the consent's customer name.
+
 **Starting point.** Branch from `origin/claude/campaign-fe-foundation`. Once U1 has merged, **merge** `origin/master` in; never rebase or force-push.
 
 **Gates and tests:**
 - Run the gates as U1 did: lint compared with the master baseline (49 warnings, 0 errors), `npx tsc --noEmit -p tsconfig.app.json`, `npm run build`, and `NODE_PATH=$(npm root -g) npx playwright test -c e2e`.
+- To run only some specs, filter on the file name with its slash (`-c e2e /campaign-gates`): a bare `campaign-` also matches the worktree's own path (`…/campaign-fe/…`) and runs the whole suite.
 - Specs turn the switch on with `context.addInitScript(() => { window.__CAMPAIGN_DIALER_UI__ = true })`. This dev-only override is ignored in production builds.
 - They turn the backend on with `api.campaign.state.live = true`.
 
@@ -511,10 +514,10 @@ Each gap has a proposed BE addition, small and behind the same `CAMPAIGN_DIALER_
 
 | Unit | Replace or own | Add under | Mock file | Types / requests file |
 |---|---|---|---|---|
-| U2 | `src/pages/admin/dialer/{SettingsTab,CallbacksTab,CategoriesTab}.tsx` | `src/pages/admin/dialer/` | `e2e/mock-campaign-dialer/{companySettings,schedule,dispositions}.ts` | `types/campaignDialer/{companySettings,schedule,dispositions}.ts`, `requests/{companySettings,schedule,dispositions}.ts`. Also **owns fixes to `shared/RecordingField.tsx` and `shared/wav.ts`** |
-| U3 | `src/dialer/campaigns/tabs/CampaignsTab.tsx` | `src/dialer/campaigns/campaigns/` | `campaigns.ts` | `campaigns.ts` |
+| U2 | `src/pages/admin/dialer/{SettingsTab,CallbacksTab,CategoriesTab}.tsx` | `src/pages/admin/dialer/` | `e2e/mock-campaign-dialer/{companySettings,schedule,dispositions}.ts` (not the consent part) | `types/campaignDialer/{companySettings,schedule,dispositions}.ts`, `requests/{companySettings,schedule,dispositions}.ts`. Also **owns fixes to `shared/RecordingField.tsx` and `shared/wav.ts`** |
+| U3 | `src/dialer/campaigns/tabs/CampaignsTab.tsx` | `src/dialer/campaigns/campaigns/` | `campaigns.ts`, `sequences.ts` | `campaigns.ts`, `sequences.ts` |
 | U4 | `src/dialer/campaigns/tabs/LeadsTab.tsx` | `src/dialer/campaigns/leads/` | `consents.ts`, `dnc.ts`, `leadLists.ts` | `consents.ts`, `dnc.ts`, `leadLists.ts` |
-| U5 | `src/dialer/campaigns/tabs/{MonitorTab,RulesTab}.tsx` | `src/dialer/campaigns/monitor/`, `src/dialer/campaigns/rules/` | `monitor.ts`, `rules.ts` | `monitor.ts`, `rules.ts` |
+| U5 | `src/dialer/campaigns/tabs/{MonitorTab,RulesTab}.tsx` | `src/dialer/campaigns/monitor/`, `src/dialer/campaigns/rules/` | `monitor.ts`, `rules.ts`, `reports.ts` | `monitor.ts`, `rules.ts`, `reports.ts` |
 | U6 | `src/dialer/campaigns/mycalls/MyCallsCampaignMode.tsx` (wraps the phone screen) | `src/dialer/campaigns/mycalls/` | `agent.ts`, `preview.ts` | `agent.ts`, `preview.ts` |
 | U7 (last) | the consent slot inside U2's `SettingsTab` | `src/pages/admin/dialer/consent/` | the consent part of `companySettings.ts` | the consent part of `companySettings.ts` |
 
@@ -522,55 +525,62 @@ Each gap has a proposed BE addition, small and behind the same `CAMPAIGN_DIALER_
 - **/dialer tabs:** `export default function XTab({ organizationId, access }: CampaignTabProps)` (`src/dialer/campaigns/tabs/types.ts`).
   - Each tab is lazy-loaded and mounted only while it is selected.
   - **My calls** stays mounted (hidden) under other tabs, and the row jumps back to it whenever a call rings or connects.
+  - The phone screen sits **outside** the Radix `Tabs` root, in one `div` (`data-testid="dialer-mycalls"`, `display: contents` while shown) that is always at the same place in the tree. So the row appearing or going (the settings answer arriving, the platform switch going off) never remounts it mid-call. Keep it that way: `e2e/campaign-gates.spec.ts` checks that a half-typed number survives the row arriving.
 - **Org Settings tabs:** `({ organizationId, access }: DialerSettingsTabProps)`; Settings also gets `existing: ReactNode` (today's cards, which must stay below the new ones) (`src/pages/admin/dialer/types.ts`).
 - **`access`** comes from `useCampaignDialerAccess(orgId?)` (`src/dialer/campaigns/access.ts`):
   - `status`: `off | loading | platform_off | forbidden | error | ready`, and `visible` (true when ready);
-  - `settings: CompanyCampaignDialing`;
+  - `settings: CompanyCampaignDialing` (now with `pool`);
   - `companyOn`;
   - `rights: { canReadCampaigns, canManageCampaigns, isCompanyAdmin, canReadConsents, canAdminDnc, canReadRules, isSuperAdmin }`, mirroring the backend rules listed in that file.
+  - A background refresh that fails for a passing reason (network, 5xx) keeps the last good settings, so the tabs don't vanish under the user; "Route not found" and refusals always count.
 - **Agents:** `useMyCampaigns()` returns `{ campaigns, loading, error }`. It is empty while the switch is off or the route is missing.
 
 ### 6.3 Requests (`@/dialer/campaigns/requests`, or a per-area file)
 
 **How they fail.** None of them toasts. Every failure is a `DialerApiError { status, code (data.code), details (data), message }`.
-- `isRouteMissing(e)`: the backend has no such route (platform off, or a proposed endpoint not built yet). Hide that part of the screen; don't show an error.
+- `isRouteMissing(e)`: the backend has no such route (platform off, or an endpoint not built yet). Hide that part of the screen; don't show an error.
 - `isForbidden(e)`: the user may not do this.
 - A 400 from a request schema has `issues` (zod); `extractErrorMessage` turns it into the message.
 - A 400 from the callback schedule has `details.problems: ScheduleProblem[]`, one per field.
+- A 429 carries `details.retryAfterSeconds`.
 
 | Area | Functions |
 |---|---|
 | campaigns | `listCampaigns(query)`, `getCampaign(id)`, `createCampaign(body)`, `updateCampaign(id, body)`, `startCampaign(id)`, `pauseCampaign(id)`, `getPauseEverything()`, `setPauseEverything(body)` |
-| companySettings | `getCompanySettings(org)`, `setCompanyCampaignDialing(body)`, `setDefaultVoicemail(body)`, `setVoicemailDropResult(body)`, `setCompanyPoolDefaults(body)` (**proposed G-4**), `getVoicemailConsent(org)`, `setVoicemailConsentMode(body)`, `getVoicemailConsentForPlatform(org)` (**the last three are U7 only; subject to change**) |
-| agent | `getMyCampaigns()`, `setMyCampaignDialing(campaignId, body)`, `dropVoicemail(callId, org)` (a refusal is a 200 `{dropped:false, reason, message}`), `getCampaignCallContext(callId, org)` (**proposed G-9**; `null` = not a campaign call) |
-| preview | `nextPreviewCard(body)` (a card or `null`; 409 when the agent isn't free), `getPreviewCard(leadId, org)`, `callPreviewLead(leadId, body)`, `skipPreviewLead(leadId, body)` |
-| monitor | `getCampaignMonitor(org)`; live updates on socket `dialer:campaign_monitor` (typed in `ServerToClientEvents`); 30 reads a minute; `MONITOR_POLL_MS = 10_000` |
+| sequences | `listSequences(org)` → `{ sequences, platformDefault }`, `createSequence(body)`, `updateSequence(id, body)`, `deleteSequence(id)` (BE-4d; admins write, 20 a minute) |
+| companySettings | `getCompanySettings(org)` (includes `pool`), `setCompanyCampaignDialing(body)`, `setDefaultVoicemail(body)`, `setVoicemailDropResult(body)`, `setCompanyPoolDefaults(body)` (G-4: only the fields sent change; answers `{ organizationId, ...pool }`), and for **U7 only**: `getVoicemailConsent(org)`, `setVoicemailConsentMode(body)`, `getVoicemailConsentForPlatform(org)` |
+| agent | `getMyCampaigns()`, `setMyCampaignDialing(campaignId, body)`, `dropVoicemail(callId, org)` (a refusal is a 200 `{dropped:false, reason, message}`), `getCampaignCallContext(callId, org)` (G-9: always an object; `campaign: null` on a manual or queue call; `drop` is the button's own check, its `reason` can also be `call_not_live`; 60 reads a minute) |
+| preview | `nextPreviewCard(body)` (a card or `null`; 409 when the agent isn't free), `getPreviewCard(leadId, org)`, `callPreviewLead(leadId, body)`, `skipPreviewLead(leadId, body)`. Socket `dialer:preview_offered` `{ organizationId, dialerCampaignId, waiting, at }` reserves nothing: one tab pulls `next` when it arrives |
+| monitor | `getCampaignMonitor(org)`; live updates on socket `dialer:campaign_monitor` (typed in `ServerToClientEvents`); 30 reads a minute; `MONITOR_POLL_MS = 10_000`. Rows carry `agents.paused`, `agents.list` (name, live state and since, calls and talk time today), `leads.fresh/callbacks` and `preview.{waiting, skippedToday}` |
+| reports | `getReachReport(query)` (BE-16c: one campaign or all, at most 92 days, default the last 30; 10 a minute) |
 | schedule | `getCallbackSchedule(org, campaignId?)`, `saveCallbackSchedule(body)`, `removeCampaignOverride(org, campaignId)`, `listCallbackScheduleChanges(org, limit?)` |
 | consents | `listWrittenConsents(query)`, `addWrittenConsent(body)`, `importWrittenConsents(body)` (≤5,000 rows; problems listed, not thrown), `revokeWrittenConsent(id, body)`, `exportWrittenConsents(org, status?)` |
 | dnc | `searchDnc(org, body)` (a top-level page), `addDnc(org, body)` → `{entry: DncRow, alreadyListed}`, `removeDnc(org, entryId, body)`, `exportDnc(org, status?)` |
 | rules | `getCallingRules(org)`, `getStateRuleChanges(state, org)`, `setStateRuleReview(state, body)` (super admins), `searchHolds(org, body)` (a top-level page), `exportHolds(org, filters)` |
 | dispositions | `getDispositionsWithCount(org)` → `{data, uncategorisedCount}`, `createDispositionWithCategory(body)`, `updateDispositionCategory(id, body)`. **After a change, also invalidate `["dispositions", org]`**, the key the wrap-up panel and the CRM use. |
-| leadLists | `listLeadLists(org)`, `importLeadList(body)` (**proposed G-1**) |
+| leadLists | `listLeadLists(org)`, `importLeadList(body)` (**proposed G-1, not built**: 404 today) |
 
 **Exports** use `downloadCsv(path, params, fallbackName)`, which `CsvExportButton` wraps.
 
-**Query keys:** `campaignKeys.*` (`src/dialer/campaigns/queryKeys.ts`), all under `["campaign-dialer"]`.
+**Query keys:** `campaignKeys.*` (`src/dialer/campaigns/queryKeys.ts`), all under `["campaign-dialer"]`; `sequences`, `reach` and `reachOf` were added with the new areas.
 
 ### 6.4 Types (`@/types/campaignDialer`)
-- Every request, response, enum and limit is typed exactly from the BE tip (48bbdd37), one file per area. The enums are `as const` arrays (e.g. `DIALING_BLOCKERS`, `DISPOSITION_CATEGORIES`, `DROP_REFUSALS`, `CALLING_HOURS_HOLD_REASONS`), and the limits are constants (`CAMPAIGN_LIMITS`, `WRITTEN_CONSENT_IMPORT_MAX_ROWS`, …).
-- **Proposed fields** are marked "Proposed (G-n)" and are optional or nullable:
-  - `MyCampaign.previewEnabled`, `previewCountdownSeconds`, `wrapUpSeconds` (G-10a);
-  - `CompanyCampaignDialing.pool` (G-4), and campaign `pool*` as `| null` (G-4);
-  - `WrittenConsent.customerName` (G-12a);
-  - `CampaignCallContext` (G-9), `PreviewOfferedPayload` (G-10b, socket `dialer:preview_offered`), `LeadList*` (G-1).
-- **When the backend lands a gap,** the owning unit aligns its own types file and mock file with it.
+- Every request, response, enum and limit is typed exactly from the backend head (39874d6a), one file per area. The enums are `as const` arrays (e.g. `DIALING_BLOCKERS`, `DISPOSITION_CATEGORIES`, `DROP_REFUSALS`, `CALLING_HOURS_HOLD_REASONS`, `CAMPAIGN_CALL_LANES`, `REACH_SLOTS`), and the limits are constants (`CAMPAIGN_LIMITS`, `DIALER_SEQUENCE_LIMITS`, `REACH_REPORT_MAX_DAYS`, `WRITTEN_CONSENT_IMPORT_MAX_ROWS`, …).
+- **Changed by the re-sync** (a unit that started from the WIP snapshot must follow these):
+  - `MyCampaign.previewEnabled`, `previewCountdownSeconds`, `wrapUpSeconds` are required (G-10a);
+  - `CompanyCampaignDialing.pool: CompanyPoolDefaults` is required; `SetCompanyPoolDefaultsRequest` is partial; campaign `pool*` fields are `| null` overrides (null follows the company; send null to go back);
+  - `CampaignCallContext` is `{ callId, campaign: CampaignCallCampaign | null, consentBasis: "consent_record" | "client_attested" | null, drop }`, and `callback` is `{ tries, lastAt, neverReached: true }` (no slots);
+  - `PreviewOfferedPayload` is `{ organizationId, dialerCampaignId, waiting, at }`;
+  - `WRITTEN_CONSENT_SOURCES` are `web_form, signed_paper, e_signature, recorded_agreement, csv_import` with the server's labels, and `WRITTEN_CONSENT_MANUAL_SOURCES` (the first four) for the add form;
+  - voicemail consent is per pair: `VoicemailConsentView { organizationId, warning, pairs: VoicemailConsentPair[], history }` (each pair: client, placing company, `self`, `side`, `mode`, `inForce`, `canSign`, `attestation`); `SetVoicemailConsentModeRequest` takes `clientOrganizationId` and `placingOrganizationId`; the mode labels are the screen's own (`VOICEMAIL_CONSENT_MODE_LABELS`).
+- **Still proposed** (optional, or their routes answer 404): `WrittenConsent.customerName` (G-12a) and `LeadList*` (G-1). **When the backend lands one,** the owning unit aligns its own types file and mock file with it.
 - `Disposition.category?` is in `src/types/disposition.ts`.
-- **Permissions:** `"manage#dialer_campaign" | "read#dialer_campaign"` are in `Permission`. The role editor lists them only while the switch is on.
-- **Sockets** (`ServerToClientEvents`): `agent:campaign_settings_changed`, `dialer:campaign_auto_paused`, `dialer:wrap_up_overdue`, `dialer:campaign_monitor`, `call:customer_ringing`, `dialer:preview_offered` (proposed).
+- **Permissions:** `"manage#dialer_campaign" | "read#dialer_campaign"` are in `Permission`. The role editor lists them (as "Can create, change, start and pause dialer campaigns" and "Can see dialer campaigns and the live monitor", in the editor's own wording) only while the switch is on.
+- **Sockets** (`ServerToClientEvents`): `agent:campaign_settings_changed`, `dialer:campaign_auto_paused`, `dialer:wrap_up_overdue`, `dialer:campaign_monitor`, `call:customer_ringing`, `dialer:preview_offered`.
 
 ### 6.5 Shared widgets (`src/dialer/campaigns/shared/`)
-These are stable. Ask before changing them; RecordingField and wav belong to U2.
-- `RecordingField({ id, label, organizationId, fileId, maxSeconds, onChange(fileId|null): Promise<void>, disabled?, allowClear? })`: upload or record (encoded as WAV in the browser, stopped at the limit), with a player and inline errors.
+These are stable. Ask before changing them; RecordingField and wav belong to U2. Colours come from the app's tokens only (`success`, `warning`, `destructive` and their `-soft` shades).
+- `RecordingField({ id, label, organizationId, fileId, maxSeconds, onChange(fileId|null): Promise<void>, disabled?, allowClear? })`: upload or record (encoded as WAV in the browser, stopped at the limit), with a player and inline errors. A recording stopped by leaving the screen is thrown away, never uploaded. **G-15 checked:** the backend reads a WAV's length from its header (`lib/audio.ts`); a WAV from `encodeWav` reads back exactly (30 s, 10 s and 7.25 s at 48, 44.1 and 16 kHz). Still to do once on a real browser: that Chrome's `MediaRecorder` output decodes in `toWav`.
 - `CsvExportButton({ run })`.
 - `ConfirmDialog({ open, onOpenChange, title, confirmLabel, onConfirm })`: a refusal shows inside the dialog.
 - `HourSelect`.
@@ -584,17 +594,20 @@ These are stable. Ask before changing them; RecordingField and wav belong to U2.
 - **State** (`api.campaign.state`):
   - `live`: false by default, and then every route answers the backend's catch-all 404;
   - `platformEnabled`;
-  - `proposed: { G1, G4, G9, G10, G12 }`: all off, so those routes answer 404;
-  - `rateLimited: Set<"PUT my-campaigns" | "POST voicemail-drop" | "preview" | "GET monitor" | "POST dnc" | "PUT callback-schedule" | "PUT voicemail-consent">`;
-  - each area's own slice (e.g. `campaigns.members` / `activeNumbers` / `audioSeconds`, `agent.calls` / `phoneSystemRefuses` / `resultNotSaved`, `preview.agentFree`, `monitor.counts`).
-- **Seed helpers** (`api.campaign.seed`): `campaign`, `previewCard`, `consent`, `dnc`, `hold`, `company`, `dispositions`.
+  - `proposed: { G1, G12 }`: both off, so the lead-list routes answer 404 and consent records carry no `customerName` (the built gaps are always served);
+  - `rateLimited: Set<"PUT my-campaigns" | "POST voicemail-drop" | "GET campaign-context" | "preview" | "GET monitor" | "GET reach" | "POST dnc" | "PUT callback-schedule" | "PUT company-pool" | "PUT voicemail-consent" | "sequences">`;
+  - `gate: Promise<void> | null`: while set, every campaign and do-not-call route waits for it (a slow backend);
+  - each area's own slice (e.g. `campaigns.members` / `activeNumbers` / `audioSeconds`, `agent.calls` / `phoneSystemRefuses` / `resultNotSaved`, `preview.agentFree`, `monitor.counts`, `company.callCentres` / `consentChanges`, `sequences.byId`, `reports.reach` / `queries`).
+- **Seed helpers** (`api.campaign.seed`): `campaign`, `previewCard`, `consent`, `dnc`, `hold`, `company`, `dispositions`, `callCentre(client, placing)` (a call centre placing calls for a client, for the consent pairs).
 - **Behaviour:**
   - It refuses with the backend's own status, message and `data.code`.
-  - Rights come from the merged `user.permissions` (`http.ts rightsOf`). Contractor collaborations are not modelled.
+  - Rights come from the merged `user.permissions` (`http.ts rightsOf`). Contractor collaborations are not modelled for rights; for voicemail consent, `seed.callCentre` adds the pair and the placing company's admin (merged permissions there) may sign.
+  - A mock call's placing company (`agent.calls[id].placingOrganizationId`) defaults to the client itself; `null` means it can't be told, so no attestation applies.
   - While `live`, `/v1/dispositions` is answered by the mock, with uuid ids and categories.
-- **Contract checks:** `e2e/campaign-contract.spec.ts` compares the mock with the backend's contract fixtures (copy new ones into `e2e/fixtures/campaign-dialer/`).
+- **Contract checks:** `e2e/campaign-contract.spec.ts` compares the mock with the backend's contract fixtures (copy new ones into `e2e/fixtures/campaign-dialer/`) and pins the re-synced shapes above (pool, call card, consent pairs, monitor rows, sequences, reach report).
 
 ### 6.7 Known limits for later units
 - **A floor supervisor without campaign rights doesn't get the /dialer tab row** (the company-settings GET is refused), although the backend lets them read Calling rules. U5 may relax this in `tabs/RulesTab` gating by asking U1's owner for an `access` change.
 - **The tab row jumps to My calls when a call rings or connects, but doesn't lock the other tabs during a call.** U6 decides whether to lock them.
 - **`DialerApp` is touched by U1 only.** U6 hooks into the phone screen through `MyCallsCampaignMode` (which wraps it) and an extension slot it adds in its own files.
+- **The voicemail-consent history includes the signer's IP and browser** (the backend sends them to both companies' admins). U7 should not show them unless Eric asks; they stay in the record.
