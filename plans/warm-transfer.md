@@ -25,7 +25,7 @@ A warm transfer is a three-way: agent A adds colleague B, introduces the custome
   - live calls are updated.
 - No migration. No I/O inside a transaction. No card data or secrets in events. Nobody new is rung: B was already rung through the existing `dialTargetFor` path, which has the paused/unavailable check.
 
-**FE** (`claude/warm-transfer-keeps-call`, from origin/master 21c1dffd, head **d3e9ad2a**):
+**FE** (`claude/warm-transfer-keeps-call`, from origin/master 21c1dffd, head **2e258c21** (code in d3e9ad2a)):
 
 - `telephony-store.takeOverGuestCall(callId)` re-keys B's guest leg to the CRM call id, drops `conferenceGuest`, sets `handedOver`, and loads the call record.
 - `TelephonyProvider` listens for `call:handed_over`. Session listeners now look up the call id by session, so a re-keyed leg still clears correctly and gets its wrap-up.
@@ -47,7 +47,8 @@ A warm transfer is a three-way: agent A adds colleague B, introduces the custome
 - FE:
   - lint shows 49 warnings, the same as the baseline;
   - tsc is clean;
-  - build and the full Playwright suite: see the final report;
+  - build passes;
+  - full Playwright suite (re-run after a container restart): 412 passed, 2 failed. The failures are `integration.spec.ts:402` (supervisor rights) and `recording-playback.spec.ts:245` (playback retries). Neither touches telephony code. Both passed 2 out of 2 when re-run alone, so they look flaky under load. Re-check them before merging;
   - new e2e tests in `e2e/dialer.spec.ts`. The warm-transfer test **fails without the FE fix**, which I checked.
 
 ## A live test call must confirm
