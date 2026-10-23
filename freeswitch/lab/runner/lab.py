@@ -674,7 +674,8 @@ def judge(name, o, want_state, want_requests):
     rec = o["recording"]
     # an entry shorter than the 0.4 s guard band (P19: the script is missing) has no window to measure
     short = o.get("finished_after_s", 99) < 1.0
-    j["masked_silent"] = rec.get("masked", {}).get("nonzero_frames") == 0 and (short or rec.get("masked", {}).get("frames", 0) > 0)
+    mk = rec.get("masked", {})
+    j["masked_silent"] = (short and mk.get("frames") == 0) or (mk.get("nonzero_frames") == 0 and mk.get("frames", 0) > 0)
     j["voice_before"] = rec.get("before", {}).get("voiced_frac", 0) > 0.2
     customer_gone = name in ("P08_caller_hangup_mid_card", "P18_agent_hangup_mid_entry")
     j["voice_after"] = customer_gone or rec.get("after", {}).get("voiced_frac", 0) > 0.2
@@ -711,8 +712,20 @@ def suite_pci(names):
     rec.stop()
 
 
+def rejudge(names):
+    """Re-apply judge() to saved results (after a fix to the judge only)."""
+    for n in names:
+        o = json.load(open(f"{RES}/pci/{n}.json"))
+        _, _, want_state, want_requests = PCI_CASES[n]
+        o.update(judge(n, o, want_state, want_requests))
+        save("pci", n, o)
+        print(n, o["pass"])
+
+
 if __name__ == "__main__":
     s = sys.argv[1]
+    if s == "rejudge":
+        rejudge(sys.argv[2:])
     if s == "amd":
         suite_amd(int(sys.argv[2]) if len(sys.argv) > 2 else 3)
     elif s == "drop":

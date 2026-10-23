@@ -38,6 +38,15 @@ is merged. Your job:
 > - Eric was given the runbook's E1 read-only pre-checks (FS box and API box) to run during the morning lull. If he pastes the output, compare it to the GO table in RUNBOOK §E1.
 > - A safety-net check-in runs every 2 hours: it resumes dead runs, re-tests anything not clean, then does a final red-team pass (loop until 2 dry rounds).
 
+
+> **Update 2026-10-23, about 17:15 UTC:** the usage limit stopped every job around 14:55 UTC. The work so far is saved:
+> - the FS lab (`freeswitch/lab/`, which found stop-ship PCI issues and the `sensitive_dtmf=true` fix);
+> - the warm-transfer battle test (2 High and 5 Medium fixed, BE d6ec6696);
+> - the upsell core build (several High findings confirmed, fixes not yet done).
+>
+> Both workflow scripts now **halt** on an agent failure instead of skipping. Resumed: the battle-test run `wf_fa2d2f5c-37e` (FreeSWITCH first) and the warm-transfer finish.
+> **Parked until FreeSWITCH is clean:** the build run `wf_7b95e61b-3fb`. Resume it with `Workflow({scriptPath: ".../build-and-battle-test-wf_7b95e61b-3fb.js", resumeFromRunId: "wf_7b95e61b-3fb"})`.
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
