@@ -1,6 +1,6 @@
 # LAB ONLY. Overrides the repo's docker-compose.yml (with the drafts applied)
 # so the same services run on a private docker network with no way out:
-#   docker compose -p fslab -f <worktree>/docker-compose.yml -f compose.lab.yml up -d freeswitch event-listener far crm
+#   docker compose -p fslab -f <worktree>/docker-compose.yml -f compose.lab.yml up -d freeswitch event-listener upload-audio far crm
 # Needs LAB (this directory) and LABRUN (scratch dir: audio, pki, results) in
 # the environment, and FS_ESL_PASSWORD (a throwaway test value) in
 # <worktree>/.env, exactly as PR3 expects on the real box.
@@ -11,8 +11,11 @@
 #   - sip_profiles/external.xml is replaced by overlay/external.xml (lab IP,
 #     no TLS/WSS, the "kamailio" gateway points at the far-end container);
 #   - the image is conexus-fs:lab, built from the same Dockerfile.
-# voicemail-api and upload-audio are not started (not touched by the drafts;
-# upload-audio would try to reach AWS).
+# voicemail-api is not started (not touched by the drafts). upload-audio runs
+# unmodified: its URL is hard-coded to the API's real name, which on this
+# internal network (no route out) is an alias of the mock CRM, with a lab CA
+# certificate for it; so it uploads every finished recording to the mock and
+# deletes it, as in production, and the lab can check what was stored.
 networks:
   labnet:
     internal: true
@@ -43,6 +46,16 @@ services:
     network_mode: "service:freeswitch"
     restart: "no"
 
+  upload-audio:
+    image: conexus-fs:lab
+    container_name: fslab-upload-audio
+    network_mode: "service:freeswitch"
+    restart: "no"
+    environment:
+      - REQUESTS_CA_BUNDLE=/lab-pki/ca.crt
+    volumes:
+      - ${LABRUN}/pki:/lab-pki:ro
+
   far:
     image: conexus-fs:lab
     container_name: fslab-far
@@ -68,7 +81,7 @@ services:
     networks:
       labnet:
         ipv4_address: 10.88.231.30
-        aliases: [api.lab.test, other.lab.test]
+        aliases: [api.lab.test, other.lab.test, api.tryconexus.com]
     volumes:
       - ${LAB}/mock-crm:/lab/mock-crm:ro
       - ./default_voicemail.wav:/lab/vm/default_voicemail.wav:ro

@@ -1,0 +1,21 @@
+# lab.py pci on the fixed drafts (PR4 with the probe, non-blocking I/O, clear_digit_action, unset), upload-audio running
+{"case": "P01_visa_good", "final_state": "completed", "mock_requests": 1, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "payment_captured.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P22_front_up_app_502", "final_state": "failed", "mock_requests": 0, "prompts": ["unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P23_secret_mismatch", "final_state": "failed", "mock_requests": 0, "prompts": ["unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P26_queue_digit_action_bound", "final_state": "completed", "mock_requests": 1, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "payment_captured.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P27_dtmf_across_bridge_after_entry", "final_state": "completed", "mock_requests": 1, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "payment_captured.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P09_backend_slow_20s", "final_state": "failed", "mock_requests": 1, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P10_backend_down_at_start", "final_state": "failed", "mock_requests": 0, "prompts": ["unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P21_secret_file_missing", "final_state": "failed", "mock_requests": 0, "prompts": ["unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P25_watchdog_during_tokenize", "final_state": "failed", "mock_requests": 2, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "card_not_accepted_try_again.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P11_backend_crash_mid_request", "final_state": "failed", "mock_requests": 1, "prompts": ["payment_intro.wav", "enter_card_number.wav", "enter_expiry.wav", "enter_cvv.wav", "enter_zip.wav", "one_moment.wav", "unable_to_process.wav", "returning_to_agent.wav"], "pass": true, "error": null}
+{"case": "P01_visa_good", "stored_recording": {"uploads": 1, "wall_s": 57.66, "uploaded_after_hangup_s": 11.01, "stored_s": 57.28}, "pass": true}
+{"case": "P22_front_up_app_502", "stored_recording": {"uploads": 1, "wall_s": 11.1, "uploaded_after_hangup_s": 10.73, "stored_s": 10.82}, "pass": true}
+{"case": "P23_secret_mismatch", "stored_recording": {"uploads": 1, "wall_s": 11.12, "uploaded_after_hangup_s": 10.53, "stored_s": 10.84}, "pass": true}
+{"case": "P26_queue_digit_action_bound", "stored_recording": {"uploads": 1, "wall_s": 57.42, "uploaded_after_hangup_s": 10.09, "stored_s": 56.7}, "pass": true}
+{"case": "P27_dtmf_across_bridge_after_entry", "stored_recording": {"uploads": 1, "wall_s": 59.56, "uploaded_after_hangup_s": 10.38, "stored_s": 59.3}, "pass": true}
+{"case": "P09_backend_slow_20s", "stored_recording": {"uploads": 1, "wall_s": 71.2, "uploaded_after_hangup_s": 11.03, "stored_s": 70.92}, "pass": true}
+{"case": "P10_backend_down_at_start", "stored_recording": {"uploads": 1, "wall_s": 10.88, "uploaded_after_hangup_s": 10.96, "stored_s": 10.84}, "pass": true}
+{"case": "P21_secret_file_missing", "stored_recording": {"uploads": 1, "wall_s": 10.86, "uploaded_after_hangup_s": 11.02, "stored_s": 10.82}, "pass": true}
+{"case": "P25_watchdog_during_tokenize", "stored_recording": {"uploads": 1, "wall_s": 142.98, "uploaded_after_hangup_s": 11.08, "stored_s": 142.6}, "pass": true}
+{"case": "P11_backend_crash_mid_request", "stored_recording": {"uploads": 1, "wall_s": 57.22, "uploaded_after_hangup_s": 10.52, "stored_s": 56.94}, "pass": true}

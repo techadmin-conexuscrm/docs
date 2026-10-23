@@ -20,7 +20,10 @@ os.time = function() return 1800000000 + math.floor(S.t) end
 local PIN = string.rep("ab", 32)
 
 local function new_conn(n)
-  local c = { n = n, items = (n >= 2 and S.cfg.replies[n - 1]) or {}, dead = false }
+  -- connection 1 is the pre-entry probe (an authenticated request with no
+  -- card: the API answers 400 {"issues": ...} when the app is up and the
+  -- secret is right); then one connection per tokenize
+  local c = { n = n, items = (n == 1 and S.cfg.probe) or (n >= 2 and S.cfg.replies[n - 1]) or {}, dead = false }
   function c:sni() end
   function c:settimeout() end
   function c:dohandshake() return true end
@@ -182,6 +185,7 @@ def reply(code, body, chunked=False):
 
 
 OK = reply(200, BODY_OK)
+PROBE_OK = reply(400, '{"issues":[{"path":["pan"]}]}')
 DECLINE = reply(402, BODY_DECLINE)
 EOF = {"err": "unexpected eof"}
 
@@ -208,6 +212,10 @@ SCENARIOS = {
     # fails the Luhn check three times: no field ever times out
     "dribbling_invalid_cards": dict(keys=keys("4111111111111112", 4.5, 4.5) * 3, replies=[]),
     "secret_file_missing": dict(keys=GOOD_FAST, replies=[OK], secret=False),
+    # the TLS front end up, the app behind it down (Caddy's 502), and an API
+    # holding another secret (401): refused before the customer keys anything
+    "probe_app_down_502": dict(keys=GOOD_FAST, replies=[OK], probe=["HTTP/1.1 502 Bad Gateway", "Content-Length: 0", "", ""]),
+    "probe_secret_refused_401": dict(keys=GOOD_FAST, replies=[OK], probe=reply(401, '{"error":{"status":401}}')),
 }
 
 WATCHDOG_S = 180     # the CRM's SECURE_ENTRY_MAX_MS, counted from before the transfer
@@ -243,6 +251,7 @@ def run_all(script_path, secret_path):
         }
         cfg = lua_table(rt, {"keys": [list(k) for k in sc["keys"]],
                              "replies": [[r for r in rep] for rep in sc["replies"]],
+                             "probe": list(sc.get("probe", PROBE_OK)),
                              "globals": globals_, "prompt_s": PROMPT_S})
         out = run(cfg, src)
         log = []
@@ -335,6 +344,12 @@ def check(results):
     expect("human_pace_ok", state("human_pace_ok")[1] == "completed", "one human-pace pass not completed")
     expect("slow_typist_one_decline", state("slow_typist_one_decline")[1] in ("completed", "failed"),
            "unexpected state")
+    for n, want in (("probe_app_down_502", ("failed", "transport")), ("probe_secret_refused_401", ("failed", "setup"))):
+        r = results[n]
+        expect(n, "payment_intro.wav" not in plays(r) and "enter_card_number.wav" not in plays(r),
+               "customer was asked for the card although the API could not take it: plays=%r" % plays(r))
+        expect(n, state(n)[1:] == want, "want %r, got %r" % (want, state(n)))
+        expect(n, r["conns"] == 1, "tokenize ran after a failed probe: %d connections" % r["conns"])
     s = results["secret_file_missing"]
     expect("secret_file_missing", "payment_intro.wav" not in plays(s) and "enter_card_number.wav" not in plays(s),
            "customer was asked for the card with no usable secret: plays=%r" % plays(s))

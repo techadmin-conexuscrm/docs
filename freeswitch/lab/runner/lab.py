@@ -11,7 +11,7 @@ Calls go out through the drafts' own config (sofia "external" profile, the
 every call is a real SIP call with RTP audio and RFC 2833 keypad digits.
 Results: /results/<suite>/*.json (+ every ESL event in /results/esl/).
 """
-import array, json, os, re, secrets, sys, threading, time, traceback, urllib.request, uuid, wave
+import array, glob, json, os, re, secrets, sys, threading, time, traceback, urllib.request, uuid, wave
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from esl import ESL, Recorder  # noqa: E402
 
@@ -249,10 +249,15 @@ BEEP_WAIT_S = 25
 ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
 
 
+# ConexusCRM-BE campaign-be17/pr13/pr14 voicemail-drop.ts dropSteps() and
+# RUNBOOK F3 droptest, as run-matrix.sh reads them from the branch and the
+# runbook ("%s" = the recording); the defaults are the ones first measured.
+BE17_STEPS = os.environ.get("LAB_BE17_STEPS") or "wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING"
+RUNBOOK_STEPS = os.environ.get("LAB_RUNBOOK_STEPS") or "avmd_start,wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING"
+
+
 def drop_steps_be17(target):
-    # ConexusCRM-BE campaign-be17/pr13 voicemail-drop.ts dropSteps(): no AMD,
-    # "silence after the greeting, 8 s at most" (link -> local file here)
-    return "wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING" % target
+    return BE17_STEPS % target
 
 
 _LEADIN = {}
@@ -285,9 +290,7 @@ def drop_one(rec, flow, case, run):
         target = "https://api.lab.test:8443/vm/drop.wav" if flow == "be17https" else DROP_NOLEAD
         if flow == "be17https":
             drop_file = DROP_FILE
-        steps = drop_steps_be17(target)
-        if flow == "runbook":   # RUNBOOK F3 droptest
-            steps = "avmd_start," + steps
+        steps = RUNBOOK_STEPS % target if flow == "runbook" else drop_steps_be17(target)
         action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
         sent_at = time.time() - t0
     else:
@@ -411,6 +414,12 @@ def suite_drop(runs=2):
 # ── 5. secure keypad entry (PCI) ────────────────────────────────────────────
 VISA, AMEX, BAD = "4111111111111111", "378282246310005", "4111111111111112"
 GOOD = [("card", 1, VISA), ("expiry", 1, "1230"), ("cvv", 1, "947"), ("zip", 1, "78704")]
+GOOD3 = [("card", 1, VISA + "#"), ("expiry", 1, "1230"), ("cvv", 1, "947"), ("zip", 1, "78704")] * 3
+HUMAN_PACE = {"first": 3.0, "each": 1.0}   # seconds before the first key of a field, between keys
+BRISK_PACE = {"first": 2.0, "each": 0.5}
+WATCHDOG_S = 180                            # SECURE_ENTRY_MAX_MS, from before the transfer
+REFUSED_BEFORE_ASKING = ("P10_backend_down_at_start", "P16_shipped_pins_vs_lab_cert", "P17_wrong_cert_name",
+                         "P21_secret_file_missing", "P22_front_up_app_502", "P23_secret_mismatch")
 PCI_CASES = {
     # name: (script, mock mode, expected final state, expected tokenize requests, notes)
     "P01_visa_good": (GOOD, "ok", "completed", 1),
@@ -434,6 +443,26 @@ PCI_CASES = {
     "P19_script_missing_fallback": (None, "ok", "failed", 0),          # dialplan fallback path
     "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")], "ok", "completed", 1),
     "P21_secret_file_missing": (GOOD, "ok", "failed", 0),
+    # the TLS front end (Caddy) is up but the app behind it is down: every
+    # request gets a 502. Must be refused before the customer is asked anything.
+    "P22_front_up_app_502": (GOOD, "front502", "failed", 0),
+    # the API holds a different TELEPHONY_PAYMENT_SECRET (401): same
+    "P23_secret_mismatch": (GOOD, "wrong_secret", "failed", 0),
+    # a person keying at a person's pace (3 s to start a field, 1 key/s), every
+    # card declined as retryable: three card attempts run past the CRM's
+    # 180 s watchdog. The script must end the entry itself, with a prompt,
+    # before the watchdog takes the call mid-field.
+    "P24_watchdog_mid_field": ([(f, a, k, HUMAN_PACE) for f, a, k in GOOD3], "decline_retry", "failed", None),
+    # same, faster keys but every save takes 12 s: the third save would be in
+    # flight when the watchdog fires
+    "P25_watchdog_during_tokenize": ([(f, a, k, BRISK_PACE) for f, a, k in GOOD3], "decline_slow:12", "failed", None),
+    # an inbound queue caller still carries app.py's callback binding
+    # (bind_digit_action queue,0,...) when an agent starts secure entry; the
+    # card has zeros (expiry 1230, ZIP 78704)
+    "P26_queue_digit_action_bound": (GOOD, "ok", "completed", 1),
+    # after the entry the customer presses a key for the agent (or an outside
+    # menu the agent transfers them to): it must cross the bridge
+    "P27_dtmf_across_bridge_after_entry": (GOOD, "ok", "completed", 1),
     # last: when it fails the way it did in the lab, the customer's channel is
     # left spinning one CPU core (see results.md), so nothing runs after it
     "P11_backend_crash_mid_request": (GOOD, "drop", "failed", 1),
@@ -590,9 +619,15 @@ def run_pci_case(rec, name):
     out = {"case": name, "mode": mode, "call_id": e.call_id, "A": e.A, "B": e.B}
     try:
         e.originate()
+        if name == "P26_queue_digit_action_bound":
+            # what scripts/api/app.py does on the caller's channel before fifo
+            # (there: exec:python,api.callback_optin <id>, which says "we will
+            # call you back" and hangs up; here the hang-up alone)
+            out["bind"] = [c.api("uuid_broadcast %s bind_digit_action::queue,0,exec:hangup,NORMAL_CLEARING aleg" % e.B).strip(),
+                           c.api("uuid_broadcast %s digit_action_set_realm::queue aleg" % e.B).strip()]
         time.sleep(3.0)                       # conversation before entry
         e.start()
-        t_watchdog = e.t_transfer + 180
+        t_watchdog = e.t_transfer + WATCHDOG_S
         steps = list(script or [])
         sent = []
         final_ev = None
@@ -627,10 +662,24 @@ def run_pci_case(rec, name):
             if st == "collecting" and ev.get("Secure-Payment-Entered") == "0" and steps:
                 field, attempt = ev.get("Secure-Payment-Field"), int(ev.get("Secure-Payment-Attempt") or 0)
                 if steps[0][0] == field and steps[0][1] == attempt:
-                    keys = steps.pop(0)[2]
-                    time.sleep(0.4)
-                    if keys:
-                        far_api("uuid_send_dtmf %s %s" % (e.far_cust, keys))
+                    step = steps.pop(0)
+                    keys = step[2]
+                    pace = step[3] if len(step) > 3 else None
+                    if pace:
+                        # a person: a pause, then one key at a time (in the
+                        # background, so the watchdog and hang-ups are still seen)
+                        def keyer(keys=keys, pace=pace):
+                            time.sleep(pace["first"])
+                            for k in keys:
+                                if e.taken:
+                                    return
+                                far_api("uuid_send_dtmf %s %s" % (e.far_cust, k))
+                                time.sleep(pace["each"])
+                        threading.Thread(target=keyer, daemon=True).start()
+                    else:
+                        time.sleep(0.4)
+                        if keys:
+                            far_api("uuid_send_dtmf %s %s" % (e.far_cust, keys))
                     sent.append((field, attempt, len(keys), round(time.time() - e.t_transfer, 2)))
                     if steps and steps[0][0] in ("HANGUP_CUSTOMER", "HANGUP_AGENT"):
                         time.sleep(0.3 * len(keys) + 1.0)
@@ -645,6 +694,12 @@ def run_pci_case(rec, name):
         out["reconnected"] = bool(reconnected)
         out["bridged_after_entry"] = e.alive(e.A) and e.alive(e.B) and \
             e.c.api("uuid_getvar %s bridge_uuid" % e.B).strip() == e.A
+        if name == "P27_dtmf_across_bridge_after_entry":
+            # the far agent phone binds "1" (far-conf); the customer presses it
+            far_api("uuid_send_dtmf %s 1" % e.far_cust)
+            time.sleep(2.0)
+            out["agent_got_dtmf_after_entry"] = far_api("uuid_getvar %s lab_heard_dtmf" % e.far_agent).strip() == "1"
+            out["sensitive_dtmf_after_entry"] = e.c.api("uuid_getvar %s sensitive_dtmf" % e.B).strip()
         e.c.api("uuid_kill %s NORMAL_CLEARING" % e.A)
         wait_gone(rec, e.B, 15)
         wait_gone(rec, e.A, 15)
@@ -671,11 +726,16 @@ def run_pci_case(rec, name):
                                                 if e.B in l and "RECV DTMF" in l)
     except Exception as ex:
         out["recv_dtmf_log_digits_B"] = repr(ex)
+    out["t_answer_B"], out["t_hangup_B"] = e.t_answer_B, (ts(hupB) if hupB else None)
     out["hangup_B"], out["hangup_A"] = hupB.get("Hangup-Cause"), next((x.get("Hangup-Cause") for x in evs if x.get("Event-Name") == "CHANNEL_HANGUP_COMPLETE" and uid(x) == e.A), None)
     out["crm_steps"] = e.log
     out["crm_end"] = e.end
     crm = ctl("/log")
     out["mock_requests"] = crm["requests"]
+    out["mock_probes"] = [{"secret_ok": q.get("secret_ok"), "keys": q.get("keys"), "answered": q.get("answered"),
+                           "callId_ok": q.get("callId") == e.call_id, "session_ok": q.get("sessionId") == e.session}
+                          for q in crm.get("probes", [])]
+    out["digit_action_vars_B"] = {k: v for k, v in hupB.items() if "matching_digits" in k}
     out["mock_connections"] = crm["connections"]
     out["mock_received"] = [{"secret_ok": r["secret_ok"], "schema_ok": r.get("schema_ok"), "extra_keys": r.get("extra_keys"),
                              "callId_ok": r["body"].get("callId") == e.call_id, "session_ok": r["body"].get("sessionId") == e.session,
@@ -697,8 +757,14 @@ def analyse_recording(e, t_done):
     # script waits on the tokenize socket (up to 15 s) nothing is written. So
     # the mask time is placed from the start of the file (answer) and the
     # unmask time from its end (hangup), not both from the wall clock.
+    src = e.path
+    if not os.path.exists(src):
+        # upload-audio already uploaded and deleted it (it does so 10 s after
+        # the file last grew): analyse the copy the mock CRM stored
+        up = sorted(glob.glob("%s/crm/uploads/%s-*.wav" % (RES, e.call_id)))
+        src = up[-1] if up else src
     try:
-        rate, ch = load_wav(e.path)
+        rate, ch = load_wav(src)
     except Exception as ex:
         return {"error": repr(ex)}
     fr = frames(ch[0], rate)
@@ -741,7 +807,26 @@ def judge(name, o, want_state, want_requests):
         j["state_ok"] = "customer_hangup" in o["final_states_seen"] and o["crm_end"].get("effective") == "customer_hung_up"
     else:
         j["state_ok"] = got == want_state
-    j["requests_ok"] = o["mock_requests"] == want_requests
+    j["requests_ok"] = want_requests is None or o["mock_requests"] == want_requests
+    asked = [x for x in o.get("prompts", []) if x == "payment_intro.wav" or x.startswith("enter_")]
+    if name in REFUSED_BEFORE_ASKING:
+        # nothing is asked of the customer when the save could never work
+        j["refused_before_asking"] = not asked and "unable_to_process.wav" in o.get("prompts", [])
+    if name in ("P24_watchdog_mid_field", "P25_watchdog_during_tokenize"):
+        # the script ends the entry itself, says so, and has the customer back
+        # before the CRM's watchdog would take the call
+        j["ended_before_watchdog"] = o["crm_end"].get("reason") != "timed_out" \
+            and o.get("finished_after_s", 999) <= WATCHDOG_S - 2 and "unable_to_process.wav" in o.get("prompts", [])
+    if name == "P26_queue_digit_action_bound":
+        j["no_digit_action_vars"] = not o.get("digit_action_vars_B")
+    if name == "P27_dtmf_across_bridge_after_entry":
+        j["dtmf_crosses_bridge_after_entry"] = bool(o.get("agent_got_dtmf_after_entry"))
+    for q in o.get("mock_probes", []):
+        # a probe carries the secret and the ids, never a card field
+        if q["answered"] == 502:      # the front end answered; the app never saw it
+            continue
+        j["probe_ok"] = j.get("probe_ok", True) and (bool(q["secret_ok"]) or o["mode"] == "wrong_secret") \
+            and set(q.get("keys") or []) <= {"callId", "sessionId"} and q["callId_ok"] and q["session_ok"]
     rec = o["recording"]
     # an entry shorter than the 0.4 s guard band (P19: the script is missing) has no window to measure
     short = o.get("finished_after_s", 99) < 1.0
@@ -781,6 +866,46 @@ def suite_pci(names):
         print(json.dumps({k: o.get(k) for k in ("case", "final_state", "mock_requests", "prompts", "pass", "error")}), flush=True)
         time.sleep(1)
     rec.stop()
+    check_uploads(allres)
+
+
+UPLOAD_WAIT_S = 40
+
+
+def check_uploads(allres):
+    """What upload-audio stored for each call (it uploads a recording once it
+    has not grown for 10 s, then deletes it): one upload, after the customer
+    leg hung up, covering the whole call. A recording that stops growing
+    mid-call (the session thread blocked) is uploaded and deleted mid-call,
+    and the rest of the call is lost."""
+    want = [o for o in allres if o.get("call_id") and o.get("t_hangup_B")]
+    end = time.time() + UPLOAD_WAIT_S
+    while time.time() < end:
+        got = {u["callId"] for u in ctl("/log").get("uploads", [])}
+        if all(o["call_id"] in got for o in want):
+            break
+        time.sleep(2)
+    time.sleep(12)    # a second, later upload of the same call would show up by now
+    ups = ctl("/log").get("uploads", [])
+    for o in want:
+        mine = [u for u in ups if u["callId"] == o["call_id"]]
+        info = {"uploads": len(mine), "wall_s": round(o["t_hangup_B"] - o["t_answer_B"], 2)}
+        if mine:
+            u = mine[0]
+            info["uploaded_after_hangup_s"] = round(u["t"] - o["t_hangup_B"], 2)
+            try:
+                rate, ch = load_wav(u["path"])
+                info["stored_s"] = round(len(ch[0]) / rate, 2)
+            except Exception as ex:
+                info["stored_s"] = None
+                info["error"] = repr(ex)
+        ok = len(mine) == 1 and info.get("uploaded_after_hangup_s", -1) >= 0 \
+            and (info.get("stored_s") or 0) >= info["wall_s"] - 1.0
+        o["stored_recording"] = info
+        o["stored_recording_covers_call"] = ok
+        o["pass"] = bool(o.get("pass")) and ok
+        save("pci", o["case"], o)
+        print(json.dumps({"case": o["case"], "stored_recording": info, "pass": o["pass"]}), flush=True)
 
 
 def rejudge(names):
