@@ -42,7 +42,7 @@ Last updated: 2026-10-23 00:20 UTC.
 - **Warm transfer keeps the call**: when the first agent hangs up after a 3-way call, the
   colleague can still take the order and payment. An agent is building it on
   `claude/warm-transfer-keeps-call` or `claude/one-phone-transfers-and-listen`.
-- **Card-field auto-pause plus authorization line (PCI)**: an agent is building it on `claude/card-field-auto-pause` (BE and FE).
+- **Card-field auto-pause plus authorization line (PCI)**: BUILT on `claude/card-field-auto-pause`, BE 73dba5ff and FE bdd5c64c. All gates green; tests fail without the change. Switch: `CARD_ENTRY_AUTO_PAUSE_ORGS` (empty means off). Covers the CRM order form and the Retry Transaction dialog. Needs the break-it review, then Eric's yes, then the live test-call checks from the agent report: audio stops on both legs, the audit log lines appear, a manual pause is respected, a hangup mid-entry leaves nothing paused, the authorization is on the recording, the note is on the order.
   - Recording pauses the moment the agent focuses a card field and resumes after.
   - The agent reads: "That's $X on the card ending 1234. Can you confirm the last 4 and that you authorize this charge?"
   - A "customer confirmed" checkbox; ships behind a default-off per-org switch.
