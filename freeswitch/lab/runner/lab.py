@@ -314,10 +314,15 @@ def drop_one(rec, flow, case, run):
                 action = c.api("uuid_transfer %s '%s' inline" % (u, AMDBEEP_PLAY % DROP_NOLEAD)).strip()
                 sent_at = time.time() - t0
             else:
-                # no beep: nothing tells this greeting from a long-talking
-                # person who has stopped to listen. No drop; the line has been
-                # held since the verdict.
-                action = "no beep within %d s: no drop; held since the verdict (the human-safe end is an agent; the lab hangs up)" % BEEP_WAIT_S
+                # No beep: nothing in the audio tells this greeting from a
+                # long-talking person who has stopped to listen, so the drop
+                # must not play. The defined human-safe end is an agent (who
+                # can still press BE-17), never a recording and never a
+                # hang-up: hanging up here would abandon anyone judged
+                # MACHINE by mistake.
+                action = "no beep within %d s: no drop; to an agent" % BEEP_WAIT_S
+                t_route = round(time.time() - t0, 3)
+                time.sleep(3)
                 c.api("uuid_kill %s NORMAL_CLEARING" % u)
         else:
             action = "verdict %s: to an agent at once, no drop" % verdict
@@ -375,7 +380,18 @@ def drop_one(rec, flow, case, run):
         r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_before_beep_end"] \
             and r.get("drop_heard_onset") is not None and r["drop_heard_onset"] >= f["beep_end"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
-    else:  # greeting with no beep: at least not over the greeting
+    elif flow == "amdbeep":
+        # A MACHINE verdict on a greeting with no beep. The drop must NOT
+        # play: with these settings nothing tells this from a long-talking
+        # person who has stopped to listen, and playing it would read the
+        # message to that person. The call goes to an agent instead (who can
+        # still press BE-17 on a real mailbox), so what is required here is
+        # no playback and a route, not a hang-up. Holding a machine for the
+        # beep first is fine; a person wrongly judged MACHINE is caught by
+        # held_s on the human rows above.
+        r["held_s"] = round((t_route if t_route is not None else (t_hup or 99)) - (t_verdict or 0), 2)
+        r["pass"] = not pb and r.get("drop_heard_onset") is None and t_route is not None
+    else:  # be17/runbook on a greeting with no beep: at least not over the greeting
         r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_over_greeting"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
     return r
