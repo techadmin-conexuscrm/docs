@@ -578,11 +578,14 @@ no-downtime rollback in §4. Leave everything else.
 ### F. AMD and the voicemail drop (A8): your own mobile only
 
 BE-17's button is not on `main` yet, so this uses the same FreeSWITCH steps
-it will send. Paste on the FS box, with your number:
+it will send. Paste on the FS box, with your number. `leg` finds the
+**customer's** channel of the call to your mobile: the one FreeSWITCH names
+`sofia/external/+1<your number>@...`. (The agent's webphone channel also
+mentions your number, in what it is bridging to; that is the wrong one.)
 
 ```bash
 M=5551234567     # your mobile, digits only
-leg() { fsx 'show channels' | grep "gateway/kamailio/[^,]*$M@" | head -1 | cut -d, -f1; }
+leg() { fsx 'show channels' | awk -F, -v m="$M@" 'index($5, m) && $5 ~ /^sofia\/external\// { print $1; exit }'; }
 amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   fsx "uuid_transfer $U 'avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING' inline"
   sleep 7;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
