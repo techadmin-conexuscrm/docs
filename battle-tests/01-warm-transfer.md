@@ -1,12 +1,14 @@
 # Battle test 01: warm transfer keeps the call
 
-Date: 2026-10-23. Branches: BE `claude/warm-transfer-keeps-call` (head **d6ec6696**), FE `claude/warm-transfer-keeps-call` (head **2e258c21**, unchanged by this test). Not merged, no PR. Production, FreeSWITCH and Kamailio were not touched.
+Date: 2026-10-23. Branches: BE `claude/warm-transfer-keeps-call` (head **d6ec6696**), FE `claude/warm-transfer-keeps-call` (head **2e258c21**, unchanged by this test; FE master 21c1dffd is already in it). Not merged, no PR. Production, FreeSWITCH and Kamailio were not touched.
 
 ## In plain words
 
 The fix does what it promises once the colleague has actually picked up. Agent A adds colleague B, introduces the customer and hangs up. B now owns the call and can take the order, take a keypad (secure entry) payment, and transfer again.
 
 Testing found **2 High** and **5 Medium** problems. All are fixed on the BE branch, each with a test that fails without its fix. The FE needed no change.
+
+**Verdict: clean.** No High or Medium problem is left open, and every gate is green on both final heads. It still needs the live test call at the end before Eric decides on a merge.
 
 The ones that mattered most:
 
@@ -50,6 +52,25 @@ Findings 1–4 come from the first, interrupted run of this test (commits 873c51
 - **"Call ended" and minutes:** the call row is settled once. The customer's later hangup changes nothing. The two `call:ended` pushes to B, one per leg, are the same as on any call today.
 - **FE:** the company can't be switched during a call (#281). The order form uses the call's company, and a re-keyed leg's wrap-up and removal follow the SIP session.
 
+### FE pass after the BE fixes
+
+The BE fixes changed three things the FE relies on:
+- when B is told the call is theirs (`call:handed_over`);
+- when B becomes the owner (only once answered);
+- that B and the customer are now bridged out of the room.
+
+One more attack pass on the FE found no High or Medium problem, so the FE stays at 2e258c21.
+
+- **The handover push.** The payload is the same (ids only). It now comes after B's leg is tagged and bridged, and only once B has answered, so a phone that is still ringing is never re-keyed.
+- **A's own "call ended".** The ESL listener finds A's leg by A's extension, not by the call row. So A still gets it after the row has moved to B, and B does not.
+- **Keypad entry after the bridge.** The browser only checks that the call is connected, not on hold and not in a softphone warm transfer. The conference check is the server's. Secure entry parks B's leg (`park_after_bridge`) before it moves the customer, so B is not dropped.
+- **Hold, Transfer and Add to call from B:**
+  - Hold is a SIP re-INVITE, as on any call. After the bridge the customer hears hold music.
+  - Transfer and Add to call go through the server, which works whether or not the two were bridged.
+  - The server's Add to call moves both legs back into the room first.
+- **"Hang up when you're done".** The softphone shows this only once the server's Add to call has answered. That answer waits for the colleague to pick up (`originate` with `ignore_early_media`), so the softphone never tells an agent to hang up while the colleague still rings (Low 1).
+- **Comment only.** The FE comment on `handedOver` still says the leg "sits in the call's conference room". That is now true only when someone else is still in the room (Low 11). Going through the server is right either way, so nothing was changed.
+
 ## Lows left (not fixed)
 
 1. **A hangs up while B still rings.** The call settles as before, and B answering then joins as a guest who can't sell (the old behaviour). This is deliberate, to avoid finding 5. Agents should wait for B to answer, or use Transfer.
@@ -65,6 +86,7 @@ Findings 1–4 come from the first, interrupted run of this test (commits 873c51
    - With a home line in another company, the extension is looked up in the open company's list, and the server refuses it (safe). The dialer's transfer dialog works.
 9. **SIP hold with others still in the room.** On a handed-over call that is still in the room because others are there, the customer hears silence, not hold music.
 10. **Cluster mode.** B's agent-state update can run on a non-leader worker. Transfers already do the same.
+11. **Someone else in the room at the handover.** An outside party, or a second colleague still ringing, may be in the room when A hangs up. Then the customer and B stay in the room, and nothing bridges them later when that party leaves. Keypad entry is then refused for the rest of the call. The server says why, and the payment link still works. This is the same kind of problem as Low 7. It needs A to add two people, so it is rare.
 
 ## Gates (final)
 
@@ -73,9 +95,34 @@ Findings 1–4 come from the first, interrupted run of this test (commits 873c51
 - Full suite (`run-suite.sh`): **370 files passed, 4 skipped; 5438 tests passed, 138 skipped, 0 failed**. 59105615 also passed: 5436 tests.
 - `npx drizzle-kit generate`: "No schema changes, nothing to migrate". No migration.
 
-**FE, 2e258c21 (no change in this test):**
-- Full Playwright suite (`NODE_PATH=$(npm root -g) npx playwright test -c e2e`): **414 passed, 0 failed** (40.7 min). That includes `integration.spec.ts:402` and `recording-playback.spec.ts:245`, which failed once in the author's run. Neither file, nor the shared mock API, is touched by this branch; see the verdict below.
-- lint, tsc, build: PENDING (queued behind another workflow on the shared FE lock).
+The BE head did not move after that run, so these numbers stand for the final head.
+
+**FE, 2e258c21 (no change in this test).** Merging origin/master (21c1dffd) was a no-op: "Already up to date". All gates below ran on 2e258c21 under the shared FE lock:
+- `npm run lint`: **49 warnings, 0 errors**. The baseline is 49, so there are no new warnings.
+- `npx tsc --noEmit -p tsconfig.app.json`: clean.
+- `npm run build`: built (36 s).
+- Full Playwright suite (`NODE_PATH=$(npm root -g) npx playwright test -c e2e`): **414 passed, 0 failed** (35.3 min). An earlier run on the same head also gave 414 passed (40.7 min).
+- `integration.spec.ts:402` and `recording-playback.spec.ts:245`, run 5 times each, one worker: **10 passed, 0 failed**. The previous attempt's repeat gave 6 of 6.
+
+**The two tests that failed once: flaky, not broken by this branch.**
+- **How they failed.** In the author's run (wt-fe, 03:59, 412 passed, 2 failed), both failed the same way: the page never rendered within 10 s (`dialer-app`, and the "Call Recording" heading, "element(s) not found"). Neither failed on a wrong result.
+- **Since then.** They passed in two full runs and 16 single runs on the same head.
+- **What the branch touches.** Only `e2e/dialer.spec.ts` among the tests. It does not touch either file or the shared mock API.
+- **Other branches.** Full runs of other branches on this shared machine show the same one-off load failures, for example `recording-playback.spec.ts:286` on the wallboard branch.
+
+No fix was made: there was nothing on this branch to fix.
+
+## Verdict
+
+**Clean.**
+- **Problems found.** 2 High and 5 Medium, all fixed on the BE branch, each with a test that fails without its fix. The FE pass after those fixes found no new High or Medium problem.
+- **Gates.** All green on BE d6ec6696 and FE 2e258c21.
+- **Open.** Only the Lows listed above.
+
+Before a merge:
+1. Place the live test call below.
+2. Get Eric's yes, separately for each repo. A BE merge to `main` takes the API down for 30–60 seconds, so do it when the floor is quiet.
+3. After the deploy, run the sweep.
 
 ## Live-call checklist (needs a real call; Eric runs any FreeSWITCH command)
 
