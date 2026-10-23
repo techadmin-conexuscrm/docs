@@ -1,25 +1,30 @@
-# Handoff: live state for the next agent
+# Handoff: everything is built, now battle-test it
 
-Last updated: **2026-10-23 01:20 UTC** (9:20 pm Eastern, Oct 22).
+Last updated: **2026-10-23 04:45 UTC** (12:45 am Eastern).
+
+**For the next agent:** every item in section 2 is built, pushed and has passed its own gates. None
+is merged. Your job:
+1. For each one, in order: run an independent **break-it** pass, fix what you find, and re-run the gates.
+2. Then ask **Eric** for a "yes" for that item.
+3. After he says yes, deploy on a quiet floor and run the sweep.
 
 **Read first:**
 - `ConexusCRM-BE/CLAUDE.md`. Its rules are binding.
-- Eric (founder, not technical) decides what ships. **Nothing merges or touches production
-  without his explicit "yes" at that moment.** A merge to BE `main` is a deploy: 20–45 s of API downtime.
+- **Nothing merges or touches production without Eric's explicit "yes" at that moment.** A merge to BE `main` is a deploy: 20–45 s of API downtime. FE `master` deploys via Amplify with no downtime.
 - Agents never touch FreeSWITCH or Kamailio servers. Write the commands; Eric runs them.
+- Eric is the founder and is not technical. Give him plain language, real numbers and a recommendation.
 
-**Keeping this file current:** update it after every step, then commit and push to branch
-`claude/busy-tesla-xl07bi` of this repo. Run `git pull --no-rebase` first, because several agents push here.
-
-## Working agreement (Eric, 2026-10-22)
-- **One item at a time.** The building agent builds or fixes; a separate agent does the break-it pass and the final tests.
-- Credits are tight. Prefer small, focused agents and short reports.
-- Save research here as you go.
+**Working agreement (Eric):**
+- One item at a time.
+- Credits are tight: use small focused agents and short reports.
+- Save research in this repo as you go: branch `claude/busy-tesla-xl07bi`. Run `git pull --no-rebase` before each push, and commit often.
+- This session's container restarted 3 times tonight. Push work in progress early.
 
 ---
 
-## 1. Tonight: FreeSWITCH window, 11 pm Eastern (03:00 UTC)
-Runbook: `freeswitch/tonight-window/RUNBOOK.md`. Drafts: `freeswitch/tonight-window/drafts/`.
+## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
+It was planned for 11 pm Eastern on Oct 22. As far as this session knows, it did not happen: the 5
+freeswitch-conf changes are still **drafts**, with no PRs open.
 
 **What goes in:**
 - answering-machine detection, both modules;
@@ -27,116 +32,175 @@ Runbook: `freeswitch/tonight-window/RUNBOOK.md`. Drafts: `freeswitch/tonight-win
 - 13 PCI prompts generated with Amazon Polly;
 - ESL password rotation.
 
-**Status:**
-- **The 5 freeswitch-conf changes are still DRAFTS. No PRs are open yet.** The runbook expects Eric
-  to merge them early evening so the server can build and smoke-test before 11 pm. *Next step:* ask Eric
-  "open the 5 FS PRs now?". On yes, open them in `techadmin-conexuscrm/freeswitch-conf` from
-  the drafts; Eric merges them one by one.
-- The # spill fix (after the expiry and after the CVV) is already in `secure_payment.lua` and the PR4 draft.
-  The B8 worry (# after the card number) was not real.
-- **Settled with Eric:** he has SSH to both servers; use Authorize.net for the test decline.
-- **Still needed from Eric:**
-  - 3 test agents and 1 supervisor;
-  - the output of the read-only pre-checks in the runbook. The API certificate must be from Let's Encrypt.
-- If Polly is refused, the fallbacks are in the runbook: a Polly policy, CloudShell, or Eric records the prompts himself.
+**Where things are:**
+- runbook: `freeswitch/tonight-window/RUNBOOK.md`;
+- drafts: `freeswitch/tonight-window/drafts/`;
+- the # spill fix is already in `secure_payment.lua` and the PR4 draft.
 
-**Live checks to do during the test calls** (left over from #405):
-- a recording upload saves a non-zero length;
-- an API-key order fires its webhook;
-- keypad card entry works after a cancel and retry;
-- no card digits in the logs (B10);
-- recording is silent during keypad entry (B9);
-- blind transfer and no-answer transfer.
+**Steps:**
+1. Ask Eric for a new date.
+2. With his yes, open the 5 PRs in `techadmin-conexuscrm/freeswitch-conf`. He merges them early in the evening.
+3. The server builds and smoke-tests the image.
+4. The swap happens after the floor closes: about 1–2 min with no calls, plus about 1 min with the API down.
 
-**After the window (optional):** reboot the API server. Ubuntu security patches are pending; the server stays on 24.04.
+**Already settled with Eric:** he has SSH to both servers; use Authorize.net for the test decline.
+
+**Still needed from Eric:**
+- 3 test agents and 1 supervisor;
+- the output of the runbook's read-only pre-checks.
+
+Fold these live checks into those test calls:
+- the #405 live checks (§3);
+- the warm-transfer check (§2.1);
+- the card-pause check (§2.2).
+
+**After the window (optional):** reboot the API server. Ubuntu security patches are pending; it stays on 24.04.
 - Never run `do-release-upgrade`.
-- Optionally set `Prompt=never` in `/etc/update-manager/release-upgrades`.
 - Run the sweep afterwards.
 
-## 2. Live today
-- **BE #405** (squash 8b57d818), deployed 00:40 UTC; the sweep passed. Contents:
-  - gateway org-scoping (offer update, the charge step, payment links);
-  - API-key events run as the key creator, with only the key's permissions;
-  - #375/#376 recording fixes;
+---
+
+## 2. Built, ready for the break-it pass (suggested order)
+
+Every BE branch passed:
+- `tsc`;
+- the full vitest suite (about 5,400–5,455 tests, 0 failing);
+- drizzle with no schema changes, except #6, which has a migration.
+
+Every FE branch passed:
+- lint at the baseline of 49 warnings;
+- `tsc`;
+- the build;
+- Playwright (412–420 passing). Any test that failed only once in the full run is listed. Re-check those.
+
+Every bug fix has a test that was verified to fail without it.
+
+| # | Item | BE branch @ SHA | FE branch @ SHA | Switch (default off) | Notes |
+|---|---|---|---|---|---|
+| 1 | **Warm transfer keeps the call** | `claude/warm-transfer-keeps-call` @ a1b57c76 | same name @ 2e258c21 | none | `plans/warm-transfer.md` |
+| 2 | **Card-field auto-pause plus "last 4" authorization (PCI)** | `claude/card-field-auto-pause` @ 73dba5ff | same name @ bdd5c64c | `CARD_ENTRY_AUTO_PAUSE_ORGS` | see §2.2 |
+| 3 | **Wallboard "All companies"** | `claude/wallboard-all-companies` @ f3d66111 | same name @ 5b4060bb | `WALLBOARD_ALL_COMPANIES_ORGS` | `plans/wallboard-all-companies.md` |
+| 4 | **API-key watch mode** | `claude/api-key-no-system-user` @ be323790 | none | `API_KEY_ENFORCE_OWN_PERMISSIONS_ORGS` (enforcement; watching is always on) | `plans/api-key-watch-mode.md` |
+| 5 | **Graceful shutdown** (safer deploys, not shorter) | `claude/api-graceful-shutdown` @ a66837eb | none | none | `reviews/graceful-shutdown.md`; already reviewed, verdict "ship" |
+| 6 | **Phone-number (DID) purchase** | `claude/did-purchase-assign-to-client` @ 7226f6a8, **migration 0111** | same name @ e60b6367 | `VI_PURCHASES_OFF` (stops VoIP Innovations purchases) | `plans/did-purchase.md` |
+| 7 | **Dialer: pickup never takes a caller another agent's ring holds / busy check** | `claude/dialer-queue-transfer-pickup` @ 63b1a5e1, `claude/queue-transfer-free-agent` @ 4660580d | none | none | Reviewed earlier: ship. These predate #405, so merge `main` in first. |
+
+**Shipping:** bundle the BE items into **one release PR** with one restart, as was done for #405 (see the PR body there for the format). The FE items ship separately to `master`.
+
+**Migration warning:**
+- #6's `0111` is free on `main` today (latest is 0110).
+- The unmerged campaign-dialer stack also uses 0111–0124. Whichever merges second must regenerate its migrations last, after merging `main`.
+
+### 2.1 Warm transfer: what to break, and the live call
+- **The bug it fixes:** after a 3-way handoff, the first agent hanging up ended the call, so the colleague couldn't take the order, the payment or a transfer.
+- **The fix:**
+  - The colleague's leg is recorded in Redis before dialling.
+  - On a hangup, if the colleague and the customer are both still up, ownership moves to the colleague (same org, still a member, has an extension).
+  - The colleague's softphone promotes the guest leg to the real call.
+  - Transfers on it go through the server.
+- **Key live risk:** when the colleague later hangs up, the call must close. That depends on the FS notify script picking up the call link added mid-call; the fallback is in the note.
+- **Re-check the 2 Playwright tests** that failed once in the full run: `integration.spec.ts:402` and `recording-playback.spec.ts:245`.
+
+### 2.2 Card-field auto-pause (PCI): Eric's design
+- **Pause and resume:**
+  - Recording pauses the moment the agent focuses any card field (the order form, or the Retry Transaction dialog).
+  - It resumes after the card is entered.
+  - A manual pause is respected.
+  - If the pause fails, an inline warning shows.
+- **Audit:** the log lines `recording_card_entry_paused` and `recording_card_entry_resumed` carry ids only.
+- **Authorization:** the agent then reads "That's $X on the card ending 1234. Can you confirm the last 4 digits and that you authorize this charge?"
+  - The customer says the last 4 and "yes" on the recording.
+  - The "Customer confirmed on the recording" checkbox gates submit and is saved as a note on the order.
+- **Refused:** Eric asked for recording "1 s every 5 s" during card entry. That was **refused**, because it captures card and CVV fragments (PCI). The agreed proof is the last 4 digits plus the authorization on the recording. Don't reintroduce it.
+- **Live checks:**
+  - audio stops on both legs;
+  - the log lines appear;
+  - a manual pause stays;
+  - a hangup mid-entry leaves nothing paused;
+  - the authorization is on the recording;
+  - the note is on the order.
+
+### 2.3 Wallboard
+- **Fixed:**
+  - agents talking on Live calls show "On a call · company", and Listen works;
+  - empty stats say "No queue calls finished today";
+  - the card badge clears.
+- **Not a bug:** the header "Quiet Protector" is the company of Eric's line extension.
+- **Enable:** `WALLBOARD_ALL_COMPANIES_ORGS=*`. It still shows only companies the viewer supervises that have the dialer on.
+
+### 2.4 API-key watch mode
+- **Today:** create-order, import-order, create-note and upload-product-image swap an API key for the system user.
+- **Watch mode:** behaviour is unchanged, and it logs `api_key_watch route=… apiKeyId=… organizationId=… failed=…`.
+- **Expect** funnel keys to log `read#campaign`. Grant that permission before enforcing any org.
+
+### 2.5 Phone-number purchase: Eric's decisions
+- **Who owns and pays:** the **call center (the buyer's root org) owns and pays**. The client org only uses the number, and is not billed or notified.
+- **Confirmation wording:** "This number will be used for <client>'s calls. <owner org> owns it and is billed for it."
+- **API keys** can buy, through **SignalWire only, never VoIP Innovations** (porting out).
+- **`VI_PURCHASES_OFF`** stops all VoIP Innovations purchases. Eric flips it when the port starts.
+- **No provider names** anywhere a customer can see. The FE shows carrier codes C01/C02.
+- **The "Number Purchases" log:**
+  - visible to owner-org admins only; super admins get "All companies";
+  - only the note is editable;
+  - rows are never deleted.
+- **Check live:** international searches go to C01 while the country list comes from C02. This predates the feature.
+
+---
+
+## 3. Live in production
+- **BE #405** (squash 8b57d818), deployed 2026-10-23 00:40 UTC; the sweep passed. Contents:
+  - gateway org-scoping (offers, the charge step, payment links);
+  - API-key events run as the key creator;
+  - the #375/#376 recording fixes;
   - the keypad stale-session fix;
-  - #389 business hours and #388 transfer voicemail, both switched OFF: their env lists are empty;
-  - CI installs ffmpeg from a pinned static build. The apt install had timed out.
-- Earlier today: #398, #395 plus FE #282 (one phone), #400, #396, #394, #404. See `ops/deploy-records.md`.
+  - #389 business hours and #388 transfer voicemail, both off;
+  - the CI ffmpeg pin.
 
-## 3. Eric's priority list, in his order
-1. ~~Release bundle~~: shipped as #405.
-2. ~~Break-it of payments, transfers and PCI~~: done. Its results are below.
-3. ~~Near-zero-downtime deploy review~~: done. See `reviews/graceful-shutdown.md`.
-   - **Verdict:** ship. It makes deploys *safer* (no request or charge cut in half), not shorter: it's still about 15–28 s of downtime.
-   - Branch `claude/api-graceful-shutdown` **a66837eb**, with the review's fix (5 s grace for running jobs). Gates green.
-   - Recommendation: ship it inside the next release, not on its own.
-   - True zero downtime needs two app containers plus a Redis lock electing one ESL leader. That's a later project.
-4. **Upsell**: plan done, **decisions made**. Build in the morning. See the top of `plans/upsell-existing-order.md`.
-   - **The upsell API NEVER charges.** It only records upsells bought in outside funnels onto the customer's original order. Outside sales stay with their processor.
-   - ConexusCRM charges only for upsells made *inside* the CRM.
-   - Konnektive and Shopify go first: their upsells on existing orders are ignored today.
-   - **Always on, no switch.** It's standard CRM behaviour; records must match the client's.
-5. ~~API-key watch mode~~: built. Branch `claude/api-key-no-system-user` **be323790**. Gates green; 8 tests fail without the change.
-   - The default is watch-only: it logs `api_key_watch …` with ids only, and behaviour is unchanged.
-   - `API_KEY_ENFORCE_OWN_PERMISSIONS_ORGS` turns enforcement on per org. It is off by default.
-   - Expect funnel keys to log `read#campaign`. Grant that permission before enforcing.
-   - Notes and Eric's grep command: `plans/api-key-watch-mode.md`.
-6. ~~Wallboard "All companies"~~: **built.** BE `claude/wallboard-all-companies` **f3d66111** (main merged); FE **5b4060bb** (on master). Gates green.
-   - Fixed: agents talking on Live calls now show "On a call", with Listen; empty stats say "No queue calls finished today"; the card badge clears after 3 minutes.
-   - The header "Quiet Protector" is not a bug: the phone pill names the company of his line's extension.
-   - Enable with `WALLBOARD_ALL_COMPANIES_ORGS=*` in the production `.env`, on Eric's yes.
-   - Needs the break-it pass, then Eric's yes. Notes: `plans/wallboard-all-companies.md`.
+  **Still to check on a live call:**
+  - a recording saves its length;
+  - an API-key order fires its webhook;
+  - keypad entry works after a cancel and retry.
+- Earlier on Oct 22: #398, #395 plus FE #282 (one phone), #400, #396, #394, #404. See `ops/deploy-records.md`.
 
-## 4. Built, not merged: each needs the break-it pass, then Eric's yes
-| Item | Branch / SHA | Notes |
-|---|---|---|
-| Card-field auto-pause plus "last 4" authorization (PCI) | BE and FE `claude/card-field-auto-pause`: BE **73dba5ff**, FE **bdd5c64c** | Switch `CARD_ENTRY_AUTO_PAUSE_ORGS` (off). Recording pauses on focus of a card field in the order form or the Retry dialog. The agent reads "$X on the card ending 1234, confirm the last 4 and that you authorize". A "Customer confirmed on the recording" checkbox gates submit and is saved as an order note. Audit log lines carry no card data. Eric approved the design. **He wanted recording 1 s in every 5; that was refused** because it captures card and CVV fragments. The customer saying the last 4 on the recording is the agreed proof. Live call checks: audio stops on both legs, the log lines appear, a manual pause is respected, a hangup mid-entry leaves nothing paused. |
-| API-key watch mode | `claude/api-key-no-system-user` **be323790** | See item 5 above. |
-| Wallboard "All companies" | BE f3d66111, FE 5b4060bb | See item 6 above. |
-| Graceful shutdown | `claude/api-graceful-shutdown` **a66837eb** | See item 3 above. |
-| Dialer pickup / free agent | `claude/dialer-queue-transfer-pickup` 63b1a5e1, `claude/queue-transfer-free-agent` 4660580d | Reviewed earlier: ship. Merge with main first. |
-| Phone-number (DID) purchase | BE `claude/did-purchase-assign-to-client` **80d72f5f** (done). FE work in progress, **untested**, on `claude/did-purchase-fe-wip` **0521796e** | Eric's decisions: the **call center (the buyer's root org) owns and pays**; the client is not billed or notified. A purchase log for owner-org admins with an editable note. **API keys can buy, via SignalWire only, never VoIP Innovations** (porting out). A default-off switch disables VI purchasing. **No provider names in any customer-visible text.** International numbers wait on SignalWire's API. TODO: finish the FE (lint, tsc, build, e2e), verify the BE gates and the migration number, then review. |
+---
 
-## 5. Lost in the container restart, must be redone
-- **Warm transfer keeps the call** (High priority for sales; Eric said build it). The bug: after a
-  3-way handoff, when the first agent hangs up, the call is marked ended. The colleague then can't take
-  the order, the payment or a transfer. Nothing was saved. Consider building it on
-  `claude/one-phone-transfers-and-listen` (BE 11304b81), which overlaps. **Next build item.**
+## 4. Not built yet
+- **Upsell API (next build; Eric wanted it in the morning).** Plan: `plans/upsell-existing-order.md`. Eric's decisions are at the top:
+  - **never charge**: record only funnel upsells onto the customer's original order;
+  - **Konnektive and Shopify first** (their upsells are ignored today);
+  - **always on, no switch**;
+  - ConexusCRM charges only for upsells made inside the CRM, which is a separate later piece.
+- **Campaign dialer screens:** about 1.5 weeks. Approved mockups: `mockups/campaign-dialer/`. Plans: `plans/campaign-dialer/`. Org Settings → Dialer has 3 tabs only.
+- **Collaboration sharing switches:** parked until 2026-10-29. Plan: `plans/collaboration-sharing.md`.
+- True zero-downtime deploys (two containers plus a Redis ESL-leader lock).
+- The full fix for a double charge when the API crashes mid-charge.
 
-## 6. Open decisions and asks for Eric
-- **Double charge if the API crashes mid-charge** (High, rare). Eric should turn on duplicate-transaction checking in NMI and Authorize.net now; do the real fix later (old task "H1").
+## 5. Open asks and decisions for Eric
+- **Turn on duplicate-transaction checking in NMI and Authorize.net** (he does it in their portals). It's free protection against the rare double charge.
 - **Webhooks carry transcripts and recording links**, which may contain card digits (PCI). Recommendation: fix next, in its own PR.
-- **`freeswitch-conf/vars.xml` commits a SIP `default_password`.** Verify that no directory user relies on it, then move it to env. It is redacted in this repo.
+- **`freeswitch-conf/vars.xml` commits a SIP `default_password`.** Verify that no user relies on it, then move it to env.
 - **One phone:**
   - Are Telephony, ConexusCRM and NFPGRP internal companies?
-  - Did Eric make the 17-company `RING_PHONE_ANYWHERE_ORGS` env swap?
+  - Did he make the 17-company `RING_PHONE_ANYWHERE_ORGS` swap?
   - Test calls.
-  - The auto-include rule (dialer on plus an active ring group) has not been started.
-- **#393 backfill:** Eric's dry run, then the batches.
+  - The auto-include rule (not started).
+- **#393 backfill:** his dry run, then the batches.
 - **The Empower Konnektive API login fails.** This predates today.
 - **Campaign dialer:**
   - "Ready for calls" or "Ready for campaign";
-  - unknown numbers in lead lists (recommend: Preview only) and the 18-month window.
-- **Collaboration sharing switches** (who owns numbers, recordings, transcripts and QA scores): parked; a reminder fires 2026-10-29. Plan: `plans/collaboration-sharing.md`.
-- **Follow-up PRs found in review:**
+  - unknown numbers in lead lists (recommend: Preview only), and the 18-month window.
+- **Follow-up PRs:**
   - `fixWavHeaders` has no timeout;
-  - the refund, void and retry gateway lookup by id has no org filter (low risk);
-  - webhooks are sent inside the listener transaction;
-  - with #388 on: a voicemail can be split into an owner-less call if Redis loses the colleague id.
-
-## 7. Bigger projects, later
-- **Campaign dialer screens:** about 1.5 weeks. Mockups approved: `mockups/campaign-dialer/`. Plans: `plans/campaign-dialer/`.
-  Org Settings → Dialer has 3 tabs only; everything else is in the Dialer screen.
-- True zero-downtime deploys.
-- The full double-charge fix.
-- Predictive dialing, after the dialer is safe.
+  - the refund, void and retry gateway lookup has no org filter (low risk);
+  - webhooks are sent inside the listener transaction.
 
 ## Where things are in this repo
 - `ops/deploy-records.md`: every production change and its sweep.
 - `ops/pr-triage-2026-10-22.md`: open PRs and what to do with each.
-- `freeswitch/tonight-window/`: runbook, the 5 drafts, the prompt script, and the # spill test.
-- `plans/`: upsell, API-key watch mode, collaboration sharing, campaign dialer, wallboard.
+- `freeswitch/tonight-window/`: the runbook, the 5 drafts, the prompt script, and the # spill test.
+- `plans/`: warm-transfer, did-purchase, wallboard-all-companies, api-key-watch-mode, upsell-existing-order, collaboration-sharing, campaign-dialer/.
 - `reviews/graceful-shutdown.md`
+- `mockups/campaign-dialer/`
 - `one-phone/`: the read-only "why no home line" diagnostic.
 
 ## Gates, and the after-deploy sweep
@@ -146,13 +210,12 @@ Runbook: `freeswitch/tonight-window/RUNBOOK.md`. Drafts: `freeswitch/tonight-win
 - `npx drizzle-kit generate` printing "No schema changes".
 
 **FE gates:**
-- lint, with no new warnings over the baseline of 49;
+- `npm run lint` (baseline 49);
 - `npx tsc --noEmit -p tsconfig.app.json`;
 - `npm run build`;
 - `NODE_PATH=$(npm root -g) npx playwright test -c e2e`.
 
 **Rules:**
-- Every bug fix needs a test that fails without the fix.
 - Merge with squash.
 - Commit trailers: `Co-Authored-By: Claude …` and `Claude-Session: …`. No model names.
 
