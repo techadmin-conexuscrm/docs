@@ -88,7 +88,9 @@ class Tokenize(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        # a stand-in for the campaign voicemail "5-minute link" (BE-17 plays an https URL)
+        # a stand-in for the campaign voicemail "5-minute link" (BE-17 plays an
+        # https URL). GET only, like a presigned S3 link (signed for GET: S3
+        # refuses the HEAD mod_httapi sends first; here HEAD gets 501).
         if self.path == "/vm/drop.wav":
             data = open("/lab/vm/default_voicemail.wav", "rb").read()
             self.send_response(200)

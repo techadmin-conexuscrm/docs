@@ -35,7 +35,23 @@ $R pci   | tee "$LABRUN/pci.log"
 docker exec fslab-far /usr/local/freeswitch/bin/fs_cli -p lab-far-only -x hupall >/dev/null
 docker restart fslab-fs >/dev/null && sleep 10 && docker restart fslab-event-listener >/dev/null && sleep 3
 $R amd 5 | tee "$LABRUN/amd.log"
-$R drop 2 | tee "$LABRUN/drop.log"
+# the drop steps as they are today: BE-17's dropSteps() on the top campaign
+# branch, and the runbook's F3 droptest ("%s" = the recording)
+BE=${BE_REPO:-/home/user/ConexusCRM-BE}; BEB=${BE_BRANCH:-origin/claude/campaign-pr14-company-pool-monitor-tiles}
+git -C "$BE" fetch -q origin 2>/dev/null || true
+BE17=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/voicemail-drop.ts" | python3 -c '
+import re, sys
+m = re.search(r"return `(wait_for_silence[^`]*playback:[^`]*)`", sys.stdin.read())
+print(m.group(1).replace("${link}", "%(link)s").replace("${hostAndPath}", "%(host_and_path)s") if m else "")')
+RBS=$(python3 - "$DOCS/freeswitch/tonight-window/RUNBOOK.md" <<'PY'
+import re, sys
+m = re.search(r"droptest\(\).*?uuid_transfer \$U '([^']*)' inline", open(sys.argv[1]).read(), re.S)
+print(re.sub(r"playback:[^,]*", "playback:%s", m.group(1)) if m else "")
+PY
+)
+printf 'BE-17 dropSteps (%s): %s\nRUNBOOK F3 droptest: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "$RBS" | tee "$LABRUN/drop-steps.txt"
+mkdir -p "$LABRUN/results" && cp "$LABRUN/drop-steps.txt" "$LABRUN/results/drop-steps.txt"
+docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
 "$LAB/esl-checks.sh" "$WT" "$LABRUN"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call
 $R pci X01_sensitive_dtmf_experiment X02_global_debug_experiment | tee "$LABRUN/pci-x.log"

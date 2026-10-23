@@ -257,6 +257,9 @@ RUNBOOK_STEPS = os.environ.get("LAB_RUNBOOK_STEPS") or "avmd_start,wait_for_sile
 
 
 def drop_steps_be17(target):
+    # %(link)s = the recording's URL; %(host_and_path)s = the same without "https://"
+    if "%(" in BE17_STEPS:
+        return BE17_STEPS % {"link": target, "host_and_path": target.split("://", 1)[-1]}
     return BE17_STEPS % target
 
 
@@ -576,6 +579,9 @@ class Entry:
             r = c.api("uuid_record %s unmask %s" % (leg, path)).strip()
             unmask.append({"leg": "B" if leg == self.B else "A", "reply": r[:40], "ok": r.startswith("+OK")})
         self.t_unmask = time.time()
+        # when keys were secure-entry keys (L5 checks no key in these windows was logged)
+        with open(RES + "/pci-entry-windows.jsonl", "a") as f:
+            f.write(json.dumps({"case": self.name, "B": self.B, "from": self.t_transfer, "to": self.t_unmask}) + "\n")
         self.end = {"reason": reason, "effective": eff, "customer_alive": cust, "agent_alive": agent,
                     "steps": [(n, r.strip()[:40]) for n, r in steps], "unmask": unmask}
 

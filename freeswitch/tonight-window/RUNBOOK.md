@@ -627,7 +627,7 @@ amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   sleep 7;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
   sleep 12; fsx "uuid_getvar $U avmd_detect"; }
 droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
-  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:200 15 10 8000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
+  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:200 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
 ```
 
 | # | Do | Good | Paste back |

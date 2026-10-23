@@ -37,7 +37,8 @@ out=$(inx '[ "$('"$FSCLI"' -p "$FS_ESL_PASSWORD" -x "global_getvar esl_password"
 # E5 PR3's fs_cli.sh (needs a terminal, as Eric runs it)
 out=$(cd "$WT" && COMPOSE_PROJECT_NAME=fslab COMPOSE_FILE="$WT/docker-compose.yml:$LAB/compose.lab.yml" LAB=$LAB LABRUN=$LABRUN \
       script -qec "./fs_cli.sh -x status" /dev/null 2>&1 | tr -cd '[:print:]\n' | head -1)
-case "$out" in UP*) res E5 PASS "fs_cli.sh -x status: $out";; *) res E5 FAIL "fs_cli.sh: $out";; esac
+# (the pseudo-terminal sometimes echoes a stray ^@ before the reply)
+case "$out" in UP*|*"^@UP"*) res E5 PASS "fs_cli.sh -x status: $out";; *) res E5 FAIL "fs_cli.sh: $out";; esac
 
 # E6 the event-listener sidecar (scripts/event/config.py) connects with the env password
 n=$(docker logs fslab-event-listener 2>&1 | grep -c 'Connected to FreeSWITCH ESL')
@@ -91,8 +92,27 @@ ndc=$(docker logs fslab-fs 2>&1 | grep -c '\[DEBUG\]')
 n1=$(inx 'grep -c "RTP RECV DTMF" /var/log/freeswitch/freeswitch.log'); n2=$(docker logs fslab-fs 2>&1 | grep -c 'RTP RECV DTMF')
 [ "$n1" = 0 ] && [ "$n2" = 0 ] && res L3 PASS "'RTP RECV DTMF' lines: file $n1, console $n2" || res L3 FAIL "'RTP RECV DTMF' lines: file $n1, console $n2"
 # keypad digits are logged at INFO (switch_channel.c "RECV DTMF <digit>:<len>"), which INFO-level logging keeps
-n1=$(inx 'grep -c "RECV DTMF" /var/log/freeswitch/freeswitch.log'); n2=$(docker logs fslab-fs 2>&1 | grep -c 'RECV DTMF')
-[ "$n1" = 0 ] && [ "$n2" = 0 ] && res L5 PASS "no keypad digits in the logs" || res L5 FAIL "keypad digits logged one per line at INFO ('RECV DTMF <digit>:'): freeswitch.log $n1 lines, console $n2 lines"
+# Only keys pressed during a secure entry count: after it the keys are the
+# customer's own again (PR4 unsets sensitive_dtmf; P27 presses one on purpose).
+inx 'grep "RECV DTMF" /var/log/freeswitch/freeswitch.log' > "$LABRUN/recv-dtmf.file.txt" 2>/dev/null
+docker logs fslab-fs 2>&1 | grep 'RECV DTMF' > "$LABRUN/recv-dtmf.console.txt"
+l5=$(python3 - "$LABRUN/results/pci-entry-windows.jsonl" "$LABRUN/recv-dtmf.file.txt" "$LABRUN/recv-dtmf.console.txt" <<'PY'
+import json, re, sys, calendar, time
+W = [json.loads(l) for l in open(sys.argv[1])] if sys.argv[1] and __import__("os").path.exists(sys.argv[1]) else []
+def t(line):
+    m = re.search(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\.(\d+)", line)
+    return calendar.timegm(time.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")) + float("0." + m.group(2)) if m else None
+out = []
+for path in sys.argv[2:]:
+    lines = open(path, errors="replace").read().splitlines()
+    inside = sum(1 for l in lines if (lambda x: x is not None and any(w["from"] <= x <= w["to"] for w in W))(t(l)))
+    out.append("%d %d" % (inside, len(lines)))
+print(" ".join(out), len(W))
+PY
+)
+set -- $l5
+if [ "${5:-0}" -gt 0 ] && [ "$1" = 0 ] && [ "$3" = 0 ]; then res L5 PASS "no key pressed during the $5 secure entries was logged (RECV DTMF lines in entry windows: file $1, console $3; after entries, by design: file $2, console $4)"
+else res L5 FAIL "keypad digits logged at INFO during secure entry ('RECV DTMF <digit>:'): freeswitch.log $1 lines, console $3 lines (all: $2 / $4; entries: ${5:-0})"; fi
 cl=$(inx 'grep "Max core file size" /proc/1/limits' | tr -s ' ')
 docker rm -f fslab-cores >/dev/null 2>&1
 git -C "$REPO" show origin/master:autoload_configs/switch.conf.xml > "$LABRUN/switch.master.xml"
