@@ -24,10 +24,10 @@ index a127afc..0ea9289 100644
          <action application="python" data="api.app"/>
 diff --git a/dialplan/default/10_secure_payment.xml b/dialplan/default/10_secure_payment.xml
 new file mode 100644
-index 0000000..91e80dd
+index 0000000..d77dd51
 --- /dev/null
 +++ b/dialplan/default/10_secure_payment.xml
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,64 @@
 +<include>
 +  <!--
 +    Silent secure keypad entry (customer leg only).
@@ -42,11 +42,20 @@ index 0000000..91e80dd
 +        during entry, so there is nothing to mask and no beep is played;
 +      - no record_session_mask on this channel: masking is done by the CRM on
 +        whichever channel carries the recording, and confirmed;
-+      - no global `loglevel` change (that changed the level for every call on
-+        the box): session_loglevel limits only this channel;
++      - no `loglevel` change of any kind: a session_loglevel can only make a
++        channel MORE verbose than the global level, never less
++        (switch_log.c), so it protects nothing;
 +      - no channel variable ever holds a digit (no play_and_get_digits or read
-+        with a variable name, no crm_payment_* variables), so CDRs and
-+        CHANNEL_* events stay clean.
++        with a variable name, no crm_payment_* variables).
++
++    What IS here, first: sensitive_dtmf=true. Without it FreeSWITCH itself
++    writes every key the customer presses: "RECV DTMF <digit>" at INFO in
++    freeswitch.log and docker logs (switch_channel.c), one DTMF event per key,
++    and all keys joined into digits_dialed at hang-up, which reaches the json
++    CDR and CHANNEL_HANGUP_COMPLETE (the API's ESL listens to it). With it, no
++    key is logged, no DTMF event fires and digits_dialed stays "none" (lab
++    experiment X01). It stays set for the rest of the call. Never run the box
++    at DEBUG while secure entry is on.
 +
 +    Installed from ConexusCRM-BE docs/dialer/freeswitch/ (keep in sync).
 +    Script: scripts/secure_payment.lua. Apply with `reloadxml`.
@@ -57,7 +66,7 @@ index 0000000..91e80dd
 +    <!-- Only a CRM-started entry: a 48-hex session id set by the CRM. A call
 +         that dials "secure_payment" any other way goes nowhere. -->
 +    <condition field="${secure_payment_session}" expression="^[0-9a-f]{48}$">
-+      <action application="session_loglevel" data="info"/>
++      <action application="set" data="sensitive_dtmf=true"/>
 +      <!-- After the reconnect, the customer leg ends when the agent hangs up. -->
 +      <action application="set" data="hangup_after_bridge=true"/>
 +      <action application="set" data="park_after_bridge=false"/>
@@ -85,10 +94,10 @@ index 0000000..91e80dd
 +</include>
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..f30d6f1
+index 0000000..c603f09
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,500 @@
+@@ -0,0 +1,507 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -106,7 +115,12 @@ index 0000000..f30d6f1
 +  This script:
 +    - collects card number, expiry, CVV and ZIP with session:getDigits, one
 +      digit at a time (never play_and_get_digits / read with a variable name),
-+      so no digit is ever stored in a channel variable, a CDR or an ESL event;
++      so no digit is ever stored in a channel variable;
++    - runs with sensitive_dtmf=true on this channel (the dialplan sets it
++      first; this script sets it again before the first key). Without it
++      FreeSWITCH itself logs every key at INFO ("RECV DTMF"), fires a DTMF
++      event per key and joins them all into digits_dialed, which goes to the
++      json CDR and CHANNEL_HANGUP_COMPLETE;
 +    - '*' at any prompt returns the customer to the agent;
 +    - fires CUSTOM secure_payment::progress events with field names, counts
 +      and states only, never digits;
@@ -575,9 +589,11 @@ index 0000000..f30d6f1
 +  return "failed"
 +end
 +
-+-- Pin this channel's log level for the whole entry: FreeSWITCH logs DTMF at
-+-- DEBUG. (The dialplan sets it too; the global level must be INFO or above.)
-+session:execute("session_loglevel", "info")
++-- No key may reach a log line, a DTMF event or digits_dialed (see the top
++-- of this file). The dialplan sets this before the script runs; set it again
++-- in case the channel got here another way. (A session_loglevel would not
++-- help: it can only make a channel more verbose than the global level.)
++session:setVariable("sensitive_dtmf", "true")
 +
 +local ok, result = pcall(main)
 +if not ok then

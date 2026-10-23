@@ -42,7 +42,7 @@ All drafts are in
 | PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml` | the swap |
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
-| PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. | the swap (would also work live with `reloadxml`) |
+| PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. | the swap (would also work live with `reloadxml`) |
 | PR5 | `claude/fs-log-hardening` | log level `info`, `dump-cores no`, no debug lines in the file log | the swap |
 
 They merge cleanly together. The XML parses, and the old password appears
@@ -456,7 +456,7 @@ sudo docker compose -f .deploy/compose.yml logs --since 10m app | grep -E '"esl_
 | **W5: the new FreeSWITCH misbehaves (full rollback)** | **FS box:** `sudo git -C /home/admin/freeswitch-conf checkout $(sudo cat $B/commit-before.txt)` → `sudo docker image tag conexus-fs:rollback-YYYYMMDD conexus-fs:latest` → `cd /home/admin/freeswitch-conf && sudo docker compose up -d --no-build --force-recreate`. **API box (if W6 ran):** `cd /home/ubuntu/ConexusCRM-BE && sudo cp -p .env.bak-fswindow .env && sudo docker compose -f .deploy/compose.yml up -d --force-recreate app`. Old image, old config and the old password again on both sides. | **yes, about 1 more minute** |
 | W6: API can't reach FreeSWITCH | Don't roll back. Redo W6 until the hashes match, then recreate the app. | no |
 | **Secure entry misbehaves** (only that) | `sudo mv /home/admin/freeswitch-conf/dialplan/default/10_secure_payment.xml "$B"/` then `fsx 'reloadxml'`. The CRM goes back to refusing secure entry (#392). AMD and the rest stay. | **no** |
-| Log hardening only | `fsx 'fsctl loglevel debug'` (until the next restart) | no |
+| Log hardening only | Don't. Leave the level at `info` while secure entry is on: at DEBUG, FreeSWITCH writes more DTMF lines than `sensitive_dtmf` covers. If you need DEBUG to chase a problem, switch secure entry off first (row above), then use `fsx 'fsctl loglevel debug'` (it lasts until the next restart, or `fsx 'fsctl loglevel info'`). | no |
 
 Keep `conexus-fs:rollback-YYYYMMDD`, `$B` and `.env.bak-fswindow` for at
 least 2 weeks. After that, delete `.env.bak-fswindow`: it holds the old
@@ -490,6 +490,13 @@ On each call: an agent on a live call with your mobile, on an order in the
 test company. The agent clicks **Start secure entry**. You key on your
 mobile.
 
+**Before B1, on the FS box** (B10 compares against these two):
+
+```bash
+BSTART=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); echo "$BSTART"
+N0=$(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log); echo "$N0"
+```
+
 | # | Do | Good looks like | Paste back |
 |---|---|---|---|
 | B1 **success** | key `4111111111111111`, expiry `1230`, CVV `123`, ZIP `78704` | **You hear:** intro, card, expiry, code, ZIP, "one moment", "received securely", "returning you to your agent". **The agent hears silence the whole time.** **Agent screen:** `Visa •••• 1111 · 12/30` plus the ZIP/CVV check words. **Afterwards:** you and the agent talk again. | OK + what the agent's screen showed |
@@ -501,19 +508,39 @@ mobile.
 | B7 **back to agent** | press `*` at the expiry prompt | back with the agent within about 2 s; the agent sees "left secure entry" | OK |
 | B8 **pound after 16** | key the 16 digits, then press `#` | **Watch:** does the expiry step say "not valid" right away? If yes, that's a known risk: the `#` spills into the next field. It's a small script fix later; not a reason to roll back. | what you heard |
 | B9 **recording** | play B1's call recording in the CRM | voice before and after, **silence during the entry, no tones** | OK |
-| B10 **no card in logs** | run the two commands just below this table | `0` and `0` | both numbers |
+| B10 **no card in logs** | run the commands just below this table | `0` on every line | all the numbers |
 
-B10 commands. On the FS box:
+B10 commands. On the FS box, in the same terminal as `BSTART` and `N0`.
+FreeSWITCH would log a keypad digit one per line (`RECV DTMF 4:...`) and
+collect them all in `digits_dialed`, so a search for the whole card number
+alone can't see it:
 
 ```bash
-sudo docker exec fs sh -c 'grep -rl 4111111111111111 /var/log/freeswitch /etc/freeswitch/call-cdr-json 2>/dev/null | wc -l'
+sudo docker exec fs sh -c 'grep -rl 4111111111111111 /var/log/freeswitch /etc/freeswitch/call-cdr-json 2>/dev/null | wc -l'   # 0
+echo $(( $(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log) - N0 ))    # 0: no key logged since B1
+sudo docker logs --since "$BSTART" fs 2>&1 | grep -c 'RECV DTMF'                                  # 0
+sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -lE '"digits_dialed": ?"[0-9*#]' {} + | wc -l   # 0
 ```
 
 On the API box:
 
 ```bash
-cd /home/ubuntu/ConexusCRM-BE && sudo docker compose -f .deploy/compose.yml logs --since 3h app | grep -c 4111111111111111
+cd /home/ubuntu/ConexusCRM-BE && sudo docker compose -f .deploy/compose.yml logs --since 3h app | grep -cE '4111111111111111|digits_dialed'   # 0
 ```
+
+**If any FS number is not 0:** switch secure entry off (§4), tell me, and
+purge what was written (test cards only tonight, but the same steps apply
+if a real card was ever keyed):
+
+```bash
+sudo find /home/admin/freeswitch-conf/call-cdr-json -name '*.json' -newermt "$BSTART" -exec grep -lE '"digits_dialed": ?"[0-9*#]' {} + | sudo xargs -r rm -v
+sudo docker exec fs sh -c ': > /var/log/freeswitch/freeswitch.log'
+sudo sh -c ': > "$(docker inspect -f "{{.LogPath}}" fs)"'
+```
+
+The last two empty the FreeSWITCH log file and the container's console log
+(all calls, not only the test). Older rotated logs (`freeswitch.log.1` and
+up) are from before the window.
 
 If any of B1, B4, B7, B9 or B10 is NOT OK, switch secure entry off with the
 no-downtime rollback in §4. Leave everything else.
