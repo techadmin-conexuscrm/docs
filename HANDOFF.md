@@ -12,7 +12,7 @@ Last updated: 2026-10-23 00:20 UTC.
 - Save research here (this repo) as you go, so nothing is lost when a session ends.
 
 ## Right now
-- **BE release PR [ConexusCRM-BE#405](https://github.com/techadmin-conexuscrm/ConexusCRM-BE/pull/405)**
+- **#405 is LIVE** (8b57d818, deployed 00:40 UTC, sweep ok). Remaining live checks are folded into tonight's FS test calls.
   (head 6f98763e). Eric said "go on 405", and the floor was quiet.
   - Next steps: merge (squash) once CI is green, then run the sweep and log it in `ops/deploy-records.md`.
   - Contents: gateway org-scoping (offer update, charge step, payment links), API-key events

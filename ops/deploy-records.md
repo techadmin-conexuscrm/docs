@@ -173,3 +173,24 @@
 - **Downtime:** first failure 21:23:11Z, healthy 21:23:40Z → about 25–30 s.
 - **Sweep (21:24Z):** bad login 401 ✅; health 200, db up, pool waiting 0 ✅.
 - **Pending real check:** logs show one scheduled run per Konnektive/Shopify instance and no "scheduler" repeat; Live calls Listen on a Phytage call.
+
+## 2026-10-23 00:40 UTC: BE #405 release (squash 8b57d818)
+- **What changed:**
+  - gateway org-scoping (offer update, charge step, payment links);
+  - API-key events run as the key creator, with the key's permissions only;
+  - #375/#376 recording fixes (EPIPE guard, duration from the file);
+  - keypad secure-entry stale-session fix;
+  - #389 business hours and #388 transfer voicemail (both off: env lists empty);
+  - CI installs ffmpeg from a pinned static build.
+- **Why:** security (cross-company gateway), API-key orders' webhooks and plugins never ran, recording crashes and zero lengths, keypad payment going live with FreeSWITCH tonight.
+- **Approval:** Eric, "go on 405"; the floor was quiet. CI's first run failed only on a slow apt mirror installing ffmpeg. That was fixed on the PR (419f8dd5) and re-ran green.
+- **Pre-check:** prod read-only: 0 offers, 0 orders (90 days), 0 pending sales on another company's gateway.
+- **Downtime:** first non-200 at 00:40:10, healthy at 00:40:54, so about 24–44 s by the 3-second poll (6 failed polls).
+- **Sweep:** bad login returned 401; `/api/v1/health` returned ok (database up, pool ok).
+- **Still to verify live:**
+  - a recording upload saves a non-zero length;
+  - an API-key order fires its webhook;
+  - keypad entry cancel and retry;
+  - a test call.
+
+  These are done with the FreeSWITCH window test calls at 11 pm ET.
