@@ -29,6 +29,7 @@ Steps it runs (each can be run alone):
 | `runner/lab.py amd\|drop\|pci` | the call matrix, run inside the lab FreeSWITCH container (the repo's ESL ACL only admits 127.0.0.1) |
 | `pci-grep.sh` | searches console, freeswitch.log, CDRs (json + csv), the core DB, the event-listener's log and every ESL event for the test card numbers and CVVs |
 | `esl-checks.sh` | section 6: ESL password from the environment, the old one refused, log hardening |
+| `p11-evidence.sh` | P11 outside a call: `runner/luasec_eof.lua` (the script's tokenize socket calls) against the mock in drop mode, FreeSWITCH CPU before / during / after a restart |
 | `report.py` | `results.md` |
 
 ## What is different from production (all of it about the network)
