@@ -1,0 +1,778 @@
+2026-10-23 19:29:32.157909 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_logfile]
+2026-10-23 19:29:32.161807 0.00% [ERR] mod_enum.c:115 Open of enum.conf failed
+2026-10-23 19:29:32.161872 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_enum]
+2026-10-23 19:29:32.161890 0.00% [NOTICE] switch_loadable_module.c:273 Adding Dialplan 'enum'
+2026-10-23 19:29:32.161912 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'enum'
+2026-10-23 19:29:32.161938 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'enum'
+2026-10-23 19:29:32.161956 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'enum_auto'
+2026-10-23 19:29:32.162748 0.00% [NOTICE] mod_json_cdr.c:114 Rotating log file paths
+2026-10-23 19:29:32.162775 0.00% [NOTICE] mod_json_cdr.c:141 Setting log file path to /etc/freeswitch/call-cdr-json
+2026-10-23 19:29:32.162804 0.00% [NOTICE] mod_json_cdr.c:180 Setting err log file path to /etc/freeswitch/call-cdr-json
+2026-10-23 19:29:32.162817 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_json_cdr]
+2026-10-23 19:29:32.163526 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_cdr_csv]
+2026-10-23 19:29:32.163556 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'cdr_csv'
+2026-10-23 19:29:32.164585 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_event_socket]
+2026-10-23 19:29:32.164615 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'socket'
+2026-10-23 19:29:32.164656 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'event_sink'
+2026-10-23 19:29:32.166306 0.00% [INFO] mod_sofia.c:6665 Starting initial message thread.
+2026-10-23 19:29:32.166473 0.00% [WARNING] sofia.c:5328 rtp-timeout-sec deprecated use media_timeout variable.
+2026-10-23 19:29:32.166516 0.00% [WARNING] sofia.c:5335 rtp-hold-timeout-sec deprecated use media_hold_timeout variable.
+2026-10-23 19:29:32.166556 0.00% [INFO] sofia.c:6182 Setting nonce TTL to 60 seconds
+2026-10-23 19:29:32.166565 0.00% [INFO] sofia.c:6187 Setting MAX Auth Validity to 0 Attempts
+2026-10-23 19:29:32.166698 0.00% [NOTICE] sofia.c:6350 Started Profile external [sofia_reg_external]
+2026-10-23 19:29:32.166785 0.00% [WARNING] sofia.c:2290 MSG Thread 0 Started
+2026-10-23 19:29:32.178996 0.00% [ERR] sofia.c:3302 Error Creating SIP UA for profile: external (sip:mod_sofia@3.136.141.70:5061;maddr=172.31.39.18;transport=udp,tcp) ATTEMPT 1 (RETRY IN 5 SEC)
+2026-10-23 19:29:33.670903 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_sofia]
+2026-10-23 19:29:33.670946 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'sofia'
+2026-10-23 19:29:33.670975 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'rtp'
+2026-10-23 19:29:33.670981 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sofia_sla'
+2026-10-23 19:29:33.670991 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sofia_stir_shaken_vs'
+2026-10-23 19:29:33.671045 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia'
+2026-10-23 19:29:33.671064 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_gateway_data'
+2026-10-23 19:29:33.671080 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_username_of'
+2026-10-23 19:29:33.671093 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_contact'
+2026-10-23 19:29:33.671103 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_count_reg'
+2026-10-23 19:29:33.671114 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_dig'
+2026-10-23 19:29:33.671122 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sofia_presence_data'
+2026-10-23 19:29:33.671134 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'sofia.status'
+2026-10-23 19:29:33.671153 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'sofia.status.info'
+2026-10-23 19:29:33.671161 0.00% [NOTICE] switch_loadable_module.c:621 Adding Chat interface 'sip'
+2026-10-23 19:29:33.671170 0.00% [NOTICE] switch_loadable_module.c:683 Adding Management interface 'mod_sofia' OID[.1.3.6.1.4.1.27880.1001]
+2026-10-23 19:29:33.671706 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_loopback]
+2026-10-23 19:29:33.671828 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'loopback'
+2026-10-23 19:29:33.671838 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'null'
+2026-10-23 19:29:33.671842 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unloop'
+2026-10-23 19:29:33.672218 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_rtc]
+2026-10-23 19:29:33.672249 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'rtc'
+2026-10-23 19:29:33.673552 0.00% [ERR] mod_verto.c:5173 Open of verto.conf failed
+2026-10-23 19:29:33.673609 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_verto]
+2026-10-23 19:29:33.673615 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'verto.rtc'
+2026-10-23 19:29:33.673667 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'verto'
+2026-10-23 19:29:33.673745 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'verto_contact'
+2026-10-23 19:29:33.673754 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'store'
+2026-10-23 19:29:33.673761 0.00% [NOTICE] switch_loadable_module.c:621 Adding Chat interface 'verto'
+2026-10-23 19:29:33.673863 0.00% [CRIT] switch_loadable_module.c:1754 Error Loading module /usr/local/freeswitch/lib/freeswitch/mod/mod_signalwire.so
+**/usr/local/freeswitch/lib/freeswitch/mod/mod_signalwire.so: cannot open shared object file: No such file or directory**
+2026-10-23 19:29:33.674856 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_commands]
+2026-10-23 19:29:33.674886 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'msrp_recv_file'
+2026-10-23 19:29:33.674900 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'msrp_send_file'
+2026-10-23 19:29:33.674906 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'bg_system'
+2026-10-23 19:29:33.674911 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'system'
+2026-10-23 19:29:33.674931 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'bg_spawn'
+2026-10-23 19:29:33.674937 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'spawn'
+2026-10-23 19:29:33.674941 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'spawn_stream'
+2026-10-23 19:29:33.674948 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'acl'
+2026-10-23 19:29:33.674973 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'alias'
+2026-10-23 19:29:33.675020 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'coalesce'
+2026-10-23 19:29:33.675027 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'banner'
+2026-10-23 19:29:33.675035 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'bgapi'
+2026-10-23 19:29:33.675040 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'break'
+2026-10-23 19:29:33.675045 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'complete'
+2026-10-23 19:29:33.675069 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'cond'
+2026-10-23 19:29:33.675093 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'console_complete'
+2026-10-23 19:29:33.675102 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'console_complete_xml'
+2026-10-23 19:29:33.675111 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'create_uuid'
+2026-10-23 19:29:33.675125 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'db_cache'
+2026-10-23 19:29:33.675129 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'domain_data'
+2026-10-23 19:29:33.675139 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'domain_exists'
+2026-10-23 19:29:33.675319 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'echo'
+2026-10-23 19:29:33.675329 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'event_channel_broadcast'
+2026-10-23 19:29:33.675336 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'escape'
+2026-10-23 19:29:33.675340 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'eval'
+2026-10-23 19:29:33.675345 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'expand'
+2026-10-23 19:29:33.675351 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'find_user_xml'
+2026-10-23 19:29:33.675355 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'fsctl'
+2026-10-23 19:29:33.675361 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function '...'
+2026-10-23 19:29:33.675367 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'shutdown'
+2026-10-23 19:29:33.675373 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'version'
+2026-10-23 19:29:33.675377 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'global_getvar'
+2026-10-23 19:29:33.675382 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'global_setvar'
+2026-10-23 19:29:33.675387 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'group_call'
+2026-10-23 19:29:33.675393 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'help'
+2026-10-23 19:29:33.675396 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'host_lookup'
+2026-10-23 19:29:33.675401 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'hostname'
+2026-10-23 19:29:33.675407 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'interface_ip'
+2026-10-23 19:29:33.675413 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'switchname'
+2026-10-23 19:29:33.675417 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'gethost'
+2026-10-23 19:29:33.675422 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'getenv'
+2026-10-23 19:29:33.675428 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'hupall'
+2026-10-23 19:29:33.675440 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'in_group'
+2026-10-23 19:29:33.675444 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'is_lan_addr'
+2026-10-23 19:29:33.675450 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'limit_usage'
+2026-10-23 19:29:33.675455 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'limit_hash_usage'
+2026-10-23 19:29:33.675464 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'limit_status'
+2026-10-23 19:29:33.675467 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'limit_reset'
+2026-10-23 19:29:33.675473 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'limit_interval_reset'
+2026-10-23 19:29:33.675480 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'list_users'
+2026-10-23 19:29:33.675485 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'load'
+2026-10-23 19:29:33.675491 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'log'
+2026-10-23 19:29:33.675497 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'md5'
+2026-10-23 19:29:33.675501 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'module_exists'
+2026-10-23 19:29:33.675506 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'msleep'
+2026-10-23 19:29:33.675511 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'nat_map'
+2026-10-23 19:29:33.675518 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'originate'
+2026-10-23 19:29:33.675521 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'pause'
+2026-10-23 19:29:33.675526 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'pool_stats'
+2026-10-23 19:29:33.675532 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'quote_shell_arg'
+2026-10-23 19:29:33.675537 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'regex'
+2026-10-23 19:29:33.675541 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'reloadacl'
+2026-10-23 19:29:33.675546 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'reload'
+2026-10-23 19:29:33.675555 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'reloadxml'
+2026-10-23 19:29:33.675560 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'replace'
+2026-10-23 19:29:33.675563 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'say_string'
+2026-10-23 19:29:33.675569 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sched_api'
+2026-10-23 19:29:33.675575 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sched_broadcast'
+2026-10-23 19:29:33.675580 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sched_del'
+2026-10-23 19:29:33.675584 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sched_hangup'
+2026-10-23 19:29:33.675589 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sched_transfer'
+2026-10-23 19:29:33.675595 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'show'
+2026-10-23 19:29:33.675601 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sql_escape'
+2026-10-23 19:29:33.675604 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'status'
+2026-10-23 19:29:33.675609 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'strftime_tz'
+2026-10-23 19:29:33.675614 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'stun'
+2026-10-23 19:29:33.675620 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'time_test'
+2026-10-23 19:29:33.675625 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'timer_test'
+2026-10-23 19:29:33.675628 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'tone_detect'
+2026-10-23 19:29:33.675634 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'unload'
+2026-10-23 19:29:33.675640 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'unsched_api'
+2026-10-23 19:29:33.675645 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uptime'
+2026-10-23 19:29:33.675648 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'reg_url'
+2026-10-23 19:29:33.675653 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'url_decode'
+2026-10-23 19:29:33.675683 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'url_encode'
+2026-10-23 19:29:33.675688 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'toupper'
+2026-10-23 19:29:33.675691 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'tolower'
+2026-10-23 19:29:33.675698 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'user_data'
+2026-10-23 19:29:33.675704 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_early_ok'
+2026-10-23 19:29:33.675710 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'user_exists'
+2026-10-23 19:29:33.675713 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_answer'
+2026-10-23 19:29:33.675718 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_audio'
+2026-10-23 19:29:33.675724 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_break'
+2026-10-23 19:29:33.675779 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_bridge'
+2026-10-23 19:29:33.675786 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_broadcast'
+2026-10-23 19:29:33.675794 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_buglist'
+2026-10-23 19:29:33.675801 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_chat'
+2026-10-23 19:29:33.675806 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_send_text'
+2026-10-23 19:29:33.675810 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_capture_text'
+2026-10-23 19:29:33.675815 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_codec_debug'
+2026-10-23 19:29:33.675821 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_codec_param'
+2026-10-23 19:29:33.675826 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_debug_media'
+2026-10-23 19:29:33.675830 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_deflect'
+2026-10-23 19:29:33.675836 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_displace'
+2026-10-23 19:29:33.675842 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_display'
+2026-10-23 19:29:33.675847 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_media_params'
+2026-10-23 19:29:33.675855 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_drop_dtmf'
+2026-10-23 19:29:33.675859 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_dump'
+2026-10-23 19:29:33.675868 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_exists'
+2026-10-23 19:29:33.675875 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_fileman'
+2026-10-23 19:29:33.675882 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_flush_dtmf'
+2026-10-23 19:29:33.675888 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_getvar'
+2026-10-23 19:29:33.675897 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_hold'
+2026-10-23 19:29:33.675906 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_kill'
+2026-10-23 19:29:33.675918 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_send_message'
+2026-10-23 19:29:33.676083 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_send_info'
+2026-10-23 19:29:33.676095 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_set_media_stats'
+2026-10-23 19:29:33.676103 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_video_bitrate'
+2026-10-23 19:29:33.676112 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_video_bandwidth'
+2026-10-23 19:29:33.676120 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_video_refresh'
+2026-10-23 19:29:33.676128 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_outgoing_answer'
+2026-10-23 19:29:33.676133 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_limit'
+2026-10-23 19:29:33.676143 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_limit_release'
+2026-10-23 19:29:33.676151 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_loglevel'
+2026-10-23 19:29:33.676158 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_media'
+2026-10-23 19:29:33.676162 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_media_3p'
+2026-10-23 19:29:33.676169 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_media_reneg'
+2026-10-23 19:29:33.676176 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_park'
+2026-10-23 19:29:33.676182 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_pause'
+2026-10-23 19:29:33.676190 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_phone_event'
+2026-10-23 19:29:33.676197 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_ring_ready'
+2026-10-23 19:29:33.676204 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_pre_answer'
+2026-10-23 19:29:33.676210 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_preprocess'
+2026-10-23 19:29:33.676217 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_record'
+2026-10-23 19:29:33.676223 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_recovery_refresh'
+2026-10-23 19:29:33.676230 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_recv_dtmf'
+2026-10-23 19:29:33.676239 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_redirect'
+2026-10-23 19:29:33.676248 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_send_dtmf'
+2026-10-23 19:29:33.676256 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_session_heartbeat'
+2026-10-23 19:29:33.676264 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_setvar_multi'
+2026-10-23 19:29:33.676268 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_setvar'
+2026-10-23 19:29:33.676276 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_transfer'
+2026-10-23 19:29:33.676283 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_dual_transfer'
+2026-10-23 19:29:33.676290 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_simplify'
+2026-10-23 19:29:33.676296 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_jitterbuffer'
+2026-10-23 19:29:33.676303 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_zombie_exec'
+2026-10-23 19:29:33.676309 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_xfer_zombie'
+2026-10-23 19:29:33.676318 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'xml_flush_cache'
+2026-10-23 19:29:33.676325 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'xml_locate'
+2026-10-23 19:29:33.676332 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'xml_wrap'
+2026-10-23 19:29:33.676339 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'file_exists'
+2026-10-23 19:29:33.676347 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'getcputime'
+2026-10-23 19:29:33.676351 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'json'
+2026-10-23 19:29:33.676357 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'memory'
+2026-10-23 19:29:33.676366 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'msrp'
+2026-10-23 19:29:33.676575 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_msrp_send'
+2026-10-23 19:29:33.676587 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'mediaStats'
+2026-10-23 19:29:33.676596 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'status'
+2026-10-23 19:29:33.676609 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'fsapi'
+2026-10-23 19:29:33.676617 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'execute'
+2026-10-23 19:29:33.676624 0.00% [NOTICE] switch_loadable_module.c:419 Adding JSON API Function 'channelData'
+2026-10-23 19:29:33.677413 0.00% [ERR] mod_conference.c:3950 Open of conference.conf failed
+2026-10-23 19:29:33.677417 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_conference]
+2026-10-23 19:29:33.677421 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'conference'
+2026-10-23 19:29:33.677450 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'conference_set_auto_outcall'
+2026-10-23 19:29:33.677459 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'conference'
+2026-10-23 19:29:33.677465 0.00% [NOTICE] switch_loadable_module.c:621 Adding Chat interface 'conf'
+2026-10-23 19:29:33.677807 0.00% [ERR] switch_xml_config.c:78 Could not open db.conf
+2026-10-23 19:29:33.677812 0.00% [WARNING] mod_db.c:292 No config file found, defaulting to sqlite
+2026-10-23 19:29:33.680469 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_db]
+2026-10-23 19:29:33.680498 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'db'
+2026-10-23 19:29:33.680514 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'group'
+2026-10-23 19:29:33.680520 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'db'
+2026-10-23 19:29:33.680525 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'group'
+2026-10-23 19:29:33.680531 0.00% [NOTICE] switch_loadable_module.c:717 Adding Limit interface 'db'
+2026-10-23 19:29:33.680917 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_dptools]
+2026-10-23 19:29:33.680934 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'error'
+2026-10-23 19:29:33.680944 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'group'
+2026-10-23 19:29:33.680949 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'user'
+2026-10-23 19:29:33.680954 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'pickup'
+2026-10-23 19:29:33.680957 0.00% [NOTICE] switch_loadable_module.c:273 Adding Dialplan 'inline'
+2026-10-23 19:29:33.680962 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'blind_transfer_ack'
+2026-10-23 19:29:33.680967 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'bind_digit_action'
+2026-10-23 19:29:33.680973 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'capture'
+2026-10-23 19:29:33.680978 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'clear_digit_action'
+2026-10-23 19:29:33.680982 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'digit_action_set_realm'
+2026-10-23 19:29:33.680986 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'privacy'
+2026-10-23 19:29:33.680991 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_audio_level'
+2026-10-23 19:29:33.681027 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_mute'
+2026-10-23 19:29:33.681034 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'flush_dtmf'
+2026-10-23 19:29:33.681039 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'hold'
+2026-10-23 19:29:33.681046 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unhold'
+2026-10-23 19:29:33.681051 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'mutex'
+2026-10-23 19:29:33.681055 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'page'
+2026-10-23 19:29:33.681059 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'transfer'
+2026-10-23 19:29:33.681064 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'check_acl'
+2026-10-23 19:29:33.681068 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'verbose_events'
+2026-10-23 19:29:33.681072 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'novideo'
+2026-10-23 19:29:33.681076 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'cng_plc'
+2026-10-23 19:29:33.681080 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'early_hangup'
+2026-10-23 19:29:33.681084 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sleep'
+2026-10-23 19:29:33.681089 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'delay_echo'
+2026-10-23 19:29:33.681093 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'strftime'
+2026-10-23 19:29:33.681097 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'phrase'
+2026-10-23 19:29:33.681103 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'eval'
+2026-10-23 19:29:33.681107 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_media_stats'
+2026-10-23 19:29:33.681111 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop'
+2026-10-23 19:29:33.681116 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_zombie_exec'
+2026-10-23 19:29:33.681120 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'pre_answer'
+2026-10-23 19:29:33.681124 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'answer'
+2026-10-23 19:29:33.681128 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'wait_for_answer'
+2026-10-23 19:29:33.681133 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'wait_for_video_ready'
+2026-10-23 19:29:33.681138 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'hangup'
+2026-10-23 19:29:33.681141 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_name'
+2026-10-23 19:29:33.681145 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'presence'
+2026-10-23 19:29:33.681149 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'log'
+2026-10-23 19:29:33.681153 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'info'
+2026-10-23 19:29:33.681157 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'event'
+2026-10-23 19:29:33.681161 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sound_test'
+2026-10-23 19:29:33.681165 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'export'
+2026-10-23 19:29:33.681169 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'bridge_export'
+2026-10-23 19:29:33.681173 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set'
+2026-10-23 19:29:33.681177 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'multiset'
+2026-10-23 19:29:33.681181 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'push'
+2026-10-23 19:29:33.681185 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unshift'
+2026-10-23 19:29:33.681189 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_global'
+2026-10-23 19:29:33.681193 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_profile_var'
+2026-10-23 19:29:33.681196 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unset'
+2026-10-23 19:29:33.681200 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'multiunset'
+2026-10-23 19:29:33.681204 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'capture_text'
+2026-10-23 19:29:33.681207 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'acknowledge_call'
+2026-10-23 19:29:33.681211 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'ring_ready'
+2026-10-23 19:29:33.681215 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'remove_bugs'
+2026-10-23 19:29:33.681219 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'break'
+2026-10-23 19:29:33.681223 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'detect_speech'
+2026-10-23 19:29:33.681228 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'play_and_detect_speech'
+2026-10-23 19:29:33.681232 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'ivr'
+2026-10-23 19:29:33.681236 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'redirect'
+2026-10-23 19:29:33.681239 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'video_refresh'
+2026-10-23 19:29:33.681243 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'video_decode'
+2026-10-23 19:29:33.681247 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'send_info'
+2026-10-23 19:29:33.681251 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'jitterbuffer'
+2026-10-23 19:29:33.681255 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'send_display'
+2026-10-23 19:29:33.681259 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'respond'
+2026-10-23 19:29:33.681262 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'deflect'
+2026-10-23 19:29:33.681266 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'recovery_refresh'
+2026-10-23 19:29:33.681270 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'reuse_caller_profile'
+2026-10-23 19:29:33.681273 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'queue_dtmf'
+2026-10-23 19:29:33.681277 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'send_dtmf'
+2026-10-23 19:29:33.681281 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sched_cancel'
+2026-10-23 19:29:33.681285 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sched_hangup'
+2026-10-23 19:29:33.681288 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sched_broadcast'
+2026-10-23 19:29:33.681292 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sched_transfer'
+2026-10-23 19:29:33.681296 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'execute_extension'
+2026-10-23 19:29:33.681300 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'sched_heartbeat'
+2026-10-23 19:29:33.681304 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'enable_heartbeat'
+2026-10-23 19:29:33.681308 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'filter_codecs'
+2026-10-23 19:29:33.681312 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'enable_keepalive'
+2026-10-23 19:29:33.681316 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'media_reset'
+2026-10-23 19:29:33.681320 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'mkdir'
+2026-10-23 19:29:33.681324 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'rename'
+2026-10-23 19:29:33.681327 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'transfer_vars'
+2026-10-23 19:29:33.681332 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'soft_hold'
+2026-10-23 19:29:33.681336 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'bind_meta_app'
+2026-10-23 19:29:33.681339 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unbind_meta_app'
+2026-10-23 19:29:33.681343 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'block_dtmf'
+2026-10-23 19:29:33.681347 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'unblock_dtmf'
+2026-10-23 19:29:33.681350 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'intercept'
+2026-10-23 19:29:33.681354 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'eavesdrop'
+2026-10-23 19:29:33.681358 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'native_eavesdrop'
+2026-10-23 19:29:33.681362 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'three_way'
+2026-10-23 19:29:33.681366 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'set_user'
+2026-10-23 19:29:33.681369 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_dtmf'
+2026-10-23 19:29:33.681375 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'start_dtmf'
+2026-10-23 19:29:33.681378 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_dtmf_generate'
+2026-10-23 19:29:33.681382 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'start_dtmf_generate'
+2026-10-23 19:29:33.681386 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_tone_detect'
+2026-10-23 19:29:33.681389 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'fax_detect'
+2026-10-23 19:29:33.681393 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'tone_detect'
+2026-10-23 19:29:33.681396 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'echo'
+2026-10-23 19:29:33.681400 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'park'
+2026-10-23 19:29:33.681408 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'park_state'
+2026-10-23 19:29:33.681412 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'gentones'
+2026-10-23 19:29:33.681418 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'playback'
+2026-10-23 19:29:33.681430 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'broadcast'
+2026-10-23 19:29:33.681435 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'endless_playback'
+2026-10-23 19:29:33.681439 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'loop_playback'
+2026-10-23 19:29:33.681444 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'att_xfer'
+2026-10-23 19:29:33.681450 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'read'
+2026-10-23 19:29:33.681455 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'play_and_get_digits'
+2026-10-23 19:29:33.681459 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_video_write_overlay'
+2026-10-23 19:29:33.681464 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'video_write_overlay'
+2026-10-23 19:29:33.681470 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_record_session'
+2026-10-23 19:29:33.681475 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_session'
+2026-10-23 19:29:33.681481 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_session_mask'
+2026-10-23 19:29:33.681485 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_session_unmask'
+2026-10-23 19:29:33.681490 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_session_pause'
+2026-10-23 19:29:33.681516 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_session_resume'
+2026-10-23 19:29:33.681520 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record'
+2026-10-23 19:29:33.681526 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'preprocess'
+2026-10-23 19:29:33.681529 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'stop_displace_session'
+2026-10-23 19:29:33.681534 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'displace_session'
+2026-10-23 19:29:33.681542 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'speak'
+2026-10-23 19:29:33.681552 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'clear_speech_cache'
+2026-10-23 19:29:33.681555 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'bridge'
+2026-10-23 19:29:33.681561 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'system'
+2026-10-23 19:29:33.681566 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'bgsystem'
+2026-10-23 19:29:33.681571 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'say'
+2026-10-23 19:29:33.681575 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'detect_audio'
+2026-10-23 19:29:33.681580 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'detect_silence'
+2026-10-23 19:29:33.681586 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'wait_for_silence'
+2026-10-23 19:29:33.681591 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'session_loglevel'
+2026-10-23 19:29:33.681594 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'limit'
+2026-10-23 19:29:33.681600 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'limit_hash'
+2026-10-23 19:29:33.681605 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'limit_execute'
+2026-10-23 19:29:33.681611 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'limit_hash_execute'
+2026-10-23 19:29:33.681615 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'pickup'
+2026-10-23 19:29:33.681620 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'deduplicate_dtmf'
+2026-10-23 19:29:33.681625 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'vad_test'
+2026-10-23 19:29:33.681631 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'debug_media'
+2026-10-23 19:29:33.681636 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'strepoch'
+2026-10-23 19:29:33.681640 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'page'
+2026-10-23 19:29:33.681646 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'strmicroepoch'
+2026-10-23 19:29:33.681651 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'chat'
+2026-10-23 19:29:33.681657 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'strftime'
+2026-10-23 19:29:33.681660 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'presence'
+2026-10-23 19:29:33.681666 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'file_string'
+2026-10-23 19:29:33.681673 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'file'
+2026-10-23 19:29:33.681677 0.00% [NOTICE] switch_loadable_module.c:621 Adding Chat interface 'event'
+2026-10-23 19:29:33.681683 0.00% [NOTICE] switch_loadable_module.c:621 Adding Chat interface 'api'
+2026-10-23 19:29:33.681980 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_expr]
+2026-10-23 19:29:33.681991 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'expr'
+2026-10-23 19:29:33.683454 0.00% [INFO] switch_core_sqldb.c:1840 fifo Starting SQL thread.
+2026-10-23 19:29:33.687787 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_fifo]
+2026-10-23 19:29:33.687814 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'fifo'
+2026-10-23 19:29:33.687835 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'fifo_track_call'
+2026-10-23 19:29:33.687859 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'fifo'
+2026-10-23 19:29:33.688067 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'fifo_member'
+2026-10-23 19:29:33.688108 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'fifo_add_outbound'
+2026-10-23 19:29:33.688117 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'fifo_check_bridge'
+2026-10-23 19:29:33.688744 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_hash]
+2026-10-23 19:29:33.688750 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'hash'
+2026-10-23 19:29:33.688757 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'hash'
+2026-10-23 19:29:33.688764 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'hash_dump'
+2026-10-23 19:29:33.688770 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'hash_remote'
+2026-10-23 19:29:33.688775 0.00% [NOTICE] switch_loadable_module.c:717 Adding Limit interface 'hash'
+2026-10-23 19:29:33.690442 0.00% [ERR] mod_voicemail.c:847 Open of voicemail.conf failed
+2026-10-23 19:29:33.690526 0.00% [CRIT] switch_loadable_module.c:1754 Error Loading module /usr/local/freeswitch/lib/freeswitch/mod/mod_voicemail.so
+**Module load routine returned an error**
+2026-10-23 19:29:33.690790 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_esf]
+2026-10-23 19:29:33.690798 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'esf_page_group'
+2026-10-23 19:29:33.691089 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_fsv]
+2026-10-23 19:29:33.691097 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'play_fsv'
+2026-10-23 19:29:33.691106 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'record_fsv'
+2026-10-23 19:29:33.691117 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'play_yuv'
+2026-10-23 19:29:33.691122 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'decode_video'
+2026-10-23 19:29:33.691127 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'fsv'
+2026-10-23 19:29:33.691378 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_valet_parking]
+2026-10-23 19:29:33.691384 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'valet_park'
+2026-10-23 19:29:33.691391 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'valet_info'
+2026-10-23 19:29:33.691935 0.00% [ERR] mod_httapi.c:1715 open of httapi.conf failed
+2026-10-23 19:29:33.692680 0.00% [CRIT] switch_loadable_module.c:1754 Error Loading module /usr/local/freeswitch/lib/freeswitch/mod/mod_httapi.so
+**Module load routine returned an error**
+2026-10-23 19:29:33.692995 0.00% [NOTICE] mod_avmd.c:1215 Advanced voicemail detection enabled
+2026-10-23 19:29:33.693028 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_avmd]
+2026-10-23 19:29:33.693035 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'avmd_start'
+2026-10-23 19:29:33.693050 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'avmd_stop'
+2026-10-23 19:29:33.693057 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'avmd'
+2026-10-23 19:29:33.693062 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'avmd'
+2026-10-23 19:29:33.693355 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_amd]
+2026-10-23 19:29:33.693362 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'amd'
+2026-10-23 19:29:33.693616 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_dialplan_xml]
+2026-10-23 19:29:33.693623 0.00% [NOTICE] switch_loadable_module.c:273 Adding Dialplan 'XML'
+2026-10-23 19:29:33.694028 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_dialplan_asterisk]
+2026-10-23 19:29:33.694038 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'SIP'
+2026-10-23 19:29:33.694047 0.00% [NOTICE] switch_loadable_module.c:172 Adding Endpoint 'IAX2'
+2026-10-23 19:29:33.694052 0.00% [NOTICE] switch_loadable_module.c:273 Adding Dialplan 'asterisk'
+2026-10-23 19:29:33.694057 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'Dial'
+2026-10-23 19:29:33.694062 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'Goto'
+2026-10-23 19:29:33.694067 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'AvoidingDeadlock'
+2026-10-23 19:29:33.694105 0.00% [CRIT] switch_loadable_module.c:1754 Error Loading module /usr/local/freeswitch/lib/freeswitch/mod/mod_spandsp.so
+**/usr/local/freeswitch/lib/freeswitch/mod/mod_spandsp.so: cannot open shared object file: No such file or directory**
+2026-10-23 19:29:33.694333 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_g723_1]
+2026-10-23 19:29:33.694341 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G723 4 G.723.1 6.3k 8000hz 120ms 1ch 6300bps
+2026-10-23 19:29:33.694343 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G723 4 G.723.1 6.3k 8000hz 90ms 1ch 6300bps
+2026-10-23 19:29:33.694345 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G723 4 G.723.1 6.3k 8000hz 60ms 1ch 6300bps
+2026-10-23 19:29:33.694346 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G723 4 G.723.1 6.3k 8000hz 30ms 1ch 6300bps
+2026-10-23 19:29:33.694571 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_g729]
+2026-10-23 19:29:33.694578 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 10ms 1ch 8000bps
+2026-10-23 19:29:33.694581 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 20ms 1ch 8000bps
+2026-10-23 19:29:33.694582 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 30ms 1ch 8000bps
+2026-10-23 19:29:33.694583 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 40ms 1ch 8000bps
+2026-10-23 19:29:33.694585 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 50ms 1ch 8000bps
+2026-10-23 19:29:33.694586 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 60ms 1ch 8000bps
+2026-10-23 19:29:33.694587 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 70ms 1ch 8000bps
+2026-10-23 19:29:33.694589 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 80ms 1ch 8000bps
+2026-10-23 19:29:33.694590 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 90ms 1ch 8000bps
+2026-10-23 19:29:33.694591 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 100ms 1ch 8000bps
+2026-10-23 19:29:33.694592 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 110ms 1ch 8000bps
+2026-10-23 19:29:33.694593 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec G729 18 G.729 8000hz 120ms 1ch 8000bps
+2026-10-23 19:29:33.694819 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_amr]
+2026-10-23 19:29:33.694825 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec AMR 96 AMR / Octet Aligned 8000hz 20ms 1ch 12200bps
+2026-10-23 19:29:33.694834 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec AMR 97 AMR / Bandwidth Efficient 8000hz 20ms 1ch 12200bps
+2026-10-23 19:29:33.695090 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_b64]
+2026-10-23 19:29:33.695097 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec b64 116 B64 (STANDARD) 32000hz 20ms 1ch 684800bps
+2026-10-23 19:29:33.695099 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec b64 116 B64 (STANDARD) 16000hz 20ms 1ch 342400bps
+2026-10-23 19:29:33.695100 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec b64 116 B64 (STANDARD) 8000hz 20ms 1ch 171200bps
+2026-10-23 19:29:33.695700 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_opus]
+2026-10-23 19:29:33.695709 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 40ms 2ch (VBR)
+2026-10-23 19:29:33.695711 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 40ms 1ch (VBR)
+2026-10-23 19:29:33.695714 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 120ms 1ch (VBR)
+2026-10-23 19:29:33.695715 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 100ms 1ch (VBR)
+2026-10-23 19:29:33.695716 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 80ms 1ch (VBR)
+2026-10-23 19:29:33.695717 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 60ms 1ch (VBR)
+2026-10-23 19:29:33.695719 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 20ms 2ch (VBR)
+2026-10-23 19:29:33.695720 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 20ms 1ch (VBR)
+2026-10-23 19:29:33.695721 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 10ms 2ch (VBR)
+2026-10-23 19:29:33.695722 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 8000hz 10ms 1ch (VBR)
+2026-10-23 19:29:33.695723 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 40ms 2ch (VBR)
+2026-10-23 19:29:33.695725 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 40ms 1ch (VBR)
+2026-10-23 19:29:33.695727 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 60ms 1ch (VBR)
+2026-10-23 19:29:33.695728 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 20ms 2ch (VBR)
+2026-10-23 19:29:33.695729 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 20ms 1ch (VBR)
+2026-10-23 19:29:33.695730 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 10ms 2ch (VBR)
+2026-10-23 19:29:33.695731 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 16000hz 10ms 1ch (VBR)
+2026-10-23 19:29:33.695733 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 40ms 2ch (VBR)
+2026-10-23 19:29:33.695734 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 40ms 1ch (VBR)
+2026-10-23 19:29:33.695735 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 20ms 2ch (VBR)
+2026-10-23 19:29:33.695736 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 20ms 1ch (VBR)
+2026-10-23 19:29:33.695737 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 10ms 2ch (VBR)
+2026-10-23 19:29:33.695738 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec opus 116 OPUS (STANDARD) 48000hz 10ms 1ch (VBR)
+2026-10-23 19:29:33.695746 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'opus_debug'
+av_log callback installed, level= 32
+2026-10-23 19:29:33.749019 0.00% [WARNING] avformat.c:3435 open of avformat.conf failed
+2026-10-23 19:29:33.749085 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_av]
+2026-10-23 19:29:33.749097 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec H264 99 H264 Video 90000hz 0ms 1ch (VBR)
+2026-10-23 19:29:33.749171 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec H263 34 H263 Video 90000hz 0ms 1ch (VBR)
+2026-10-23 19:29:33.749185 0.00% [NOTICE] switch_loadable_module.c:229 Adding Codec H263-1998 115 H263+ Video 90000hz 0ms 1ch (VBR)
+2026-10-23 19:29:33.749195 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'av'
+2026-10-23 19:29:33.749206 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'av'
+2026-10-23 19:29:33.749215 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'rtmp'
+2026-10-23 19:29:33.749223 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'rtmps'
+2026-10-23 19:29:33.749232 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'rtsp'
+2026-10-23 19:29:33.749243 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mp4'
+2026-10-23 19:29:33.749251 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'm4a'
+2026-10-23 19:29:33.749259 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mov'
+2026-10-23 19:29:33.749266 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mkv'
+2026-10-23 19:29:33.749274 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'webm'
+2026-10-23 19:29:33.752228 0.00% [INFO] mod_sndfile.c:498 
+LibSndFile Version : libsndfile-1.2.0 Supported Formats
+================================================================================
+AIFF (Apple/SGI)  (extension "aiff")
+AU (Sun/NeXT)  (extension "au")
+AVR (Audio Visual Research)  (extension "avr")
+CAF (Apple Core Audio File)  (extension "caf")
+FLAC (Free Lossless Audio Codec)  (extension "flac")
+HTK (HMM Tool Kit)  (extension "htk")
+IFF (Amiga IFF/SVX8/SV16)  (extension "iff")
+MAT4 (GNU Octave 2.0 / Matlab 4.2)  (extension "mat")
+MAT5 (GNU Octave 2.1 / Matlab 5.0)  (extension "mat")
+MPC (Akai MPC 2k)  (extension "mpc")
+MPEG-1/2 Audio  (extension "m1a")
+OGG (OGG Container format)  (extension "oga")
+OGG (OGG Container format)  (extension "ogg")
+PAF (Ensoniq PARIS)  (extension "paf")
+PVF (Portable Voice Format)  (extension "pvf")
+RAW (header-less)  (extension "raw")
+RF64 (RIFF 64)  (extension "rf64")
+SD2 (Sound Designer II)  (extension "sd2")
+SDS (Midi Sample Dump Standard)  (extension "sds")
+SF (Berkeley/IRCAM/CARL)  (extension "sf")
+VOC (Creative Labs)  (extension "voc")
+W64 (SoundFoundry WAVE 64)  (extension "w64")
+WAV (Microsoft)  (extension "wav")
+WAV (NIST Sphere)  (extension "wav")
+WAVEX (Microsoft)  (extension "wav")
+WVE (Psion Series 3)  (extension "wve")
+XI (FastTracker 2)  (extension "xi")
+================================================================================
+2026-10-23 19:29:33.752325 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_sndfile]
+2026-10-23 19:29:33.752335 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'sndfile_debug'
+2026-10-23 19:29:33.752360 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'aiff'
+2026-10-23 19:29:33.752371 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'au'
+2026-10-23 19:29:33.752381 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'avr'
+2026-10-23 19:29:33.752389 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'caf'
+2026-10-23 19:29:33.752400 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'flac'
+2026-10-23 19:29:33.752407 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'htk'
+2026-10-23 19:29:33.752416 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'iff'
+2026-10-23 19:29:33.752444 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mat'
+2026-10-23 19:29:33.752455 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mpc'
+2026-10-23 19:29:33.752463 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'm1a'
+2026-10-23 19:29:33.752470 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'oga'
+2026-10-23 19:29:33.752481 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'paf'
+2026-10-23 19:29:33.752488 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'pvf'
+2026-10-23 19:29:33.752494 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'raw'
+2026-10-23 19:29:33.752501 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'rf64'
+2026-10-23 19:29:33.752509 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'sd2'
+2026-10-23 19:29:33.752515 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'sds'
+2026-10-23 19:29:33.752523 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'sf'
+2026-10-23 19:29:33.752531 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'voc'
+2026-10-23 19:29:33.752541 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'w64'
+2026-10-23 19:29:33.752548 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'wav'
+2026-10-23 19:29:33.752553 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'wve'
+2026-10-23 19:29:33.752559 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'xi'
+2026-10-23 19:29:33.752565 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'r8'
+2026-10-23 19:29:33.752573 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'r16'
+2026-10-23 19:29:33.752580 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'r24'
+2026-10-23 19:29:33.752586 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'r32'
+2026-10-23 19:29:33.752592 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'gsm'
+2026-10-23 19:29:33.752600 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'ul'
+2026-10-23 19:29:33.752609 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'ulaw'
+2026-10-23 19:29:33.752624 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'al'
+2026-10-23 19:29:33.752632 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'alaw'
+2026-10-23 19:29:33.752640 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'adpcm'
+2026-10-23 19:29:33.752649 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'vox'
+2026-10-23 19:29:33.752657 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'oga'
+2026-10-23 19:29:33.752664 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'ogg'
+2026-10-23 19:29:33.753519 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_native_file]
+2026-10-23 19:29:33.753553 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'PCMU'
+2026-10-23 19:29:33.753585 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'L16'
+2026-10-23 19:29:33.753594 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'PCMA'
+2026-10-23 19:29:33.753601 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'G729'
+2026-10-23 19:29:33.753608 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'G723'
+2026-10-23 19:29:33.753946 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_png]
+2026-10-23 19:29:33.753978 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_write_png'
+2026-10-23 19:29:33.753994 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'png'
+2026-10-23 19:29:33.755359 0.00% [ERR] mod_shout.c:1586 Open of shout.conf failed
+2026-10-23 19:29:33.755402 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_shout]
+2026-10-23 19:29:33.755411 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 40ms 2ch 192bps
+2026-10-23 19:29:33.755415 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 40ms 1ch 96bps
+2026-10-23 19:29:33.755417 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 40ms 2ch 176bps
+2026-10-23 19:29:33.755419 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 40ms 1ch 88bps
+2026-10-23 19:29:33.755421 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 40ms 2ch 128bps
+2026-10-23 19:29:33.755424 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 40ms 1ch 64bps
+2026-10-23 19:29:33.755426 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 40ms 2ch 88bps
+2026-10-23 19:29:33.755428 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 40ms 1ch 44bps
+2026-10-23 19:29:33.755430 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 40ms 2ch 64bps
+2026-10-23 19:29:33.755432 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 40ms 1ch 32bps
+2026-10-23 19:29:33.755434 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 40ms 2ch 44bps
+2026-10-23 19:29:33.755436 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 40ms 1ch 22bps
+2026-10-23 19:29:33.755438 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 40ms 2ch 32bps
+2026-10-23 19:29:33.755440 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 40ms 1ch 16bps
+2026-10-23 19:29:33.755442 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 30ms 2ch 192bps
+2026-10-23 19:29:33.755444 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 30ms 1ch 96bps
+2026-10-23 19:29:33.755446 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 30ms 2ch 176bps
+2026-10-23 19:29:33.755447 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 30ms 1ch 88bps
+2026-10-23 19:29:33.755449 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 30ms 2ch 128bps
+2026-10-23 19:29:33.755452 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 30ms 1ch 64bps
+2026-10-23 19:29:33.755454 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 30ms 2ch 88bps
+2026-10-23 19:29:33.755456 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 30ms 1ch 44bps
+2026-10-23 19:29:33.755458 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 30ms 2ch 64bps
+2026-10-23 19:29:33.755460 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 30ms 1ch 32bps
+2026-10-23 19:29:33.755462 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 30ms 2ch 44bps
+2026-10-23 19:29:33.755464 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 30ms 1ch 22bps
+2026-10-23 19:29:33.755466 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 30ms 2ch 32bps
+2026-10-23 19:29:33.755468 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 30ms 1ch 16bps
+2026-10-23 19:29:33.755470 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 20ms 2ch 192bps
+2026-10-23 19:29:33.755474 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 20ms 1ch 96bps
+2026-10-23 19:29:33.755476 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 20ms 2ch 176bps
+2026-10-23 19:29:33.755478 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 20ms 1ch 88bps
+2026-10-23 19:29:33.755480 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 20ms 2ch 128bps
+2026-10-23 19:29:33.755482 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 20ms 1ch 64bps
+2026-10-23 19:29:33.755484 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 20ms 2ch 88bps
+2026-10-23 19:29:33.755486 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 20ms 1ch 44bps
+2026-10-23 19:29:33.755488 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 20ms 2ch 64bps
+2026-10-23 19:29:33.755490 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 20ms 1ch 32bps
+2026-10-23 19:29:33.755491 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 20ms 2ch 44bps
+2026-10-23 19:29:33.755493 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 20ms 1ch 22bps
+2026-10-23 19:29:33.755495 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 20ms 2ch 32bps
+2026-10-23 19:29:33.755497 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 20ms 1ch 16bps
+2026-10-23 19:29:33.755499 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 10ms 2ch 192bps
+2026-10-23 19:29:33.755501 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 48000hz 10ms 1ch 96bps
+2026-10-23 19:29:33.755503 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 10ms 2ch 176bps
+2026-10-23 19:29:33.755505 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 44100hz 10ms 1ch 88bps
+2026-10-23 19:29:33.755507 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 10ms 2ch 128bps
+2026-10-23 19:29:33.755509 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 32000hz 10ms 1ch 64bps
+2026-10-23 19:29:33.755511 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 10ms 2ch 88bps
+2026-10-23 19:29:33.755512 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 22050hz 10ms 1ch 44bps
+2026-10-23 19:29:33.755515 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 10ms 2ch 64bps
+2026-10-23 19:29:33.755517 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 16000hz 10ms 1ch 32bps
+2026-10-23 19:29:33.755519 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 10ms 2ch 44bps
+2026-10-23 19:29:33.755521 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 11025hz 10ms 1ch 22bps
+2026-10-23 19:29:33.755523 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 10ms 2ch 32bps
+2026-10-23 19:29:33.755525 0.00% [NOTICE] switch_loadable_module.c:223 Adding Codec MP3 98 MP3 8000hz 10ms 1ch 16bps
+2026-10-23 19:29:33.755565 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'telecast'
+2026-10-23 19:29:33.755581 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'shout'
+2026-10-23 19:29:33.755590 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'shouts'
+2026-10-23 19:29:33.755599 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mp3'
+2026-10-23 19:29:33.755608 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'mpga'
+2026-10-23 19:29:33.756791 0.00% [CONSOLE] mod_local_stream.c:289 Can't open directory: /etc/freeswitch/sounds/music/32000
+2026-10-23 19:29:33.757244 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_local_stream]
+2026-10-23 19:29:33.757254 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'local_stream'
+2026-10-23 19:29:33.757268 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'local_stream'
+2026-10-23 19:29:33.757509 0.00% [CONSOLE] mod_local_stream.c:289 Can't open directory: /etc/freeswitch/sounds/music/16000
+2026-10-23 19:29:33.757627 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_tone_stream]
+2026-10-23 19:29:33.757636 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'tone_stream'
+2026-10-23 19:29:33.757652 0.00% [NOTICE] switch_loadable_module.c:455 Adding File Format 'silence_stream'
+2026-10-23 19:29:33.758454 0.00% [CONSOLE] mod_local_stream.c:289 Can't open directory: /etc/freeswitch/sounds/music/48000
+2026-10-23 19:29:33.767278 0.00% [NOTICE] mod_python3.c:585 Python Framework Loading...
+2026-10-23 19:29:33.780238 0.00% [ERR] mod_python3.c:418 Open of python.conf failed
+2026-10-23 19:29:33.780266 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_python3]
+2026-10-23 19:29:33.780280 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'python'
+2026-10-23 19:29:33.780326 0.00% [NOTICE] switch_loadable_module.c:359 Adding Chat Application 'python'
+2026-10-23 19:29:33.780343 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'pyrun'
+2026-10-23 19:29:33.780356 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'python'
+2026-10-23 19:29:33.781841 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_lua]
+2026-10-23 19:29:33.781854 0.00% [NOTICE] switch_loadable_module.c:273 Adding Dialplan 'LUA'
+2026-10-23 19:29:33.781897 0.00% [NOTICE] switch_loadable_module.c:329 Adding Application 'lua'
+2026-10-23 19:29:33.781912 0.00% [NOTICE] switch_loadable_module.c:359 Adding Chat Application 'lua'
+2026-10-23 19:29:33.781922 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'luarun'
+2026-10-23 19:29:33.781933 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'lua'
+2026-10-23 19:29:33.783241 0.00% [NOTICE] mod_deepgram_transcribe.c:187 Deepgram Speech Transcription API loading..
+2026-10-23 19:29:33.783246 0.00% [NOTICE] dg_transcribe_glue.cpp:402 mod_deepgram_transcribe: audio buffer (in secs):    2 secs
+2026-10-23 19:29:33.783248 0.00% [NOTICE] dg_transcribe_glue.cpp:403 mod_deepgram_transcribe: lws service threads:       1
+2026-10-23 19:29:33.783325 0.00% [NOTICE] dg_transcribe_glue.cpp:408 AudioPipe::initialize completed
+2026-10-23 19:29:33.783329 0.00% [NOTICE] dg_transcribe_glue.cpp:412 "DEEPGRAM_API_KEY" env var not set; authentication will expect channel variables of same names to be set
+2026-10-23 19:29:33.783332 0.00% [NOTICE] mod_deepgram_transcribe.c:193 Deepgram Speech Transcription API successfully loaded
+2026-10-23 19:29:33.783350 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_deepgram_transcribe]
+2026-10-23 19:29:33.783357 0.00% [NOTICE] switch_loadable_module.c:389 Adding API Function 'uuid_deepgram_transcribe'
+2026-10-23 19:29:33.783744 0.00% [CONSOLE] switch_loadable_module.c:1772 Successfully Loaded [mod_say_en]
+2026-10-23 19:29:33.783756 0.00% [NOTICE] switch_loadable_module.c:651 Adding Say interface 'en'
+2026-10-23 19:29:33.783775 0.00% [CONSOLE] switch_loadable_module.c:2285 open of post_load_modules.conf failed
+2026-10-23 19:29:33.783783 0.00% [CONSOLE] switch_loadable_module.c:149 Starting runtime thread for mod_verto
+2026-10-23 19:29:33.783824 0.00% [CONSOLE] switch_loadable_module.c:149 Starting runtime thread for mod_event_socket
+2026-10-23 19:29:33.783855 0.00% [CONSOLE] switch_loadable_module.c:149 Starting runtime thread for CORE_SOFTTIMER_MODULE
+2026-10-23 19:29:33.784209 100.00% [INFO] switch_time.c:627 Clock synchronized to system time.
+2026-10-23 19:29:33.784656 100.00% [NOTICE] switch_core.c:1482 Created ip list rfc6598.auto default (deny)
+2026-10-23 19:29:33.784689 100.00% [NOTICE] switch_utils.c:665 Adding 100.64.0.0/10 (allow) [] to list rfc6598.auto
+2026-10-23 19:29:33.784702 100.00% [NOTICE] switch_core.c:1488 Created ip list rfc1918.auto default (deny)
+2026-10-23 19:29:33.784714 100.00% [NOTICE] switch_utils.c:665 Adding 10.0.0.0/8 (allow) [] to list rfc1918.auto
+2026-10-23 19:29:33.784727 100.00% [NOTICE] switch_utils.c:665 Adding 172.16.0.0/12 (allow) [] to list rfc1918.auto
+2026-10-23 19:29:33.784740 100.00% [NOTICE] switch_utils.c:665 Adding 192.168.0.0/16 (allow) [] to list rfc1918.auto
+2026-10-23 19:29:33.785173 100.00% [NOTICE] switch_utils.c:665 Adding fe80::/10 (allow) [] to list rfc1918.auto
+2026-10-23 19:29:33.785193 100.00% [NOTICE] switch_core.c:1497 Created ip list wan.auto default (allow)
+2026-10-23 19:29:33.785206 100.00% [NOTICE] switch_utils.c:665 Adding 0.0.0.0/8 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785219 100.00% [NOTICE] switch_utils.c:665 Adding 10.0.0.0/8 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785231 100.00% [NOTICE] switch_utils.c:665 Adding 172.16.0.0/12 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785243 100.00% [NOTICE] switch_utils.c:665 Adding 192.168.0.0/16 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785255 100.00% [NOTICE] switch_utils.c:665 Adding 169.254.0.0/16 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785267 100.00% [NOTICE] switch_utils.c:665 Adding 100.64.0.0/10 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785279 100.00% [NOTICE] switch_utils.c:665 Adding fe80::/10 (deny) [] to list wan.auto
+2026-10-23 19:29:33.785292 100.00% [NOTICE] switch_core.c:1509 Created ip list wan_v6.auto default (allow)
+2026-10-23 19:29:33.785305 100.00% [NOTICE] switch_utils.c:665 Adding 0.0.0.0/0 (deny) [] to list wan_v6.auto
+2026-10-23 19:29:33.785318 100.00% [NOTICE] switch_utils.c:665 Adding fe80::/10 (deny) [] to list wan_v6.auto
+2026-10-23 19:29:33.785332 100.00% [NOTICE] switch_core.c:1517 Created ip list wan_v4.auto default (allow)
+2026-10-23 19:29:33.785345 100.00% [NOTICE] switch_utils.c:665 Adding 0.0.0.0/8 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785363 100.00% [NOTICE] switch_utils.c:665 Adding 10.0.0.0/8 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785375 100.00% [NOTICE] switch_utils.c:665 Adding 172.16.0.0/12 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785387 100.00% [NOTICE] switch_utils.c:665 Adding 192.168.0.0/16 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785399 100.00% [NOTICE] switch_utils.c:665 Adding 169.254.0.0/16 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785411 100.00% [NOTICE] switch_utils.c:665 Adding 100.64.0.0/10 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785424 100.00% [NOTICE] switch_utils.c:665 Adding ::/0 (deny) [] to list wan_v4.auto
+2026-10-23 19:29:33.785437 100.00% [NOTICE] switch_core.c:1530 Created ip list any_v6.auto default (allow)
+2026-10-23 19:29:33.785454 100.00% [NOTICE] switch_utils.c:665 Adding 0.0.0.0/0 (deny) [] to list any_v6.auto
+2026-10-23 19:29:33.785467 100.00% [NOTICE] switch_core.c:1537 Created ip list any_v4.auto default (allow)
+2026-10-23 19:29:33.785480 100.00% [NOTICE] switch_utils.c:665 Adding ::/0 (deny) [] to list any_v4.auto
+2026-10-23 19:29:33.785493 100.00% [NOTICE] switch_core.c:1544 Created ip list nat.auto default (deny)
+2026-10-23 19:29:33.785507 100.00% [NOTICE] switch_core.c:1546 Adding 127.0.0.1/0.0.0.0 (deny) to list nat.auto
+2026-10-23 19:29:33.785520 100.00% [NOTICE] switch_utils.c:665 Adding 10.0.0.0/8 (allow) [] to list nat.auto
+2026-10-23 19:29:33.785534 100.00% [NOTICE] switch_utils.c:665 Adding 172.16.0.0/12 (allow) [] to list nat.auto
+2026-10-23 19:29:33.785547 100.00% [NOTICE] switch_utils.c:665 Adding 192.168.0.0/16 (allow) [] to list nat.auto
+2026-10-23 19:29:33.785560 100.00% [NOTICE] switch_utils.c:665 Adding 100.64.0.0/10 (allow) [] to list nat.auto
+2026-10-23 19:29:33.785574 100.00% [NOTICE] switch_core.c:1556 Created ip list loopback.auto default (deny)
+2026-10-23 19:29:33.785587 100.00% [NOTICE] switch_utils.c:665 Adding 127.0.0.0/8 (allow) [] to list loopback.auto
+2026-10-23 19:29:33.785601 100.00% [NOTICE] switch_utils.c:665 Adding ::1/128 (allow) [] to list loopback.auto
+2026-10-23 19:29:33.785613 100.00% [NOTICE] switch_core.c:1563 Created ip list localnet.auto default (deny)
+2026-10-23 19:29:33.785626 100.00% [NOTICE] switch_core.c:1566 Adding 127.0.0.1/0.0.0.0 (allow) to list localnet.auto
+2026-10-23 19:29:33.785913 100.00% [CONSOLE] switch_core.c:1593 Created ip list kamailio default (allow)
+2026-10-23 19:29:33.785934 100.00% [NOTICE] switch_utils.c:665 Adding 3.135.153.15/32 (allow) [] to list kamailio
+2026-10-23 19:29:33.785990 100.00% [CONSOLE] switch_core.c:1593 Created ip list esl default (deny)
+2026-10-23 19:29:33.786039 100.00% [NOTICE] switch_utils.c:665 Adding 127.0.0.0/8 (allow) [] to list esl
+2026-10-23 19:29:33.786057 100.00% [NOTICE] switch_utils.c:665 Adding 172.31.18.167/32 (allow) [] to list esl
+2026-10-23 19:29:33.786123 100.00% [CONSOLE] switch_core.c:2494 [m[33m[44m
+.=============================================================.
+|   _____              ______        _____ _____ ____ _   _   |
+|  |  ___| __ ___  ___/ ___\ \      / /_ _|_   _/ ___| | | |  |
+|  | |_ | '__/ _ \/ _ \___ \\ \ /\ / / | |  | || |   | |_| |  |
+|  |  _|| | |  __/  __/___) |\ V  V /  | |  | || |___|  _  |  |
+|  |_|  |_|  \___|\___|____/  \_/\_/  |___| |_| \____|_| |_|  |
+|                                                             |
+.=============================================================.
+|   Anthony Minessale II, Michael Jerris, Brian West, Others  |
+|   FreeSWITCH (http://www.freeswitch.org)                    |
+|   Paypal Donations Appreciated: paypal@freeswitch.org       |
+|   Brought to you by ClueCon http://www.cluecon.com/         |
+.=============================================================.
+
+.=======================================================================================================.
+|       _                            _    ____ _             ____                                       |
+|      / \   _ __  _ __  _   _  __ _| |  / ___| |_   _  ___ / ___|___  _ __                             |
+|     / _ \ | '_ \| '_ \| | | |/ _` | | | |   | | | | |/ _ \ |   / _ \| '_ \                            |
+|    / ___ \| | | | | | | |_| | (_| | | | |___| | |_| |  __/ |__| (_) | | | |                           |
+|   /_/   \_\_| |_|_| |_|\__,_|\__,_|_|  \____|_|\__,_|\___|\____\___/|_| |_|                           |
+|                                                                                                       |
+|    ____ _____ ____    ____             __                                                             |
+|   |  _ \_   _/ ___|  / ___|___  _ __  / _| ___ _ __ ___ _ __   ___ ___                                |
+|   | |_) || || |     | |   / _ \| '_ \| |_ / _ \ '__/ _ \ '_ \ / __/ _ \                               |
+|   |  _ < | || |___  | |__| (_) | | | |  _|  __/ | |  __/ | | | (_|  __/                               |
+|   |_| \_\|_| \____|  \____\___/|_| |_|_|  \___|_|  \___|_| |_|\___\___|                               |
+|                                                                                                       |
+|     ____ _             ____                                                                           |
+|    / ___| |_   _  ___ / ___|___  _ __         ___ ___  _ __ ___                                       |
+|   | |   | | | | |/ _ \ |   / _ \| '_ \       / __/ _ \| '_ ` _ \                                      |
+|   | |___| | |_| |  __/ |__| (_) | | | |  _  | (_| (_) | | | | | |                                     |
+|    \____|_|\__,_|\___|\____\___/|_| |_| (_)  \___\___/|_| |_| |_|                                     |
+|                                                                                                       |
+.=======================================================================================================.
+[m
+
+2026-10-23 19:29:33.786161 100.00% [INFO] switch_core.c:2503 
+FreeSWITCH Version 1.10.12-release+git~20240802T210227Z~a88d069d6f~64bit (git a88d069 2024-08-02 21:02:27Z 64bit)
+
+FreeSWITCH Started
+Max Sessions [1000]
+Session Rate [30]
+SQL [Enabled]
+2026-10-23 19:29:37.204285 95.47% [ERR] sofia.c:3302 Error Creating SIP UA for profile: external (sip:mod_sofia@3.136.141.70:5061;maddr=172.31.39.18;transport=udp,tcp) ATTEMPT 2 (RETRY IN 5 SEC)
+2026-10-23 19:29:42.224348 90.43% [ERR] sofia.c:3302 Error Creating SIP UA for profile: external (sip:mod_sofia@3.136.141.70:5061;maddr=172.31.39.18;transport=udp,tcp) ATTEMPT 3 (RETRY IN 5 SEC)
+2026-10-23 19:29:42.224348 90.43% [ERR] sofia.c:3313 Error Creating SIP UA for profile: external (sip:mod_sofia@3.136.141.70:5061;maddr=172.31.39.18;transport=udp,tcp)
+The likely causes for this are:
+1) Another application is already listening on the specified address.
+2) The IP the profile is attempting to bind to is not local to this system.
