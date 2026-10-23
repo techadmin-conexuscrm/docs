@@ -19,9 +19,26 @@ row() { printf '%-34s %8s  %s\n' "$1" "$2" "$3" | tee -a "$OUT"; }
 row "where" "hits" "detail"
 for f in console.txt event-listener.txt freeswitch.log cdr-csv.txt cdr-json.txt core-db.bin; do
   n=$(grep -a -c -E "$PATS" "$T/$f")
-  d=$(grep -a -o -E '"?(variable_)?digits_dialed"?[:=] ?"?[0-9#*]{6,}' "$T/$f" | sed -E 's/[0-9]{4}([0-9]*)/####\1/' | cut -c1-30 | sort | uniq -c | head -3 | tr '\n' ' ')
-  row "$f" "$n" "${d:-}"
+  d=$(grep -a -o -E 'digits_dialed"?[:=] ?"?[0-9#*]{6,}' "$T/$f" | grep -c -E "$PATS")
+  row "$f" "$n" "$( [ "$d" -gt 0 ] && echo "$d digits_dialed values hold a test card number or CVV run")"
 done
+# keypad digits logged one per line ("RECV DTMF 4:2080"): put each channel's
+# digits back together and look for the test card numbers in them
+python3 - "$T/freeswitch.log" "$T/console.txt" <<'PY2' | tee -a "$OUT"
+import re, sys, collections
+pans = ["4111111111111111", "378282246310005"]
+for path in sys.argv[1:]:
+    seq = collections.defaultdict(str); n = 0
+    for line in open(path, encoding="utf-8", errors="replace"):
+        m = re.search(r"RECV DTMF ([0-9A-D#*]):", line)
+        if m:
+            n += 1
+            u = re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", line)
+            seq[u.group(0) if u else "?"] += m.group(1)
+    whole = sum(1 for v in seq.values() for p in pans if p in v)
+    print("%-34s %8d  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: %d"
+          % (path.rsplit("/", 1)[-1] + " per-digit", n, whole))
+PY2
 E="$LABRUN/results/esl/$CAP-all-events.txt"
 n=$(grep -a -c -E "$PATS" "$E")
 row "ESL ALL events ($CAP)" "$n" "lines with a test PAN or CVV run (full-string search)"

@@ -36,7 +36,7 @@ out=$(inx '[ "$('"$FSCLI"' -p "$FS_ESL_PASSWORD" -x "global_getvar esl_password"
 
 # E5 PR3's fs_cli.sh (needs a terminal, as Eric runs it)
 out=$(cd "$WT" && COMPOSE_PROJECT_NAME=fslab COMPOSE_FILE="$WT/docker-compose.yml:$LAB/compose.lab.yml" LAB=$LAB LABRUN=$LABRUN \
-      script -qec "./fs_cli.sh -x status" /dev/null 2>&1 | tr -d '\r' | head -1)
+      script -qec "./fs_cli.sh -x status" /dev/null 2>&1 | tr -cd '[:print:]\n' | head -1)
 case "$out" in UP*) res E5 PASS "fs_cli.sh -x status: $out";; *) res E5 FAIL "fs_cli.sh: $out";; esac
 
 # E6 the event-listener sidecar (scripts/event/config.py) connects with the env password
@@ -88,8 +88,11 @@ nd=$(inx 'grep -c "\[DEBUG\]" /var/log/freeswitch/freeswitch.log')
 [ "$nd" = 0 ] && res L1 PASS "freeswitch.log has no DEBUG lines after the matrix (levels: $lv)" || res L1 FAIL "freeswitch.log DEBUG lines: $nd"
 ndc=$(docker logs fslab-fs 2>&1 | grep -c '\[DEBUG\]')
 [ "$ndc" = 0 ] && res L2 PASS "console (docker logs) has no DEBUG lines" || res L2 FAIL "console DEBUG lines: $ndc"
-nrtp=$(inx 'grep -c "RTP RECV DTMF" /var/log/freeswitch/freeswitch.log'; docker logs fslab-fs 2>&1 | grep -c 'RTP RECV DTMF')
-res L3 "$( [ "$(echo $nrtp | tr -d ' 0')" = "" ] && echo PASS || echo FAIL)" "'RTP RECV DTMF' lines (file, console): $nrtp"
+n1=$(inx 'grep -c "RTP RECV DTMF" /var/log/freeswitch/freeswitch.log'); n2=$(docker logs fslab-fs 2>&1 | grep -c 'RTP RECV DTMF')
+[ "$n1" = 0 ] && [ "$n2" = 0 ] && res L3 PASS "'RTP RECV DTMF' lines: file $n1, console $n2" || res L3 FAIL "'RTP RECV DTMF' lines: file $n1, console $n2"
+# keypad digits are logged at INFO (switch_channel.c "RECV DTMF <digit>:<len>"), which INFO-level logging keeps
+n1=$(inx 'grep -c "RECV DTMF" /var/log/freeswitch/freeswitch.log'); n2=$(docker logs fslab-fs 2>&1 | grep -c 'RECV DTMF')
+[ "$n1" = 0 ] && [ "$n2" = 0 ] && res L5 PASS "no keypad digits in the logs" || res L5 FAIL "keypad digits logged one per line at INFO ('RECV DTMF <digit>:'): freeswitch.log $n1 lines, console $n2 lines"
 cl=$(inx 'grep "Max core file size" /proc/1/limits' | tr -s ' ')
 docker rm -f fslab-cores >/dev/null 2>&1
 git -C "$REPO" show origin/master:autoload_configs/switch.conf.xml > "$LABRUN/switch.master.xml"

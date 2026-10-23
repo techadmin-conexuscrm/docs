@@ -31,7 +31,10 @@ rm -rf "$LABRUN/audio/far" && "$LAB/audio/make-audio.sh" "$LABRUN/audio" "$WT" >
 R="docker exec fslab-fs python3 /lab/runner/lab.py"
 $R pci   | tee "$LABRUN/pci.log"
 "$LAB/pci-grep.sh" "$WT" "$LABRUN" pci
-$R amd 3 | tee "$LABRUN/amd.log"
+# P11 can leave a channel spinning inside the script: start the next suites clean
+docker exec fslab-far /usr/local/freeswitch/bin/fs_cli -p lab-far-only -x hupall >/dev/null
+docker restart fslab-fs >/dev/null && sleep 10 && docker restart fslab-event-listener >/dev/null && sleep 3
+$R amd 5 | tee "$LABRUN/amd.log"
 $R drop 2 | tee "$LABRUN/drop.log"
 "$LAB/esl-checks.sh" "$WT" "$LABRUN"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call

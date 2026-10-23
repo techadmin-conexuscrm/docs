@@ -141,12 +141,19 @@ if pci:
     p("")
     p("Keypad digits FreeSWITCH itself exposed, per call (customer leg):")
     p("")
-    p("| case | DTMF events (digits, in order) | `digits_dialed` at hangup (CDR + CHANNEL_HANGUP_COMPLETE) |")
-    p("|---|---|---|")
+    p("| case | freeswitch.log `RECV DTMF` lines (INFO), digits in order | DTMF events (digits, in order) | `digits_dialed` at hangup (CDR + CHANNEL_HANGUP_COMPLETE) |")
+    p("|---|---|---|---|")
     for o in pci:
         if "error" not in o:
-            p("| %s | `%s` | `%s` |" % (o["case"], o.get("dtmf_events_on_B") or "-", o.get("digits_dialed_B") or "-"))
+            p("| %s | `%s` | `%s` | `%s` |" % (o["case"], o.get("recv_dtmf_log_digits_B") or "-", o.get("dtmf_events_on_B") or "-", o.get("digits_dialed_B") or "-"))
     p("")
+    keyed = [o for o in pci if "error" not in o and not o["case"].startswith("X") and len(o.get("dtmf_events_on_B") or "") >= 6]
+    has = lambda v: any(x in (v or "") for x in ("4111111111111111", "378282246310005", "1230947", "04298264"))
+    for label, key in (("card digits in freeswitch.log + console (RECV DTMF, INFO)", "recv_dtmf_log_digits_B"),
+                       ("card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed)", "digits_dialed_B"),
+                       ("card digits in ESL DTMF events (one per digit)", "dtmf_events_on_B")):
+        bad = sum(1 for o in keyed if has(o.get(key)))
+        summary.append(("5 PCI leak", label, len(keyed) - bad, len(keyed)))
     for name in ("pci-grep.txt", "pci-grep-after-experiments.txt"):
         if os.path.exists(R + "/" + name):
             p("Leak sweep (`pci-grep.sh`, %s):" % name)

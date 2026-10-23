@@ -352,9 +352,9 @@ PCI_CASES = {
     "P08_caller_hangup_mid_card": ([("card", 1, "411111"), ("HANGUP_CUSTOMER", 0, "")], "ok", "customer_hangup", 0),
     "P09_backend_slow_20s": (GOOD, "slow:20", "failed", 1),
     "P10_backend_down_at_start": (None, "ok", "failed", 0),            # tokenize URL -> closed port
-    "P11_backend_crash_mid_request": (GOOD, "drop", "failed", 1),
     "P12_backend_500": (GOOD, "error500", "failed", 1),
-    "P13_decline_retryable_then_ok": (GOOD + [("card", 2, VISA + "#"), ("expiry", 2, "1230"), ("cvv", 2, "947"), ("zip", 2, "78704")], "decline_then_ok", "completed", 2),
+    # after a gateway decline the script starts the card again; its per-field attempt counter restarts at 1
+    "P13_decline_retryable_then_ok": (GOOD + [("card", 1, VISA + "#"), ("expiry", 1, "1230"), ("cvv", 1, "947"), ("zip", 1, "78704")], "decline_then_ok", "completed", 2),
     "P14_decline_final": (GOOD, "decline_final", "failed", 1),
     "P15_star_at_expiry": ([("card", 1, VISA + "#"), ("expiry", 1, "*")], "ok", "cancelled", 0),
     "P16_shipped_pins_vs_lab_cert": (None, "ok", "failed", 0),         # vars.xml pins (Let's Encrypt)
@@ -363,6 +363,9 @@ PCI_CASES = {
     "P19_script_missing_fallback": (None, "ok", "failed", 0),          # dialplan fallback path
     "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")], "ok", "completed", 1),
     "P21_secret_file_missing": (GOOD, "ok", "failed", 0),
+    # last: when it fails the way it did in the lab, the customer's channel is
+    # left spinning one CPU core (see results.md), so nothing runs after it
+    "P11_backend_crash_mid_request": (GOOD, "drop", "failed", 1),
     # experiments, NOT the drafts: what would close the digit leak / what the
     # runbook's "fsctl loglevel debug" rollback does to keypad digits
     "X01_sensitive_dtmf_experiment": (GOOD, "ok", "completed", 1),
@@ -575,6 +578,7 @@ def run_pci_case(rec, name):
         wait_gone(rec, e.B, 15)
         wait_gone(rec, e.A, 15)
         t_done = time.time()
+        out["customer_leg_still_up_after_hangup"] = e.alive(e.B)
     finally:
         for f in restore:
             f()
@@ -590,6 +594,12 @@ def run_pci_case(rec, name):
     out["dtmf_events_on_B"] = "".join(x.get("DTMF-Digit", "") for x in evs if x.get("Event-Name") == "DTMF" and uid(x) == e.B)
     hupB = next((x for x in evs if x.get("Event-Name") == "CHANNEL_HANGUP_COMPLETE" and uid(x) == e.B), {})
     out["digits_dialed_B"] = hupB.get("variable_digits_dialed")
+    try:  # keypad digits FreeSWITCH logged for this customer leg ("RECV DTMF <digit>:<len>", INFO)
+        out["recv_dtmf_log_digits_B"] = "".join(re.search(r"RECV DTMF (.):", l).group(1) for l in
+                                                open("/var/log/freeswitch/freeswitch.log", errors="replace")
+                                                if e.B in l and "RECV DTMF" in l)
+    except Exception as ex:
+        out["recv_dtmf_log_digits_B"] = repr(ex)
     out["hangup_B"], out["hangup_A"] = hupB.get("Hangup-Cause"), next((x.get("Hangup-Cause") for x in evs if x.get("Event-Name") == "CHANNEL_HANGUP_COMPLETE" and uid(x) == e.A), None)
     out["crm_steps"] = e.log
     out["crm_end"] = e.end
@@ -612,6 +622,10 @@ def run_pci_case(rec, name):
 
 
 def analyse_recording(e, t_done):
+    # The file only grows while the customer's channel reads media: while the
+    # script waits on the tokenize socket (up to 15 s) nothing is written. So
+    # the mask time is placed from the start of the file (answer) and the
+    # unmask time from its end (hangup), not both from the wall clock.
     try:
         rate, ch = load_wav(e.path)
     except Exception as ex:
@@ -619,8 +633,12 @@ def analyse_recording(e, t_done):
     fr = frames(ch[0], rate)
     t0 = e.t_answer_B
     dur = len(fr) * 0.02
-    m0, m1 = e.t_mask - t0, getattr(e, "t_unmask", t_done) - t0
-    return {"file_s": round(dur, 2), "mask_at": round(m0, 2), "unmask_at": round(m1, 2),
+    hup = e.rec.wait_for(lambda x: x.get("Event-Name") == "CHANNEL_HANGUP" and uid(x) == e.B, 1)
+    t_end = ts(hup) if hup else t_done
+    m0 = e.t_mask - t0
+    t_un = getattr(e, "t_unmask", None)
+    m1 = dur - (t_end - t_un) if t_un and t_un < t_end else dur
+    return {"file_s": round(dur, 2), "wall_s": round(t_end - t0, 2), "mask_at": round(m0, 2), "unmask_at": round(m1, 2),
             "before": window_stats(fr, 0.5, m0 - 0.2), "masked": window_stats(fr, m0 + 0.2, m1 - 0.2),
             "after": window_stats(fr, m1 + 0.6, dur - 0.2)}
 
@@ -629,7 +647,15 @@ def analyse_far(e, kind, far_u, t0):
     path = next((p for p in os.listdir(RES + "/far-rec") if p == "%s-%s.wav" % (kind, far_u)), None)
     if not path:
         return {"error": "no far recording"}
-    rate, ch = load_wav(RES + "/far-rec/" + path)
+    for _ in range(10):   # the far end closes the file a moment after its hangup
+        try:
+            rate, ch = load_wav(RES + "/far-rec/" + path)
+            break
+        except Exception as ex:
+            err = repr(ex)
+            time.sleep(0.5)
+    else:
+        return {"error": err}
     fr = frames(ch[0], rate)                     # what that phone heard
     tt, tu = e.t_transfer - t0, getattr(e, "t_unmask", e.t_transfer) - t0
     return {"during_entry": window_stats(fr, tt + 0.3, tu - 0.3), "after_entry": window_stats(fr, tu + 0.6, len(fr) * 0.02 - 0.3)}
@@ -646,14 +672,21 @@ def judge(name, o, want_state, want_requests):
         j["state_ok"] = got == want_state
     j["requests_ok"] = o["mock_requests"] == want_requests
     rec = o["recording"]
-    j["masked_silent"] = rec.get("masked", {}).get("nonzero_frames") == 0 and rec.get("masked", {}).get("frames", 0) > 0
+    # an entry shorter than the 0.4 s guard band (P19: the script is missing) has no window to measure
+    short = o.get("finished_after_s", 99) < 1.0
+    j["masked_silent"] = rec.get("masked", {}).get("nonzero_frames") == 0 and (short or rec.get("masked", {}).get("frames", 0) > 0)
     j["voice_before"] = rec.get("before", {}).get("voiced_frac", 0) > 0.2
     customer_gone = name in ("P08_caller_hangup_mid_card", "P18_agent_hangup_mid_entry")
     j["voice_after"] = customer_gone or rec.get("after", {}).get("voiced_frac", 0) > 0.2
-    j["agent_heard_silence"] = o["agent_heard"].get("during_entry", {}).get("max_peak", 99999) < 200 if "during_entry" in o["agent_heard"] else False
+    ah = o["agent_heard"].get("during_entry", {})
+    j["agent_heard_silence"] = (short and ah.get("frames") == 0) or ah.get("max_peak", 99999) < 200
     um = o["crm_end"].get("unmask", [])
-    j["unmasked"] = all(u.get("ok") or u.get("skipped") for u in um) and bool(um)
+    # the API hangs the customer up first on agent_hung_up, then its unmask of
+    # that leg answers -ERR (no session): the recording closed while masked
+    killed_b = any(n == "hangup_customer" for n, _ in o["crm_end"].get("steps", []))
+    j["unmasked"] = bool(um) and all(u.get("ok") or u.get("skipped") or (killed_b and u.get("leg") == "B") for u in um)
     j["back_with_agent"] = customer_gone or o["bridged_after_entry"]
+    j["call_ended_cleanly"] = not o.get("customer_leg_still_up_after_hangup")
     if o["mock_requests"]:
         m = o["mock_received"][-1]
         j["payload_ok"] = m["secret_ok"] and m["schema_ok"] and m["callId_ok"] and m["session_ok"] and not m["extra_keys"]
