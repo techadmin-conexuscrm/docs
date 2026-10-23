@@ -506,7 +506,7 @@ N0=$(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log)
 | B5 **wrong digits** | key `4111111111111112` (fails the check) | "Sorry, that entry wasn't valid...", asked again. After 3 wrong tries you go back to the agent. | OK |
 | B6 **timeout** | at the card prompt, press nothing for 15 s | "Returning you to your agent now." Back with the agent. | OK |
 | B7 **back to agent** | press `*` at the expiry prompt | back with the agent within about 2 s; the agent sees "left secure entry" | OK |
-| B8 **pound after 16** | key the 16 digits, then press `#` | **Watch:** does the expiry step say "not valid" right away? If yes, that's a known risk: the `#` spills into the next field. It's a small script fix later; not a reason to roll back. | what you heard |
+| B8 **`#` after every field** | key `4111111111111111#`, then `1230#`, `123#`, `78704#` (a `#` even after the fields that are already full) | the same as B1: no "not valid" anywhere. The script ignores a `#` that arrives before the next field's first digit. | OK, or what you heard |
 | B9 **recording** | play B1's call recording in the CRM | voice before and after, **silence during the entry, no tones** | OK |
 | B10 **no card in logs** | run the commands just below this table | `0` on every line | all the numbers |
 
