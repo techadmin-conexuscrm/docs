@@ -347,3 +347,276 @@ and these 6 rows are its acceptance test; (b) in the meantime BE-17 could
 refuse when `amd_result` exists and says HUMAN (costs nothing today, closes
 the hole the day BE-12 lands); (c) the agent-facing wording should say the
 message plays immediately, because today the button is the only guard.
+
+### Found in the fourth pass: eight confirmed faults, six fixed
+
+Each one was confirmed by an independent skeptic before this pass started.
+The lab could not see five of them because no case produced the input that
+triggers them; those cases exist now and no case was deleted, skipped or
+weakened to get a green.
+
+27. **AMD called a person who answers in phrases a MACHINE** (D1). mod_amd
+    counts a "word" every time voice resumes after `between_words_silence`
+    (250 ms) and declares MACHINE/MAXWORDS at `maximum_number_of_words`;
+    the only escape, `after_greeting_silence` (800 ms), ends the call as
+    HUMAN. So any pause between 250 and 800 ms chains words instead of
+    ending the analysis, and a person saying "Hello? ... yeah, this is
+    Mike ... who's this?" was a MACHINE within a few seconds. The lab could
+    not see it: its three human cases were one word, one espeak sentence,
+    and silence then one word - none of them ever produced a second word
+    group. Fixed in PR1's amd.conf.xml (greeting 2500 -> 5000,
+    maximum_number_of_words 3 -> 12, maximum_word_length 5000 -> 6000,
+    total_analysis_time 6000 -> 7000) with tests/amd_test.py driving a port
+    of the pinned mod_amd from the config file. New lab case
+    `human_phrases` (three phrases, explicit 0.4 s gaps).
+
+28. **The drop's silence wait never ended on a line that is not digitally
+    silent** (D2). `wait_for_silence:200 ...` asks for 1.5 s of frames
+    under an energy level of 200 - below carrier comfort noise, a car or an
+    office - so on a real line nothing counted as silence, the wait ran its
+    whole 30 s and then fell through to playback anyway (it has no failure
+    branch). Most carrier mailboxes stop recording at 30-45 s, so the
+    message was cut off or lost while the CRM had already written
+    "Voicemail left". Every drop case in the lab used anullsrc digital
+    silence, an energy floor of exactly 0, so the threshold never mattered
+    and the timeout branch had no coverage at all. Raised to 640, what
+    mod_amd treats as silence on the same signal, in BE-17's dropSteps and
+    in the lab's model of BE-12's play step. New lab case `vm_beep_noisy`
+    (the same greeting and beep over a white-noise floor measured at mean
+    492, max 561 per 20 ms frame - above the old 200, below 640), through
+    every drop flow, and a row now FAILS if the wait reached its timeout.
+
+29. **A voicemail drop could pull a customer out of card entry** (D4,
+    High). While a customer keys their card their leg is in the
+    secure_payment extension and the agent's is parked; `dropAllowed`
+    checked only that the call was "ongoing" with a valid other leg, so
+    "Machine: drop voicemail" uuid_transferred a live, paying customer out
+    of card entry, played them the recording and hung up - and Lua's hangup
+    hook treats that transfer as "the customer is elsewhere" and
+    deliberately does not bridge them back, leaving the agent parked on a
+    dead line. Every other path that moves the customer leg already calls
+    `assertNoSecureEntry`; the drop, added later, did not. Fixed in
+    ConexusCRM-BE (be17 -> pr13 -> pr14) with a db case that fails without
+    it.
+
+30. **A voicemail drop could never play a real presigned link** (D5,
+    High). Telephony files are stored under telephony/<org>/<uuid> with no
+    extension and a SigV4 query string has no "." either, so mod_httapi's
+    find_ext() found no file format; the content-type fallback lives inside
+    the HEAD branch that `nohead=true` skips, and `nohead` is there because
+    S3 signs a presigned link for GET only. switch_core_file_open() then
+    refused the cache file. Measured here on a real channel: "Unknown file
+    Format" / "Invalid cache file ... Discarding file", playback failed in
+    20 ms, and the next step - hangup - still ran, so the mailbox recorded
+    silence while the lead was stamped "Voicemail left" and a retry was
+    refused with "already_dropped". The parameter cannot be written
+    `(nohead=true,ext=wav)`: the inline dialplan splits that comma first
+    (measured: a truncated URL plus an "Invalid Application ext=wav)..."
+    and DESTINATION_OUT_OF_ORDER). `switch_event_create_brackets`' `^^`
+    prefix chooses the separator, so `(^^;nohead=true;ext=wav)` carries
+    both. Same URL, same channel, with the fix: the file played for 6.94 s.
+    Fixed in ConexusCRM-BE; the extension comes from the recording's stored
+    mime type and a format FreeSWITCH cannot open now refuses the drop
+    up front. The lab missed it because its one https row played
+    /vm/drop.wav, whose last path segment ends in .wav; be17https now plays
+    a presigned-shaped link (the mock serves that shape GET-only and
+    answers HEAD with 403, as S3 does).
+
+31. **A beep-only mailbox was judged HUMAN and the row accepted any
+    verdict** (D6). `greet` is set after only `min_word_length` (100 ms) of
+    voice, so a mailbox whose greeting is just a beep - or whose first word
+    is followed by a gap over 800 ms - comes out HUMAN/SILENCEAFTERGREETING
+    and, under the amdbeep flow, is handed to an agent as a live customer
+    while the lead is burned as a connect. The row's criterion was
+    "(any) verdict + beep", so the wrong verdict was invisible, and
+    beep_only was in no drop flow at all. Raising after_greeting_silence
+    far enough to catch it would delay the verdict on every real person,
+    which is the wrong trade; instead the flow now treats an avmd beep
+    inside the first 2 s as a machine whatever mod_amd said (avmd detects
+    it 5/5 at about 1.0 s), the row records HUMAN rather than accepting
+    anything, and beep_only runs through the drop flow.
+
+32. **Keys typed over a field prompt were thrown away** (D7). read_field()
+    played the prompt and then drained every queued key, so it could not
+    tell the previous field's leftovers from digits the caller had started
+    keying over this prompt. Fixed in PR4 (the drain now runs BEFORE the
+    prompt; a field that fills up drains only its own 1 s tail; collect()
+    plays a prompt before every retry). The lab recorded this as working on
+    the strength of P20, which sends an early burst AND THEN the whole card
+    again - that shows the dropped keys do not corrupt the entry, not that
+    type-ahead works. New `P28_typeahead_over_card_prompt` keys the card
+    0.5 s into enter_card_number.wav and re-keys nothing, so the entry can
+    only complete if those keys are kept; a new OVER_PROMPT step waits for
+    that prompt's PLAYBACK_START rather than guessing the time. New
+    `P29_typeahead_intro_only` keys over the intro and re-keys nothing:
+    those keys are dropped on purpose (before the card prompt nothing tells
+    them from keys pressed earlier, and a remainder that passes Luhn would
+    be posted as someone else's PAN), so what is required is that the
+    customer is prompted again rather than left in silence and the entry
+    ends without taking a card. The sentence in "What worked as designed"
+    has been corrected.
+
+### The two of the eight NOT fixed, and why
+
+**D3: the drop is still fire-and-forget.** `sendDrop` returns true on
+`uuid_transfer ... +OK`, which only means FreeSWITCH accepted the
+transfer; `dropVoicemail` then writes the "Voicemail left" disposition and
+`voicemailDroppedAt` and takes the one-drop lock. If `playback` fails at
+that point - an S3 5xx, a DNS or TLS hiccup, or a link that has aged past
+its 300 s signature - the next step, `hangup`, still runs: the mailbox
+gets dead air, the compliance record says a recorded message was left on a
+number that required written consent, and a retry is refused.
+
+Not fixed tonight, deliberately. Confirming the playback means the
+disposition is no longer written in the request that the agent's button
+makes: `wait_for_silence` alone can run 30 s, so the request cannot wait
+for it, and the write has to move to an event. That changes when and
+whether a compliance record exists and what the agent's screen says - a
+behaviour change for Eric, and the kind of thing that gets an adversarial
+review before it goes near a live floor, not a change made at 3 a.m. on
+the night of a window.
+
+What I would do, for whoever picks it up: keep the drop context in Redis
+under the customer leg uuid when the transfer is accepted (the one-drop
+lock is already there), and settle it from an event the BE *already*
+subscribes to - `CHANNEL_HANGUP_COMPLETE` on that leg, which carries the
+channel variables. A playback that really ran leaves evidence there that
+one which never opened the file does not - `playback_last_offset_pos` is
+the likely candidate; confirm in the lab which variable is actually set on
+each path before relying on it, the harness already reads
+`Application-Response == "FILE PLAYED"` for the same question.
+That avoids subscribing to `PLAYBACK_START` platform-wide, which would
+mean a handler call for every prompt and every piece of hold music on the
+system. Settle on that event: write the disposition and
+`voicemailDroppedAt` only if it played, and on failure clear the lock,
+leave the lead alone and tell the agent.
+
+Worth saying plainly: D5 removed the only *systematic* cause. Before it,
+**every** drop against a real presigned link failed this way - the lab now
+plays one end to end. What is left is the intermittent case.
+
+**D8: a transfer out of secure entry still leaves the agent parked.**
+Lua's hangup hook treats `status == "transfer"` as "the customer is
+elsewhere", fires `final("failed","transfer")` and does not bridge them
+back; `progress-listener.ts` folds every "failed" into "cancelled", and
+`endSecureEntry` skips the re-bridge for "cancelled" because "Lua
+reconnects the customer itself" - which is exactly what Lua did not do.
+`releaseAgentLeg` does not take the agent channel out of `park`. The agent
+sits in silence while the CRM says the customer is back.
+
+Not fixed tonight. The fix needs three things at once: a new state or
+reason in PR4's Lua so the BE can tell a transfer from a customer-driven
+cancel, a change in `end-secure-entry.ts` (which is telephony code, not on
+any of the campaign branches), and a new PCI case that uuid_transfers the
+customer leg mid-entry - and a new PCI case means another full matrix run.
+PR4's Lua is also being edited by the static review in parallel tonight.
+
+The trigger the finding describes end to end - the voicemail drop pulling
+the customer out - is closed by D4 above, and every other BE path that
+moves the customer leg already calls `assertNoSecureEntry`. What remains
+is a transfer from outside the BE (fs_cli, another system, or a race), so
+this is worth doing properly in its own PR rather than rushed here.
+
+### The new red: AMD's greeting trigger cannot fire inside its own window
+
+This is the one thing this pass found that nobody had raised, and it is
+why section 3 is not green.
+
+PR1's fix for D1 raised `greeting` 2500 -> 5000 so that a person who
+answers with a sentence in one breath (2.6-3 s of voice) is not called a
+MACHINE. It left `total_analysis_time` at 7000. In mod_amd,
+`voice_duration` only accumulates on frames at or above
+`silence_threshold` and is reset by any silence of `between_words_silence`
+(250 ms) or more, so LONGGREETING now needs **5000 ms of accumulated voice
+inside a 7000 ms wall-clock window** - a voice density above about 71%.
+Ordinary speech does not reach that: the gaps between words are 120-180 ms,
+under the 250 ms reset but still silence, so they do not count towards it.
+
+Measured on the lab's own audio through the same G.711 round trip
+(`failfirst/D1-amd-greeting-vs-analysis-window.log`): a deliberately
+continuous 13.4 s greeting - one sentence, no pauses between sentences at
+all, the easiest machine there is - reaches 5000 ms of voice at t = 7.22 s
+and so is **NOTSURE/TOOLONG at 7.00 s**. It misses by 220 ms. With
+`total_analysis_time` at 9 s or more the same clip is MACHINE/LONGGREETING
+at 7.22 s.
+
+So under the drafted config every mailbox in the lab is NOTSURE. Before
+PR1 they were MACHINE - but by MAXWORDS, the very bug D1 removes, not by
+anything about their length. Section 3's machine rows and the `amdbeep`
+rows that depend on a MACHINE verdict therefore go red. That is the
+harness doing its job: it is reporting that the configuration does not do
+what those rows demand.
+
+`tests/amd_test.py` does not catch it because it drives the state machine
+from hand-written envelopes in which voice is continuous, so its "7 s
+greeting, no real pauses" row reaches LONGGREETING at 5720 ms. Real audio
+has word gaps and about half the density. This is the difference between
+a unit test and a real call, and it is the reason this lab exists.
+
+**Not changed tonight, on purpose.** Raising `total_analysis_time` is the
+obvious fix and the lab says 9 s would be enough for this clip, but that
+number is also how long a live person who never pauses for 800 ms sits in
+silence before AMD gives up and sends them to an agent - on an outbound
+dialer that is dead air on a real customer. That is Eric's trade, not
+mine, and it wants its own measurement on recorded real calls rather than
+espeak.
+
+Nothing in tonight's window depends on it. AMD is advisory (RUNBOOK
+section F says so), BE-17's drop is a manual button with no AMD on the
+call at all, and BE-12's automatic drop is not being built tonight. The
+config errs in the safe direction: it will not call a person a machine.
+What it will also not do is call a machine a machine - so **BE-12 cannot
+be built on this verdict as it stands**, and the avmd beep is the signal
+that actually works (5/5 detections, see section 3).
+
+### The matrix after this pass: 69 of 87
+
+The matrix grew from 77 rows to 87 (the new cases above). 69 pass. The 18
+that do not are four separate things, and only one of them is new work
+this pass introduced:
+
+**9 rows - AMD's greeting trigger (the section above).** Section 3's five
+mailbox cases (`vm_beep_short`, `vm_beep_long`, `vm_beep_1200ms`,
+`vm_beep_noisy`, `vm_nobeep`) are NOTSURE/TOOLONG at 7.0 s where the row
+asks for MACHINE, and the four `amdbeep` rows that need a MACHINE verdict
+to start a drop follow from it. Not a harness error: the rows ask for the
+right thing and the configuration cannot deliver it. See above for why it
+was not changed tonight.
+
+**6 rows - BE-17 pressed on a live person**, unchanged from the third pass
+and still out of scope here (`be17`/`runbook` x `human_hello`,
+`human_long`, `silent_then_hello`). BE-17 is a button with no AMD on the
+call; the real fix is BE-12.
+
+**2 rows - `vm_beep_1200ms` on `be17`/`runbook`, NEW, caused by D2.** With
+the threshold at 640 the drop's `PLAYBACK_START` lands at 8.52 s and the
+nominal end of the 1.2 s beep is 8.671 s, so `drop_before_beep_end` trips;
+at 200 the drop started at 10.70 s and it did not. What the mailbox
+actually hears is still after the beep - `drop_heard_onset` is 8.78 s
+against a beep that the far end's own recording shows ending at 8.68 s -
+so no message is lost, and the other beep cases (0.25 s, 0.5 s, and the
+noisy line) all pass. But the margin on the longest beep is now 0.15 s on
+the sending clock, and I could not reconcile that with the arithmetic:
+reading the real `switch_ivr_wait_for_silence`
+(switch_ivr_play_say.c:2080), a loud frame resets `silence_hits`, so the
+beep at 7.50-8.68 should have reset the count and pushed the drop out to
+about 10.7 s. It did not. **Left red deliberately** rather than relaxing
+the check: until that is explained, the drop's timing against a long beep
+is not understood, and a row that is not understood should not be made to
+pass. It is a 0.15 s margin on a case that still delivers the message, not
+a reason to hold the window.
+
+**1 row - P26, the recording-coverage check.** The call itself passes
+every assertion it has (`state_ok`, `requests_ok`, `no_digit_action_vars`,
+`probe_ok`, `masked_silent`, `reconnected`, `bridged_after_entry` are all
+true, the card was taken, nothing leaked). What fails is the check added
+later that the stored recording covers the call: 59.88 s against a
+61.16 s call, where the check allows 1.0 s. Every other case this run is
+within 0.3 s. This is the repo's upload-audio sidecar, which nothing in
+this pass touches; P26 is the only case that does extra `uuid_broadcast`
+work before the entry, which is the obvious suspect for the later start.
+Re-running P26 on its own does not settle it: standalone the sidecar has
+not uploaded at all by the time the harness looks (`uploads: 0`), so the
+single-case path cannot measure this check. Worth fixing in the harness -
+wait for the upload rather than sampling - but it is a measurement of the
+recording sidecar, not of the drafts.
