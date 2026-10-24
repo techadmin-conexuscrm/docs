@@ -1,0 +1,80 @@
+# D1 follow-on, found by this pass: with the drafted amd.conf.xml the
+# LONGGREETING trigger can almost never fire on real speech.
+#
+# PR1's fix for D1 raised greeting 2500 -> 5000 (so a person who answers
+# with a sentence in one breath, 2.6-3 s of voice, is not called a
+# MACHINE) and left total_analysis_time at 7000.
+#
+# In mod_amd, voice_duration accumulates only on frames at or above
+# silence_threshold, and is reset by any silence of between_words_silence
+# (250 ms) or more. So LONGGREETING needs 5000 ms of ACCUMULATED VOICE
+# inside a 7000 ms wall-clock window - a voice density above about 71%.
+# Ordinary speech does not reach that: the gaps between words are 120-180
+# ms, below the 250 ms reset but still silence, so they do not count.
+#
+# Measured on the lab's own audio (amd-sim.py, the port of webitel/mod_amd
+# 52e6bc6 used to pick these values), through the same G.711 round trip:
+#
+#   clip                       inter-word gaps      voice_duration hits 5000
+#   13.4 s continuous greeting 120-180 ms, 2 >=250  at t = 7.22 s
+#
+#   total_analysis_time =  7 s  -> NOTSURE/TOOLONG at 7.00 s   <-- drafted
+#   total_analysis_time =  9 s  -> MACHINE/LONGGREETING at 7.22 s
+#   total_analysis_time = 12 s  -> MACHINE/LONGGREETING at 7.22 s
+#
+# That clip is the easiest machine there is: one unbroken 13 s sentence,
+# no pauses between sentences at all. It still misses by 220 ms.
+#
+# Every mailbox clip in the lab therefore comes out NOTSURE/TOOLONG at
+# 7.02 s under the drafted config:
+#
+#   human_hello        HUMAN   SILENCEAFTERGREETING 1.60
+#   human_long         HUMAN   SILENCEAFTERGREETING 4.22
+#   human_phrases      HUMAN   SILENCEAFTERGREETING 3.54   (the D1 case)
+#   silent_then_hello  NOTSURE INITIALSILENCE       2.50
+#   vm_beep_short      NOTSURE TOOLONG              7.02
+#   vm_beep_long       NOTSURE TOOLONG              7.02
+#   vm_beep_1200ms     NOTSURE TOOLONG              7.02
+#   vm_beep_noisy      NOTSURE TOOLONG              7.02
+#   vm_nobeep          NOTSURE TOOLONG              7.02
+#   beep_only          HUMAN   SILENCEAFTERGREETING 2.30
+#   silence            NOTSURE INITIALSILENCE       2.50
+#   noise              HUMAN   SILENCEAFTERGREETING 1.42
+#
+# Before PR1 these mailboxes came out MACHINE - but by MAXWORDS, the very
+# bug D1 removes (three word-groups), not by anything about their length.
+#
+# CONFIRMED ON REAL CALLS, not only in the simulator. The matrix run of
+# 2026-10-24 02:30 UTC (section 3, 12 cases x 5 runs, real SIP with RTP
+# audio through the lab's two FreeSWITCH instances) reproduces the
+# simulator to within 20 ms:
+#
+#   case               real call                        amd-sim.py
+#   human_hello        HUMAN  SILENCEAFTERGREETING 1.619   1.60
+#   human_long         HUMAN  SILENCEAFTERGREETING 4.221   4.22
+#   human_phrases      HUMAN  SILENCEAFTERGREETING 3.556   3.54   <- D1 fixed
+#   silent_then_hello  NOTSURE INITIALSILENCE      2.528   2.50
+#   beep_only          HUMAN  SILENCEAFTERGREETING          2.30
+#   vm_beep_short      NOTSURE TOOLONG                      7.02
+#   vm_beep_long       NOTSURE TOOLONG                      7.02
+#   vm_beep_1200ms     NOTSURE TOOLONG                      7.02
+#   vm_beep_noisy      NOTSURE TOOLONG                      7.02
+#   vm_nobeep          NOTSURE TOOLONG                      7.02
+#
+# human_phrases is the D1 case and it is HUMAN on every run: a person who
+# answers in three phrases with 0.4 s gaps is no longer a MACHINE. That
+# part of PR1 works. The five mailbox rows are the cost.
+#
+# Why tests/amd_test.py does not show this: it drives the state machine
+# from hand-written envelopes in which "voice" is continuous, so its "7 s
+# greeting, no real pauses" row reaches LONGGREETING at 5720 ms. Real
+# audio has word gaps; the density is about half that. This is exactly
+# what the real-call lab is for.
+#
+# NOT changed tonight. Raising total_analysis_time is the obvious fix, but
+# it is a trade Eric has to make: it is also how long a LIVE person who
+# never pauses for 800 ms sits in silence before AMD gives up and sends
+# them to an agent. Nothing in tonight's window depends on it - AMD is
+# advisory (RUNBOOK section F), BE-17's drop is a manual button, and
+# BE-12's automatic drop is not being built tonight. The safe direction is
+# the one the config is already on: it will not call a person a machine.

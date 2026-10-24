@@ -49,8 +49,8 @@ def amd(a, p, ms=20):
     return ("NOTSURE", "END", t)
 BASE = dict(silence_threshold=256, maximum_word_length=5000, maximum_number_of_words=3, between_words_silence=50,
             min_word_length=100, total_analysis_time=5000, after_greeting_silence=800, greeting=1500, initial_silence=2500)
-CLIPS = ["human_hello", "human_long", "silent_then_hello", "vm_beep_short", "vm_beep_long", "vm_beep_1200ms",
-         "vm_nobeep", "beep_only", "silence", "noise"]
+CLIPS = ["human_hello", "human_long", "human_phrases", "silent_then_hello", "vm_beep_short", "vm_beep_long",
+         "vm_beep_1200ms", "vm_beep_noisy", "vm_nobeep", "beep_only", "silence", "noise"]
 A = {c: load(c) for c in CLIPS}
 # extra clip: silence 3 s then Hello
 if __name__ == "__main__":
