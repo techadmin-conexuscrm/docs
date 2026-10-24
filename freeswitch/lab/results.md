@@ -1,11 +1,11 @@
 # FreeSWITCH lab: results
 
-Generated 2026-10-24 08:09 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/amdx/lab`.
-Drafts: docs `2ad9564` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
+Generated 2026-10-24 14:44 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/amdx/lab`.
+Drafts: docs `a34be30` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
 Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits) between the lab FreeSWITCH (the drafts' image and config) and a far-end FreeSWITCH, on a private docker network with no way out. Test values only. How to re-run: `README.md`.
 ## Summary
 
-**149 of 149 matrix rows pass** (experiments not counted; the research's 4 stress rows reported, not counted: 2 of them pass).
+**201 of 201 matrix rows pass** (experiments not counted). Every clip, the research's stress clips included, is counted in pilot mode, the default. The research's 2 stress rows in gate mode (the switch for later; section 3 shows the same in its gate column) are reported, not counted, as before: 1 of them pass.
 
 | section | case | passed |
 |---|---|---|
@@ -42,8 +42,8 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 3 AMD | vm_personal_pauses | PASS 5/5 |
 | 3 AMD | vm_real_long | PASS 5/5 |
 | 3 AMD | vm_real_med | PASS 5/5 |
-| 3 AMD stress | h_real_two | PASS 5/5 |
-| 3 AMD stress | h_tv_loud | FAIL 0/5 |
+| 3 AMD | h_real_two (stress: gate reported) | PASS 5/5 |
+| 3 AMD | h_tv_loud (stress: gate reported) | PASS 5/5 |
 | 4 drop | amdbeep beep_only | PASS 3/3 |
 | 4 drop | amdbeep h_anyone_there | PASS 3/3 |
 | 4 drop | amdbeep h_fast | PASS 3/3 |
@@ -77,6 +77,54 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 4 drop | amdbeep vm_personal_pauses | PASS 3/3 |
 | 4 drop | amdbeep vm_real_long | PASS 3/3 |
 | 4 drop | amdbeep vm_real_med | PASS 3/3 |
+| 4 drop | amdgate beep_only | PASS 3/3 |
+| 4 drop | amdgate h_anyone_there | PASS 3/3 |
+| 4 drop | amdgate h_fast | PASS 3/3 |
+| 4 drop | amdgate h_four_phrases | PASS 3/3 |
+| 4 drop | amdgate h_hello_hello | PASS 3/3 |
+| 4 drop | amdgate h_hello_x3 | PASS 3/3 |
+| 4 drop | amdgate h_pickup_delay | PASS 3/3 |
+| 4 drop | amdgate h_real_sentence | PASS 3/3 |
+| 4 drop | amdgate h_real_word | PASS 3/3 |
+| 4 drop | amdgate h_slow | PASS 3/3 |
+| 4 drop | amdgate h_street | PASS 3/3 |
+| 4 drop | amdgate h_tv_quiet | PASS 3/3 |
+| 4 drop | amdgate human_hello | PASS 3/3 |
+| 4 drop | amdgate human_long | PASS 3/3 |
+| 4 drop | amdgate human_phrases | PASS 3/3 |
+| 4 drop | amdgate noise | PASS 3/3 |
+| 4 drop | amdgate silence | PASS 3/3 |
+| 4 drop | amdgate silent_then_hello | PASS 3/3 |
+| 4 drop | amdgate vm_2s_beep | PASS 3/3 |
+| 4 drop | amdgate vm_2s_beep_gap | PASS 3/3 |
+| 4 drop | amdgate vm_beep_1200ms | PASS 3/3 |
+| 4 drop | amdgate vm_beep_long | PASS 3/3 |
+| 4 drop | amdgate vm_beep_noisy | PASS 3/3 |
+| 4 drop | amdgate vm_beep_short | PASS 3/3 |
+| 4 drop | amdgate vm_carrier | PASS 3/3 |
+| 4 drop | amdgate vm_carrier_digits | PASS 3/3 |
+| 4 drop | amdgate vm_carrier_noisy | PASS 3/3 |
+| 4 drop | amdgate vm_double_beep | PASS 3/3 |
+| 4 drop | amdgate vm_nobeep | PASS 3/3 |
+| 4 drop | amdgate vm_nobeep_long | PASS 3/3 |
+| 4 drop | amdgate vm_personal_pauses | PASS 3/3 |
+| 4 drop | amdgate vm_real_long | PASS 3/3 |
+| 4 drop | amdgate vm_real_med | PASS 3/3 |
+| 4 drop | be12 beep_only | PASS 2/2 |
+| 4 drop | be12 h_street | PASS 2/2 |
+| 4 drop | be12 human_hello | PASS 2/2 |
+| 4 drop | be12 human_long | PASS 2/2 |
+| 4 drop | be12 silent_then_hello | PASS 2/2 |
+| 4 drop | be12 vm_2s_beep | PASS 2/2 |
+| 4 drop | be12 vm_beep_1200ms | PASS 2/2 |
+| 4 drop | be12 vm_beep_long | PASS 2/2 |
+| 4 drop | be12 vm_beep_noisy | PASS 2/2 |
+| 4 drop | be12 vm_beep_short | PASS 2/2 |
+| 4 drop | be12 vm_double_beep | PASS 2/2 |
+| 4 drop | be12 vm_nobeep | PASS 2/2 |
+| 4 drop | be12 vm_real_med | PASS 2/2 |
+| 4 drop | be12nofs human_hello | PASS 1/1 |
+| 4 drop | be12nofs vm_beep_short | PASS 1/1 |
 | 4 drop | be17 h_anyone_there | PASS 2/2 |
 | 4 drop | be17 h_hello_x3 | PASS 2/2 |
 | 4 drop | be17 h_street | PASS 2/2 |
@@ -112,8 +160,10 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 4 drop | runbook vm_double_beep | PASS 1/1 |
 | 4 drop | runbook vm_nobeep | PASS 1/1 |
 | 4 drop | runbook vm_real_med | PASS 1/1 |
-| 4 drop stress | amdbeep h_real_two | PASS 3/3 |
-| 4 drop stress | amdbeep h_tv_loud | FAIL 0/3 |
+| 4 drop | amdbeep h_real_two (stress) | PASS 3/3 |
+| 4 drop | amdbeep h_tv_loud (stress) | PASS 3/3 |
+| 4 drop gate stress | amdgate h_real_two (stress) | PASS 3/3 |
+| 4 drop gate stress | amdgate h_tv_loud (stress) | FAIL 0/3 |
 | 5 PCI | P01_visa_good | PASS 1/1 |
 | 5 PCI | P02_amex_4digit_cvv | PASS 1/1 |
 | 5 PCI | P03_bad_then_good | PASS 1/1 |
@@ -168,104 +218,152 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 
 ## 3. Voicemail detection (mod_amd + mod_avmd, runbook F1 steps at answer)
 
-`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the clip. Time = seconds from answer. Every row is judged on the **AMD strategy** (`research/AMD-STRATEGY.md`), not on mod_amd's raw verdict: mod_amd only decides who gets an agent (HUMAN and NOTSURE at once, MACHINE takes the voicemail path), the avmd beep alone decides whether a recording plays (a beep heard before the agent is joined means a mailbox). `strategy does` applies that to the verdict and beep times measured on the call, with the CRM's bridge 0.3 s after the verdict and a MACHINE held for a beep until 30 s. Clips over a noise floor (`vm_beep_noisy`, `vm_carrier_noisy`): mod_avmd cannot hear a beep there (research section 6), so an agent is the right outcome when no beep was heard. `stress` rows are the research's stress clips: reported, not counted. Expected outcomes and what changed: `EXPECTATIONS-CHANGE.md`.
+`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the clip. Time = seconds from answer. Every row is judged twice, on the same call. **pilot** (the default, Eric 2026-10-24, counted for every clip): the agent joins at answer and mod_amd only logs its verdict, so the detectors must log a verdict, never hear a beep on a person, a dead line or a mailbox with no beep (the drop button would then play), and hear a quiet-line mailbox's own beep so the button can leave the message. **gate** ("AMD gates the agent", the per-company switch for later): counted as before, except the research's stress clips, reported and not counted as they always were. Gate is judged on the **AMD strategy** (`research/AMD-STRATEGY.md`), not on mod_amd's raw verdict: mod_amd only decides who gets an agent (HUMAN and NOTSURE at once, MACHINE takes the voicemail path), the avmd beep alone decides whether a recording plays (a beep heard before the agent is joined means a mailbox). `strategy does` applies that to the verdict and beep times measured on the call, with the CRM's bridge 0.3 s after the verdict and a MACHINE held for a beep until 30 s. Clips over a noise floor (`vm_beep_noisy`, `vm_carrier_noisy`): mod_avmd cannot hear a beep there (research section 6), so an agent is the right outcome when no beep was heard. `stress` rows are the research's stress clips: reported, not counted. Expected outcomes and what changed: `EXPECTATIONS-CHANGE.md`.
 
-| case | expect | runs | amd_result (cause) | time to verdict s | beep heard | beep at s | strategy does (at s) | wanted | pass |
-|---|---|---|---|---|---|---|---|---|---|
-| beep_only | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.71-2.73 (mean 2.72) | 5/5 | 1.04-1.04 (mean 1.04) | drop x5 (1.04-1.04 (mean 1.04)) | the voicemail path on the beep | 5/5 |
-| h_anyone_there | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 6.04-6.12 (mean 6.07) | 0/5 | - | agent x5 (6.34-6.42 (mean 6.37)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_fast | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.14-2.16 (mean 2.14) | 0/5 | - | agent x5 (2.44-2.46 (mean 2.44)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_four_phrases | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.89-5.92 (mean 5.90) | 0/5 | - | agent x5 (6.19-6.21 (mean 6.20)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_hello_hello | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.98-2.00 (mean 1.98) | 0/5 | - | agent x5 (2.28-2.30 (mean 2.28)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_hello_x3 | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.84-5.01 (mean 4.88) | 0/5 | - | agent x5 (5.14-5.31 (mean 5.18)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_pickup_delay | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.88-2.90 (mean 2.89) | 0/5 | - | agent x5 (3.18-3.20 (mean 3.19)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_real_sentence | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.23-5.27 (mean 5.25) | 0/5 | - | agent x5 (5.53-5.57 (mean 5.55)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_real_word | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.40-2.41 (mean 2.40) | 0/5 | - | agent x5 (2.70-2.71 (mean 2.70)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_slow | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.61-5.64 (mean 5.63) | 0/5 | - | agent x5 (5.91-5.94 (mean 5.93)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_street | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.60-4.75 (mean 4.64) | 0/5 | - | agent x5 (4.90-5.05 (mean 4.94)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_tv_quiet | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.02-2.02 (mean 2.02) | 0/5 | - | agent x5 (2.32-2.32 (mean 2.32)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| human_hello | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.99-2.00 (mean 1.99) | 0/5 | - | agent x5 (2.29-2.30 (mean 2.29)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| human_long | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.54-4.54 (mean 4.54) | 0/5 | - | agent x5 (4.84-4.84 (mean 4.84)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| human_phrases | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.58-5.61 (mean 5.59) | 0/5 | - | agent x5 (5.88-5.91 (mean 5.89)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| noise | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.52-2.55 (mean 2.53) | 0/5 | - | agent x5 (2.81-2.85 (mean 2.83)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| silence | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.51-2.55 (mean 2.53) | 0/5 | - | agent x5 (2.81-2.85 (mean 2.83)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| silent_then_hello | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.51-2.54 (mean 2.52) | 0/5 | - | agent x5 (2.81-2.84 (mean 2.82)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| vm_2s_beep | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 3.71-3.74 (mean 3.72) | 5/5 | 2.06-2.06 (mean 2.06) | drop x5 (2.06-2.06 (mean 2.06)) | the voicemail path on the beep | 5/5 |
-| vm_2s_beep_gap | agent_or_drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.47-2.51 (mean 2.48) | 5/5 | 2.80-2.82 (mean 2.82) | agent x5 (2.77-2.81 (mean 2.78)) | an agent, or the voicemail path on the real beep | 5/5 |
-| vm_beep_1200ms | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.88-9.96 (mean 9.90) | 5/5 | 7.70-7.78 (mean 7.72) | drop x5 (7.70-7.78 (mean 7.72)) | the voicemail path on the beep | 5/5 |
-| vm_beep_long | drop | 5 | MACHINE (LONGGREETING) x5 | 8.81-8.91 (mean 8.85) | 5/5 | 19.46-19.52 (mean 19.49) | drop x5 (19.46-19.52 (mean 19.49)) | the voicemail path on the beep | 5/5 |
-| vm_beep_noisy | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.18-9.20 (mean 9.19) | 0/5 | - | agent x5 (9.48-9.50 (mean 9.49)) | the voicemail path on the beep (noisy line: an agent if no beep is heard) | 5/5 |
-| vm_beep_short | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.18-9.22 (mean 9.20) | 5/5 | 7.70-7.72 (mean 7.70) | drop x5 (7.70-7.72 (mean 7.70)) | the voicemail path on the beep | 5/5 |
-| vm_carrier | drop | 5 | MACHINE (LONGGREETING) x5 | 7.97-8.00 (mean 7.98) | 5/5 | 11.28-11.28 (mean 11.28) | drop x5 (11.28-11.28 (mean 11.28)) | the voicemail path on the beep | 5/5 |
-| vm_carrier_digits | drop | 5 | MACHINE (LONGGREETING) x5 | 9.98-10.02 (mean 10.00) | 5/5 | 10.00-10.02 (mean 10.01) | drop x5 (10.00-10.02 (mean 10.01)) | the voicemail path on the beep | 5/5 |
-| vm_carrier_noisy | drop | 5 | MACHINE (LONGGREETING) x5 | 7.85-7.91 (mean 7.87) | 0/5 | - | agent_late x5 (30.00-30.00 (mean 30.00)) | the voicemail path on the beep (noisy line: an agent if no beep is heard) | 5/5 |
-| vm_double_beep | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.16-9.19 (mean 9.18) | 5/5 | 7.18-7.20 (mean 7.19) | drop x5 (7.18-7.20 (mean 7.19)) | the voicemail path on the beep | 5/5 |
-| vm_nobeep | nodrop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 7.75-7.76 (mean 7.75) | 0/5 | - | agent x5 (8.04-8.06 (mean 8.05)) | no beep heard, never the voicemail path | 5/5 |
-| vm_nobeep_long | nodrop | 5 | MACHINE (LONGGREETING) x5 | 8.81-8.87 (mean 8.84) | 0/5 | - | agent_late x5 (30.00-30.00 (mean 30.00)) | no beep heard, never the voicemail path | 5/5 |
-| vm_personal_pauses | agent_or_drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.52-9.54 (mean 9.52) | 5/5 | 7.94-7.96 (mean 7.94) | drop x5 (7.94-7.96 (mean 7.94)) | an agent, or the voicemail path on the real beep | 5/5 |
-| vm_real_long | drop | 5 | MACHINE (LONGGREETING) x5 | 9.75-9.80 (mean 9.78) | 5/5 | 12.30-12.32 (mean 12.30) | drop x5 (12.30-12.32 (mean 12.30)) | the voicemail path on the beep | 5/5 |
-| vm_real_med | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 8.07-8.10 (mean 8.08) | 5/5 | 6.42-6.44 (mean 6.42) | drop x5 (6.42-6.44 (mean 6.42)) | the voicemail path on the beep | 5/5 |
-| h_real_two (stress) | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 6.73-6.75 (mean 6.74) | 0/5 | - | agent x5 (7.03-7.05 (mean 7.04)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 |
-| h_tv_loud (stress) | agent | 5 | NOTSURE (TOOLONG) x5 | 12.01-12.19 (mean 12.05) | 0/5 | - | agent x5 (12.31-12.49 (mean 12.35)) | an agent within 2 s of their last word; never MACHINE, never a beep | 0/5: agent 11.17 s after they stopped; agent 11.18 s after they stopped; agent 11.19 s after they stopped; agent 11.35 s after they stopped |
+| case | expect | runs | amd_result (cause) | time to verdict s | beep heard | beep at s | pilot | gate: strategy does (at s) | gate wanted | gate | pass |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| beep_only | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.71-2.76 (mean 2.73) | 5/5 | 1.02-1.04 (mean 1.04) | 5/5 | drop x5 (1.02-1.04 (mean 1.04)) | the voicemail path on the beep | 5/5 | 5/5 |
+| h_anyone_there | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 6.04-6.09 (mean 6.06) | 0/5 | - | 5/5 | agent x5 (6.34-6.39 (mean 6.36)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_fast | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.14-2.15 (mean 2.15) | 0/5 | - | 5/5 | agent x5 (2.44-2.45 (mean 2.45)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_four_phrases | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.90-5.94 (mean 5.92) | 0/5 | - | 5/5 | agent x5 (6.20-6.24 (mean 6.22)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_hello_hello | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.97-1.99 (mean 1.98) | 0/5 | - | 5/5 | agent x5 (2.27-2.29 (mean 2.28)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_hello_x3 | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.83-4.85 (mean 4.84) | 0/5 | - | 5/5 | agent x5 (5.13-5.15 (mean 5.14)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_pickup_delay | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.87-2.88 (mean 2.87) | 0/5 | - | 5/5 | agent x5 (3.17-3.18 (mean 3.17)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_real_sentence | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.25-5.33 (mean 5.27) | 0/5 | - | 5/5 | agent x5 (5.55-5.63 (mean 5.57)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_real_word | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.39-2.45 (mean 2.41) | 0/5 | - | 5/5 | agent x5 (2.69-2.75 (mean 2.71)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_slow | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.61-5.66 (mean 5.62) | 0/5 | - | 5/5 | agent x5 (5.91-5.96 (mean 5.92)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_street | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.59-4.62 (mean 4.61) | 0/5 | - | 5/5 | agent x5 (4.89-4.92 (mean 4.91)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| h_tv_quiet | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.00-2.08 (mean 2.03) | 0/5 | - | 5/5 | agent x5 (2.30-2.38 (mean 2.33)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| human_hello | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.99-2.01 (mean 2.00) | 0/5 | - | 5/5 | agent x5 (2.29-2.31 (mean 2.30)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| human_long | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.54-4.57 (mean 4.55) | 0/5 | - | 5/5 | agent x5 (4.84-4.87 (mean 4.85)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| human_phrases | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 5.57-5.67 (mean 5.61) | 0/5 | - | 5/5 | agent x5 (5.87-5.97 (mean 5.91)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| noise | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.51-2.53 (mean 2.52) | 0/5 | - | 5/5 | agent x5 (2.81-2.83 (mean 2.82)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| silence | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.51-2.53 (mean 2.52) | 0/5 | - | 5/5 | agent x5 (2.81-2.83 (mean 2.82)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| silent_then_hello | agent | 5 | NOTSURE (INITIALSILENCE) x5 | 2.51-2.54 (mean 2.52) | 0/5 | - | 5/5 | agent x5 (2.81-2.84 (mean 2.82)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 | 5/5 |
+| vm_2s_beep | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 3.71-3.77 (mean 3.73) | 5/5 | 2.06-2.08 (mean 2.06) | 5/5 | drop x5 (2.06-2.08 (mean 2.06)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_2s_beep_gap | agent_or_drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.47-2.50 (mean 2.48) | 5/5 | 2.82-2.84 (mean 2.82) | 5/5 | agent x5 (2.77-2.80 (mean 2.78)) | an agent, or the voicemail path on the real beep | 5/5 | 5/5 |
+| vm_beep_1200ms | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.89-9.91 (mean 9.90) | 5/5 | 7.70-7.70 (mean 7.70) | 5/5 | drop x5 (7.70-7.70 (mean 7.70)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_beep_long | drop | 5 | MACHINE (LONGGREETING) x5 | 8.84-8.92 (mean 8.88) | 5/5 | 19.44-19.56 (mean 19.49) | 5/5 | drop x5 (19.44-19.56 (mean 19.49)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_beep_noisy | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.18-9.22 (mean 9.20) | 0/5 | - | 5/5 | agent x5 (9.48-9.52 (mean 9.50)) | the voicemail path on the beep (noisy line: an agent if no beep is heard) | 5/5 | 5/5 |
+| vm_beep_short | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.17-9.27 (mean 9.20) | 5/5 | 7.70-7.80 (mean 7.72) | 5/5 | drop x5 (7.70-7.80 (mean 7.72)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_carrier | drop | 5 | MACHINE (LONGGREETING) x5 | 7.97-8.05 (mean 8.01) | 5/5 | 11.28-11.32 (mean 11.29) | 5/5 | drop x5 (11.28-11.32 (mean 11.29)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_carrier_digits | drop | 5 | MACHINE (LONGGREETING) x5 | 9.98-10.03 (mean 10.00) | 5/5 | 10.00-10.04 (mean 10.01) | 5/5 | drop x5 (10.00-10.04 (mean 10.01)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_carrier_noisy | drop | 5 | MACHINE (LONGGREETING) x5 | 7.86-7.99 (mean 7.91) | 0/5 | - | 5/5 | agent_late x5 (30.00-30.00 (mean 30.00)) | the voicemail path on the beep (noisy line: an agent if no beep is heard) | 5/5 | 5/5 |
+| vm_double_beep | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.17-9.20 (mean 9.19) | 5/5 | 7.18-7.18 (mean 7.18) | 5/5 | drop x5 (7.18-7.18 (mean 7.18)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_nobeep | nodrop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 7.72-7.77 (mean 7.75) | 0/5 | - | 5/5 | agent x5 (8.02-8.07 (mean 8.05)) | no beep heard, never the voicemail path | 5/5 | 5/5 |
+| vm_nobeep_long | nodrop | 5 | MACHINE (LONGGREETING) x5 | 8.82-8.89 (mean 8.84) | 0/5 | - | 5/5 | agent_late x5 (30.00-30.00 (mean 30.00)) | no beep heard, never the voicemail path | 5/5 | 5/5 |
+| vm_personal_pauses | agent_or_drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 9.48-9.53 (mean 9.51) | 5/5 | 7.92-7.94 (mean 7.94) | 5/5 | drop x5 (7.92-7.94 (mean 7.94)) | an agent, or the voicemail path on the real beep | 5/5 | 5/5 |
+| vm_real_long | drop | 5 | MACHINE (LONGGREETING) x5 | 9.76-9.82 (mean 9.78) | 5/5 | 12.30-12.32 (mean 12.30) | 5/5 | drop x5 (12.30-12.32 (mean 12.30)) | the voicemail path on the beep | 5/5 | 5/5 |
+| vm_real_med | drop | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 8.07-8.09 (mean 8.08) | 5/5 | 6.42-6.42 (mean 6.42) | 5/5 | drop x5 (6.42-6.42 (mean 6.42)) | the voicemail path on the beep | 5/5 | 5/5 |
+| h_real_two (stress) | agent | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 6.75-6.77 (mean 6.75) | 0/5 | - | 5/5 | agent x5 (7.04-7.07 (mean 7.05)) | an agent within 2 s of their last word; never MACHINE, never a beep | 5/5 (reported, not counted) | 5/5 |
+| h_tv_loud (stress) | agent | 5 | NOTSURE (TOOLONG) x5 | 12.01-12.11 (mean 12.04) | 0/5 | - | 5/5 | agent x5 (12.31-12.41 (mean 12.34)) | an agent within 2 s of their last word; never MACHINE, never a beep | 0/5 (reported, not counted: agent 11.17 s after they stopped; agent 11.18 s after they stopped; agent 11.19 s after they stopped; agent 11.23 s after they stopped; agent 11.27 s after they stopped) | 5/5 |
 
 Event plumbing (all runs): amd::info Event-Name = `None`; received by a `CUSTOM amd::info` subscriber: 175/175; by a `CLONE` subscriber: 0/175; avmd::beep received by a `CUSTOM avmd::beep` subscriber: 60/60 beeps.
 
 ## 4. Voicemail drop
 
-Flows: **amdbeep** = the strategy's own call flow, PR1's `scripts/campaign_amd.lua`, on the customer leg from answer (`conexus_drop_ok=true`); the lab plays the CRM around it: on `connect` it waits the 0.3 s bridge, reads `avmd_detect` once more (a beep in those few hundred ms still means a mailbox) and otherwise "bridges an agent". The script plays the drop itself after a beep: `wait_for_silence:400 50 0 3500`, then playback; that wait may time out as long as the message still starts after the last beep and within 3 s of it. **be17** = the agent's button: the beep detector listening from answer (`avmd_start`, as the dialer must start it, AMD-STRATEGY.md 8.2), the agent presses 1.5 s in and, if refused, again 0.5 s after the greeting (and its beep) has ended; BE-17's guard and steps are read from the top campaign branch. **runbook** = RUNBOOK F3 `droptest`, read from the runbook, typed 1.5 s in. **be17https** = be17 with an https link shaped like a real presigned S3 url (extensionless key plus a SigV4 query string, GET-only, 403 on HEAD), as BE-17 really plays it (D5); it also fails if anything of its link is left in mod_httapi's `http_file_cache`. Steps used: BE-17 dropSteps (b45b8a53): wait_for_silence:400 75 0 30000,playback:https://(^^;nohead=true;ext=wav)%(host_and_path)s,hangup:NORMAL_CLEARING; BE-17 refuses unless this is TRUE: avmd_detect; RUNBOOK F3 droptest: wait_for_silence:400 50 0 3500,playback:%s,hangup:NORMAL_CLEARING; RUNBOOK F3 starts the beep detector, then waits for a beep: uuid_broadcast %s avmd_start:: aleg; BE-17 link ResponseCacheControl: no-store. Drop = `drop_nolead.wav` (`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only if nothing plays and (amdbeep) the flow hands them to an agent at once, within 2 s of their last word. A mailbox with a beep passes only with the message starting after the last beep has ended (heard after it too); on a noisy line where avmd heard no beep, nothing playing is the right outcome. A mailbox with no beep passes only if nothing plays. BE-17's 30 s wait reaching its timeout still fails a row (D2).
+Flows: **amdbeep** = PILOT mode (the default): PR1's `scripts/campaign_amd.lua` on the customer leg from answer with no `conexus_amd_mode` (and `conexus_drop_ok=true`, to show it plays nothing by itself); it must hand the call to an agent within 0.5 s of answer and log mod_amd's verdict (a `conexus::amd` `verdict` event matching `amd_result`; calls nothing was dropped on stay up 13.5 s, past the 12 s analysis); then the lab is the agent and presses BE-17's button as in be17. **be12** = PILOT on today's real path: the agent's leg first, the customer bridged to it as ConexusCRM-BE `originate.ts` builds it, with the recording and BE-12's customer-leg variables read from the top campaign branch; the customer must be bridged, and the detectors started, within 1 s of answer, the call must stay bridged, the verdict must be logged, and the button (BE-17's guard and steps) may play only after a beep. **be12nofs** = the same with the script missing on FreeSWITCH (BE-12 merged before PR1 is deployed): the call must go on bridged, nothing played. **amdgate** = GATE mode (`conexus_amd_mode=gate`, the per-company switch for later), the strategy's own call flow on the customer leg from answer (`conexus_drop_ok=true`); the lab plays the CRM around it: on `connect` it waits the 0.3 s bridge, reads `avmd_detect` once more (a beep in those few hundred ms still means a mailbox) and otherwise "bridges an agent". The script plays the drop itself after a beep: `wait_for_silence:400 50 0 3500`, then playback; that wait may time out as long as the message still starts after the last beep and within 3 s of it. **be17** = the agent's button: the beep detector listening from answer (`avmd_start`, as the dialer must start it, AMD-STRATEGY.md 8.2), the agent presses 1.5 s in and, if refused, again 0.5 s after the greeting (and its beep) has ended; BE-17's guard and steps are read from the top campaign branch. **runbook** = RUNBOOK F3 `droptest`, read from the runbook, typed 1.5 s in. **be17https** = be17 with an https link shaped like a real presigned S3 url (extensionless key plus a SigV4 query string, GET-only, 403 on HEAD), as BE-17 really plays it (D5); it also fails if anything of its link is left in mod_httapi's `http_file_cache`. Steps used: BE-17 dropSteps (cfaf281d): wait_for_silence:400 75 0 30000,playback:https://(^^;nohead=true;ext=wav)%(host_and_path)s,hangup:NORMAL_CLEARING; BE-17 refuses unless this is TRUE: avmd_detect; RUNBOOK F3 droptest: wait_for_silence:400 50 0 3500,playback:%s,hangup:NORMAL_CLEARING; RUNBOOK F3 starts the beep detector, then waits for a beep: uuid_broadcast %s avmd_start:: aleg; BE-17 link ResponseCacheControl: no-store; BE-12 customer-leg variables: execute_on_answer_campaign_amd=lua::campaign_amd.lua,conexus_amd_mode=pilot. Drop = `drop_nolead.wav` (`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only if nothing plays and (amdbeep) the flow hands them to an agent at once, within 2 s of their last word. A mailbox with a beep passes only with the message starting after the last beep has ended (heard after it too); on a noisy line where avmd heard no beep, nothing playing is the right outcome. A mailbox with no beep passes only if nothing plays. BE-17's 30 s wait reaching its timeout still fails a row (D2).
 
 | flow | case | expect | runs | verdict / decision | at s | presses at s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | playback | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| amdbeep | beep_only | drop | 3 | -/drop | 1.04-1.06 (mean 1.05) | - | 1.04-1.06 (mean 1.05) | 1.96-1.96 (mean 1.96) | 3.00-3.02 (mean 3.01) | 3.26-3.48 (mean 3.34) | - / 1.5 | FILE PLAYED | 3/3 |
-| amdbeep | h_anyone_there | agent | 3 | HUMAN/connect | 6.06-6.08 (mean 6.07) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_fast | agent | 3 | HUMAN/connect | 2.12-2.14 (mean 2.13) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_four_phrases | agent | 3 | HUMAN/connect | 5.88-5.92 (mean 5.89) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_hello_hello | agent | 3 | HUMAN/connect | 1.96-1.98 (mean 1.97) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_hello_x3 | agent | 3 | HUMAN/connect | 4.84-4.86 (mean 4.85) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_pickup_delay | agent | 3 | HUMAN/connect | 2.86-2.88 (mean 2.87) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_real_sentence | agent | 3 | HUMAN/connect | 5.22-5.24 (mean 5.23) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_real_word | agent | 3 | HUMAN/connect | 2.38-2.40 (mean 2.39) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_slow | agent | 3 | HUMAN/connect | 5.60-5.62 (mean 5.61) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_street | agent | 3 | HUMAN/connect | 4.56-4.60 (mean 4.58) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_tv_quiet | agent | 3 | HUMAN/connect | 2.00-2.02 (mean 2.01) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | human_hello | agent | 3 | HUMAN/connect | 1.96-1.99 (mean 1.98) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | human_long | agent | 3 | HUMAN/connect | 4.52-4.54 (mean 4.53) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | human_phrases | agent | 3 | HUMAN/connect | 5.58-5.58 (mean 5.58) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | noise | agent | 3 | NOTSURE/connect | 2.50-2.52 (mean 2.51) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | silence | agent | 3 | NOTSURE/connect | 2.50-2.52 (mean 2.51) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | silent_then_hello | agent | 3 | NOTSURE/connect | 2.50-2.50 (mean 2.50) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | vm_2s_beep | drop | 3 | -/drop | 2.06-2.08 (mean 2.07) | - | 2.06-2.08 (mean 2.07) | 1.92-1.96 (mean 1.94) | 4.00-4.02 (mean 4.01) | 4.26-4.28 (mean 4.27) | 1.4 / 2.5 | FILE PLAYED | 3/3 |
-| amdbeep | vm_2s_beep_gap | agent_or_drop | 3 | HUMAN/connect | 2.48-2.48 (mean 2.48) | - | - | - | - | - | 1.4 / 3.1 | - | 3/3 |
-| amdbeep | vm_beep_1200ms | drop | 3 | -/drop | 7.70-7.70 (mean 7.70) | - | 7.70-7.70 (mean 7.70) | 2.46-2.46 (mean 2.46) | 10.16-10.16 (mean 10.16) | 10.42-10.42 (mean 10.42) | 6.871 / 8.671 | FILE PLAYED | 3/3 |
-| amdbeep | vm_beep_long | drop | 3 | MACHINE/drop | 19.46-19.48 (mean 19.47) | - | 19.46-19.48 (mean 19.47) | 1.70-1.72 (mean 1.71) | 21.18-21.18 (mean 21.18) | 21.44-21.44 (mean 21.44) | 18.832 / 19.682 | FILE PLAYED | 3/3 |
-| amdbeep | vm_beep_noisy | drop | 3 | HUMAN/connect | 9.18-9.18 (mean 9.18) | - | - | - | - | - | 6.871 / 7.971 | - | 3/3 |
-| amdbeep | vm_beep_short | drop | 3 | -/drop | 7.72-7.72 (mean 7.72) | - | 7.72-7.72 (mean 7.72) | 1.74-1.76 (mean 1.75) | 9.46-9.48 (mean 9.47) | 9.72-9.74 (mean 9.73) | 6.871 / 7.971 | FILE PLAYED | 3/3 |
-| amdbeep | vm_carrier | drop | 3 | MACHINE/drop | 11.30-11.32 (mean 11.31) | - | 11.30-11.32 (mean 11.31) | 1.80-1.82 (mean 1.81) | 13.10-13.12 (mean 13.11) | 13.34-13.38 (mean 13.36) | 10.68 / 11.58 | FILE PLAYED | 3/3 |
-| amdbeep | vm_carrier_digits | drop | 3 | MACHINE/drop | 10.00-10.02 (mean 10.01) | - | 10.00-10.02 (mean 10.01) | 1.86-1.88 (mean 1.87) | 11.86-11.88 (mean 11.87) | 12.12-12.14 (mean 12.13) | 9.26 / 10.36 | FILE PLAYED | 3/3 |
-| amdbeep | vm_carrier_noisy | drop | 3 | MACHINE/connect_late | 30.02-30.04 (mean 30.03) | - | - | - | - | - | 10.68 / 11.58 | - | 3/3 |
-| amdbeep | vm_double_beep | drop | 3 | -/drop | 7.18-7.18 (mean 7.18) | - | 7.18-7.18 (mean 7.18) | 2.28-2.30 (mean 2.29) | 9.46-9.48 (mean 9.47) | 9.72-9.74 (mean 9.73) | 6.5 / 7.95 | FILE PLAYED | 3/3 |
-| amdbeep | vm_nobeep | nodrop | 3 | HUMAN/connect | 7.72-7.74 (mean 7.73) | - | - | - | - | - | 6.871 / - | - | 3/3 |
-| amdbeep | vm_nobeep_long | nodrop | 3 | MACHINE/connect_late | 30.02-30.04 (mean 30.03) | - | - | - | - | - | 18.832 / - | - | 3/3 |
-| amdbeep | vm_personal_pauses | agent_or_drop | 3 | -/drop | 7.94-7.98 (mean 7.96) | - | 7.94-7.98 (mean 7.96) | 1.84-1.86 (mean 1.85) | 9.80-9.82 (mean 9.81) | 10.04-10.06 (mean 10.05) | 7.18 / 8.28 | FILE PLAYED | 3/3 |
-| amdbeep | vm_real_long | drop | 3 | MACHINE/drop | 12.30-12.32 (mean 12.31) | - | 12.30-12.32 (mean 12.31) | 1.98-2.00 (mean 1.99) | 14.28-14.30 (mean 14.29) | 14.54-14.56 (mean 14.55) | 11.67 / 12.77 | FILE PLAYED | 3/3 |
-| amdbeep | vm_real_med | drop | 3 | -/drop | 6.42-6.44 (mean 6.43) | - | 6.42-6.44 (mean 6.43) | 1.92-1.94 (mean 1.93) | 8.36-8.38 (mean 8.37) | 8.62-8.64 (mean 8.63) | 5.75 / 6.85 | FILE PLAYED | 3/3 |
+| amdbeep | beep_only | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5 | 1.50-1.50 (mean 1.50) | 2.00-2.00 (mean 2.00) | 3.50-3.50 (mean 3.50) | 3.76-3.76 (mean 3.76) | - / 1.5 | FILE PLAYED | 3/3 |
+| amdbeep | h_anyone_there | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/5.4 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_fast | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/1.5 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_four_phrases | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/5.3 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_hello_hello | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/3.1 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_hello_x3 | agent | 3 | HUMAN/connect | 0.02-0.04 (mean 0.03) | 1.5/4.1 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_pickup_delay | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/2.2 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_real_sentence | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/4.7 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_real_word | agent | 3 | HUMAN/connect | 0.00-0.04 (mean 0.02) | 1.5/1.7 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_slow | agent | 3 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/5.1 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_street | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/4.3 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_tv_quiet | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/1.6 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | human_hello | agent | 3 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/1.6 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | human_long | agent | 3 | HUMAN/connect | 0.00-0.06 (mean 0.03) | 1.5/4.3 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | human_phrases | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/5.2 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | noise | agent | 3 | NOTSURE/connect | 0.02-0.02 (mean 0.02) | 1.5/8.0 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | silence | agent | 3 | NOTSURE/connect | 0.02-0.02 (mean 0.02) | 1.5/8.0 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | silent_then_hello | agent | 3 | NOTSURE/connect | 0.02-0.02 (mean 0.02) | 1.5/4.3 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | vm_2s_beep | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/3.0 | 3.00-3.00 (mean 3.00) | 2.00-2.00 (mean 2.00) | 5.00-5.00 (mean 5.00) | 5.24-5.26 (mean 5.25) | 1.4 / 2.5 | FILE PLAYED | 3/3 |
+| amdbeep | vm_2s_beep_gap | agent_or_drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/3.6 | 3.60-3.60 (mean 3.60) | 2.00-2.00 (mean 2.00) | 5.60-5.60 (mean 5.60) | 5.86-5.98 (mean 5.91) | 1.4 / 3.1 | FILE PLAYED | 3/3 |
+| amdbeep | vm_beep_1200ms | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/9.2 | 9.17-9.18 (mean 9.18) | 2.00-2.01 (mean 2.00) | 11.18-11.18 (mean 11.18) | 11.44-11.44 (mean 11.44) | 6.871 / 8.671 | FILE PLAYED | 3/3 |
+| amdbeep | vm_beep_long | drop | 3 | MACHINE/connect | 0.02-0.04 (mean 0.03) | 1.5/20.2 | 20.18-20.19 (mean 20.19) | 1.99-2.01 (mean 2.00) | 22.18-22.20 (mean 22.19) | 22.44-22.46 (mean 22.45) | 18.832 / 19.682 | FILE PLAYED | 3/3 |
+| amdbeep | vm_beep_noisy | drop | 3 | HUMAN/connect | 0.00-0.04 (mean 0.02) | 1.5/8.5 | - | - | - | - | 6.871 / 7.971 | - | 3/3 |
+| amdbeep | vm_beep_short | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/8.5 | 8.47-8.48 (mean 8.47) | 1.98-2.01 (mean 2.00) | 10.46-10.48 (mean 10.47) | 10.72-10.74 (mean 10.73) | 6.871 / 7.971 | FILE PLAYED | 3/3 |
+| amdbeep | vm_carrier | drop | 3 | MACHINE/connect | 0.02-0.02 (mean 0.02) | 1.5/12.1 | 12.08-12.09 (mean 12.08) | 1.99-2.00 (mean 2.00) | 14.08-14.08 (mean 14.08) | 14.34-14.36 (mean 14.35) | 10.68 / 11.58 | FILE PLAYED | 3/3 |
+| amdbeep | vm_carrier_digits | drop | 3 | MACHINE/connect | 0.02-0.02 (mean 0.02) | 1.5/10.9 | 10.86-10.87 (mean 10.86) | 2.00-2.00 (mean 2.00) | 12.86-12.86 (mean 12.86) | 13.12-13.12 (mean 13.12) | 9.26 / 10.36 | FILE PLAYED | 3/3 |
+| amdbeep | vm_carrier_noisy | drop | 3 | MACHINE/connect | 0.00-0.02 (mean 0.01) | 1.5/12.1 | - | - | - | - | 10.68 / 11.58 | - | 3/3 |
+| amdbeep | vm_double_beep | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/8.4 | 8.45-8.45 (mean 8.45) | 1.99-2.01 (mean 2.00) | 10.44-10.46 (mean 10.45) | 10.68-10.72 (mean 10.71) | 6.5 / 7.95 | FILE PLAYED | 3/3 |
+| amdbeep | vm_nobeep | nodrop | 3 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/7.4 | - | - | - | - | 6.871 / - | - | 3/3 |
+| amdbeep | vm_nobeep_long | nodrop | 3 | MACHINE/connect | 0.00-0.02 (mean 0.01) | 1.5/19.3 | - | - | - | - | 18.832 / - | - | 3/3 |
+| amdbeep | vm_personal_pauses | agent_or_drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/8.8 | 8.78-8.78 (mean 8.78) | 2.00-2.02 (mean 2.01) | 10.78-10.80 (mean 10.79) | 11.02-11.06 (mean 11.05) | 7.18 / 8.28 | FILE PLAYED | 3/3 |
+| amdbeep | vm_real_long | drop | 3 | MACHINE/connect | 0.02-0.02 (mean 0.02) | 1.5/13.3 | 13.27-13.28 (mean 13.27) | 2.00-2.03 (mean 2.01) | 15.28-15.30 (mean 15.29) | 15.50-15.52 (mean 15.51) | 11.67 / 12.77 | FILE PLAYED | 3/3 |
+| amdbeep | vm_real_med | drop | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/7.3 | 7.35-7.35 (mean 7.35) | 1.99-2.01 (mean 2.00) | 9.34-9.36 (mean 9.35) | 9.60-9.62 (mean 9.61) | 5.75 / 6.85 | FILE PLAYED | 3/3 |
+| amdgate | beep_only | drop | 3 | -/drop | 1.04-1.06 (mean 1.05) | - | 1.04-1.06 (mean 1.05) | 1.94-1.96 (mean 1.95) | 3.00-3.00 (mean 3.00) | 3.26-3.36 (mean 3.29) | - / 1.5 | FILE PLAYED | 3/3 |
+| amdgate | h_anyone_there | agent | 3 | HUMAN/connect | 6.04-6.04 (mean 6.04) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_fast | agent | 3 | HUMAN/connect | 2.14-2.14 (mean 2.14) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_four_phrases | agent | 3 | HUMAN/connect | 5.88-5.92 (mean 5.90) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_hello_hello | agent | 3 | HUMAN/connect | 1.96-2.00 (mean 1.98) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_hello_x3 | agent | 3 | HUMAN/connect | 4.82-4.86 (mean 4.83) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_pickup_delay | agent | 3 | HUMAN/connect | 2.84-2.90 (mean 2.87) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_real_sentence | agent | 3 | HUMAN/connect | 5.22-5.24 (mean 5.23) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_real_word | agent | 3 | HUMAN/connect | 2.38-2.40 (mean 2.39) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_slow | agent | 3 | HUMAN/connect | 5.60-5.62 (mean 5.61) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_street | agent | 3 | HUMAN/connect | 4.60-4.62 (mean 4.61) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_tv_quiet | agent | 3 | HUMAN/connect | 2.00-2.02 (mean 2.01) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | human_hello | agent | 3 | HUMAN/connect | 1.98-1.98 (mean 1.98) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | human_long | agent | 3 | HUMAN/connect | 4.52-4.64 (mean 4.56) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | human_phrases | agent | 3 | HUMAN/connect | 5.56-5.58 (mean 5.57) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | noise | agent | 3 | NOTSURE/connect | 2.50-2.52 (mean 2.51) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | silence | agent | 3 | NOTSURE/connect | 2.50-2.52 (mean 2.51) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | silent_then_hello | agent | 3 | NOTSURE/connect | 2.48-2.50 (mean 2.49) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | vm_2s_beep | drop | 3 | -/drop | 2.06-2.06 (mean 2.06) | - | 2.06-2.06 (mean 2.06) | 1.94-1.94 (mean 1.94) | 4.00-4.00 (mean 4.00) | 4.26-4.28 (mean 4.27) | 1.4 / 2.5 | FILE PLAYED | 3/3 |
+| amdgate | vm_2s_beep_gap | agent_or_drop | 3 | HUMAN/connect | 2.46-2.46 (mean 2.46) | - | - | - | - | - | 1.4 / 3.1 | - | 3/3 |
+| amdgate | vm_beep_1200ms | drop | 3 | -/drop | 7.70-7.74 (mean 7.71) | - | 7.70-7.74 (mean 7.71) | 2.44-2.46 (mean 2.45) | 10.16-10.18 (mean 10.17) | 10.42-10.42 (mean 10.42) | 6.871 / 8.671 | FILE PLAYED | 3/3 |
+| amdgate | vm_beep_long | drop | 3 | MACHINE/drop | 19.46-19.48 (mean 19.47) | - | 19.46-19.48 (mean 19.47) | 1.70-1.72 (mean 1.71) | 21.18-21.22 (mean 21.19) | 21.46-21.56 (mean 21.52) | 18.832 / 19.682 | FILE PLAYED | 3/3 |
+| amdgate | vm_beep_noisy | drop | 3 | HUMAN/connect | 9.18-9.20 (mean 9.19) | - | - | - | - | - | 6.871 / 7.971 | - | 3/3 |
+| amdgate | vm_beep_short | drop | 3 | -/drop | 7.70-7.72 (mean 7.71) | - | 7.70-7.72 (mean 7.71) | 1.74-1.78 (mean 1.76) | 9.46-9.48 (mean 9.47) | 9.72-9.74 (mean 9.73) | 6.871 / 7.971 | FILE PLAYED | 3/3 |
+| amdgate | vm_carrier | drop | 3 | MACHINE/drop | 11.28-11.30 (mean 11.29) | - | 11.28-11.30 (mean 11.29) | 1.78-1.80 (mean 1.79) | 13.08-13.10 (mean 13.09) | 13.34-13.36 (mean 13.35) | 10.68 / 11.58 | FILE PLAYED | 3/3 |
+| amdgate | vm_carrier_digits | drop | 3 | MACHINE/drop | 10.02-10.02 (mean 10.02) | - | 10.02-10.02 (mean 10.02) | 1.84-1.86 (mean 1.85) | 11.86-11.88 (mean 11.87) | 12.12-12.14 (mean 12.13) | 9.26 / 10.36 | FILE PLAYED | 3/3 |
+| amdgate | vm_carrier_noisy | drop | 3 | MACHINE/connect_late | 30.02-30.04 (mean 30.03) | - | - | - | - | - | 10.68 / 11.58 | - | 3/3 |
+| amdgate | vm_double_beep | drop | 3 | -/drop | 7.18-7.20 (mean 7.19) | - | 7.18-7.20 (mean 7.19) | 2.28-2.30 (mean 2.29) | 9.46-9.48 (mean 9.47) | 9.72-9.74 (mean 9.73) | 6.5 / 7.95 | FILE PLAYED | 3/3 |
+| amdgate | vm_nobeep | nodrop | 3 | HUMAN/connect | 7.72-7.74 (mean 7.73) | - | - | - | - | - | 6.871 / - | - | 3/3 |
+| amdgate | vm_nobeep_long | nodrop | 3 | MACHINE/connect_late | 30.02-30.04 (mean 30.03) | - | - | - | - | - | 18.832 / - | - | 3/3 |
+| amdgate | vm_personal_pauses | agent_or_drop | 3 | -/drop | 7.94-7.98 (mean 7.96) | - | 7.94-7.98 (mean 7.96) | 1.82-1.84 (mean 1.83) | 9.78-9.80 (mean 9.79) | 10.04-10.04 (mean 10.04) | 7.18 / 8.28 | FILE PLAYED | 3/3 |
+| amdgate | vm_real_long | drop | 3 | MACHINE/drop | 12.32-12.34 (mean 12.33) | - | 12.32-12.34 (mean 12.33) | 1.96-2.00 (mean 1.98) | 14.28-14.34 (mean 14.31) | 14.54-14.56 (mean 14.55) | 11.67 / 12.77 | FILE PLAYED | 3/3 |
+| amdgate | vm_real_med | drop | 3 | -/drop | 6.42-6.42 (mean 6.42) | - | 6.42-6.42 (mean 6.42) | 1.94-1.96 (mean 1.95) | 8.36-8.38 (mean 8.37) | 8.62-8.64 (mean 8.63) | 5.75 / 6.85 | FILE PLAYED | 3/3 |
+| be12 | beep_only | drop | 2 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5 | 1.50-1.50 (mean 1.50) | 2.00-2.02 (mean 2.01) | 3.50-3.52 (mean 3.51) | 3.76-3.78 (mean 3.77) | - / 1.5 | FILE PLAYED | 2/2 |
+| be12 | h_street | agent | 2 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
+| be12 | human_hello | agent | 2 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/1.6 | - | - | - | - | - / - | - | 2/2 |
+| be12 | human_long | agent | 2 | HUMAN/connect | 0.00-0.00 (mean 0.00) | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
+| be12 | silent_then_hello | agent | 2 | NOTSURE/connect | 0.02-0.02 (mean 0.02) | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
+| be12 | vm_2s_beep | drop | 2 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/3.0 | 3.00-3.00 (mean 3.00) | 2.00-2.01 (mean 2.00) | 5.00-5.02 (mean 5.01) | 5.26-5.28 (mean 5.27) | 1.4 / 2.5 | FILE PLAYED | 2/2 |
+| be12 | vm_beep_1200ms | drop | 2 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/9.2 | 9.18-9.18 (mean 9.18) | 2.00-2.00 (mean 2.00) | 11.18-11.18 (mean 11.18) | 11.44-11.44 (mean 11.44) | 6.871 / 8.671 | FILE PLAYED | 2/2 |
+| be12 | vm_beep_long | drop | 2 | MACHINE/connect | 0.02-0.02 (mean 0.02) | 1.5/20.2 | 20.19-20.19 (mean 20.19) | 1.99-2.01 (mean 2.00) | 22.18-22.20 (mean 22.19) | 22.44-22.46 (mean 22.45) | 18.832 / 19.682 | FILE PLAYED | 2/2 |
+| be12 | vm_beep_noisy | drop | 2 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/8.5 | - | - | - | - | 6.871 / 7.971 | - | 2/2 |
+| be12 | vm_beep_short | drop | 2 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/8.5 | 8.47-8.48 (mean 8.48) | 1.98-2.00 (mean 1.99) | 10.46-10.48 (mean 10.47) | 10.72-10.74 (mean 10.73) | 6.871 / 7.971 | FILE PLAYED | 2/2 |
+| be12 | vm_double_beep | drop | 2 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/8.4 | 8.45-8.46 (mean 8.46) | 2.00-2.01 (mean 2.00) | 10.46-10.46 (mean 10.46) | 10.72-10.84 (mean 10.78) | 6.5 / 7.95 | FILE PLAYED | 2/2 |
+| be12 | vm_nobeep | nodrop | 2 | HUMAN/connect | 0.02-0.04 (mean 0.03) | 1.5/7.4 | - | - | - | - | 6.871 / - | - | 2/2 |
+| be12 | vm_real_med | drop | 2 | HUMAN/connect | 0.00-0.02 (mean 0.01) | 1.5/7.3 | 7.35-7.36 (mean 7.36) | 2.00-2.05 (mean 2.02) | 9.36-9.40 (mean 9.38) | 9.56-9.62 (mean 9.59) | 5.75 / 6.85 | FILE PLAYED | 2/2 |
+| be12nofs | human_hello | agent | 1 | -/refused | - | 5.0/5.0 | - | - | - | - | - / - | - | 1/1 |
+| be12nofs | vm_beep_short | drop | 1 | -/refused | - | 5.0/8.5 | - | - | - | - | 6.871 / 7.971 | - | 1/1 |
 | be17 | h_anyone_there | agent | 2 | -/refused | - | 1.5/5.4 | - | - | - | - | - / - | - | 2/2 |
 | be17 | h_hello_x3 | agent | 2 | -/refused | - | 1.5/4.1 | - | - | - | - | - / - | - | 2/2 |
 | be17 | h_street | agent | 2 | -/refused | - | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
 | be17 | human_hello | agent | 2 | -/refused | - | 1.5/1.6 | - | - | - | - | - / - | - | 2/2 |
 | be17 | human_long | agent | 2 | -/refused | - | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
 | be17 | silent_then_hello | agent | 2 | -/refused | - | 1.5/4.3 | - | - | - | - | - / - | - | 2/2 |
-| be17 | vm_2s_beep | drop | 2 | -/- | - | 1.5/3.0 | 3.00-3.00 (mean 3.00) | 2.00-2.02 (mean 2.01) | 5.00-5.02 (mean 5.01) | 5.28-5.28 (mean 5.28) | 1.4 / 2.5 | FILE PLAYED | 2/2 |
-| be17 | vm_beep_1200ms | drop | 2 | -/- | - | 1.5/9.2 | 9.17-9.18 (mean 9.18) | 2.00-2.01 (mean 2.00) | 11.18-11.18 (mean 11.18) | 11.42-11.42 (mean 11.42) | 6.871 / 8.671 | FILE PLAYED | 2/2 |
-| be17 | vm_beep_late | drop | 2 | -/- | - | 1.5/9.6 | 9.57-9.57 (mean 9.57) | 1.99-2.01 (mean 2.00) | 11.56-11.58 (mean 11.57) | 11.82-11.92 (mean 11.87) | 6.871 / 9.071 | FILE PLAYED | 2/2 |
-| be17 | vm_beep_long | drop | 2 | -/- | - | 1.5/20.2 | 20.18-20.19 (mean 20.19) | 1.99-2.01 (mean 2.00) | 22.18-22.20 (mean 22.19) | 22.44-22.46 (mean 22.45) | 18.832 / 19.682 | FILE PLAYED | 2/2 |
+| be17 | vm_2s_beep | drop | 2 | -/- | - | 1.5/3.0 | 3.00-3.00 (mean 3.00) | 2.00-2.00 (mean 2.00) | 5.00-5.00 (mean 5.00) | 5.22-5.26 (mean 5.24) | 1.4 / 2.5 | FILE PLAYED | 2/2 |
+| be17 | vm_beep_1200ms | drop | 2 | -/- | - | 1.5/9.2 | 9.17-9.18 (mean 9.17) | 2.01-2.35 (mean 2.18) | 11.18-11.52 (mean 11.35) | 11.06-11.42 (mean 11.24) | 6.871 / 8.671 | FILE PLAYED | 2/2 |
+| be17 | vm_beep_late | drop | 2 | -/- | - | 1.5/9.6 | 9.57-9.57 (mean 9.57) | 2.01-2.03 (mean 2.02) | 11.58-11.60 (mean 11.59) | 11.84-11.84 (mean 11.84) | 6.871 / 9.071 | FILE PLAYED | 2/2 |
+| be17 | vm_beep_long | drop | 2 | -/- | - | 1.5/20.2 | 20.18-20.20 (mean 20.19) | 2.00-2.00 (mean 2.00) | 22.20-22.20 (mean 22.20) | 22.46-22.46 (mean 22.46) | 18.832 / 19.682 | FILE PLAYED | 2/2 |
 | be17 | vm_beep_noisy | drop | 2 | -/refused | - | 1.5/8.5 | - | - | - | - | 6.871 / 7.971 | - | 2/2 |
 | be17 | vm_beep_short | drop | 2 | -/- | - | 1.5/8.5 | 8.47-8.47 (mean 8.47) | 2.01-2.01 (mean 2.01) | 10.48-10.48 (mean 10.48) | 10.74-10.74 (mean 10.74) | 6.871 / 7.971 | FILE PLAYED | 2/2 |
 | be17 | vm_carrier_noisy | drop | 2 | -/refused | - | 1.5/12.1 | - | - | - | - | 10.68 / 11.58 | - | 2/2 |
-| be17 | vm_double_beep | drop | 2 | -/- | - | 1.5/8.4 | 8.45-8.45 (mean 8.45) | 2.01-2.01 (mean 2.01) | 10.46-10.46 (mean 10.46) | 10.72-10.72 (mean 10.72) | 6.5 / 7.95 | FILE PLAYED | 2/2 |
+| be17 | vm_double_beep | drop | 2 | -/- | - | 1.5/8.4 | 8.45-8.45 (mean 8.45) | 1.99-1.99 (mean 1.99) | 10.44-10.46 (mean 10.45) | 10.58-10.66 (mean 10.62) | 6.5 / 7.95 | FILE PLAYED | 2/2 |
 | be17 | vm_nobeep | nodrop | 2 | -/refused | - | 1.5/7.4 | - | - | - | - | 6.871 / - | - | 2/2 |
 | be17 | vm_real_med | drop | 2 | -/- | - | 1.5/7.3 | 7.35-7.35 (mean 7.35) | 2.01-2.01 (mean 2.01) | 9.36-9.36 (mean 9.36) | 9.62-9.62 (mean 9.62) | 5.75 / 6.85 | FILE PLAYED | 2/2 |
-| be17https | vm_beep_1200ms | drop | 1 | -/- | - | 1.5/9.2 | 9.17 | 2.01 | 11.18 | 11.44 | 6.871 / 8.671 | FILE PLAYED | 1/1 |
+| be17https | vm_beep_1200ms | drop | 1 | -/- | - | 1.5/9.2 | 9.17 | 1.99 | 11.18 | 11.40 | 6.871 / 8.671 | FILE PLAYED | 1/1 |
 | be17https | vm_beep_noisy | drop | 1 | -/refused | - | 1.5/8.5 | - | - | - | - | 6.871 / 7.971 | - | 1/1 |
 | be17https | vm_beep_short | drop | 1 | -/- | - | 1.5/8.5 | 8.47 | 2.01 | 10.50 | 10.74 | 6.871 / 7.971 | FILE PLAYED | 1/1 |
 | runbook | h_anyone_there | agent | 1 | -/refused | - | 1.5 | - | - | - | - | - / - | - | 1/1 |
@@ -274,18 +372,20 @@ Flows: **amdbeep** = the strategy's own call flow, PR1's `scripts/campaign_amd.l
 | runbook | human_hello | agent | 1 | -/refused | - | 1.5 | - | - | - | - | - / - | - | 1/1 |
 | runbook | human_long | agent | 1 | -/refused | - | 1.5 | - | - | - | - | - / - | - | 1/1 |
 | runbook | silent_then_hello | agent | 1 | -/refused | - | 1.5 | - | - | - | - | - / - | - | 1/1 |
-| runbook | vm_2s_beep | drop | 1 | -/- | - | 1.5 | 2.51 | 1.51 | 4.02 | 4.28 | 1.4 / 2.5 | FILE PLAYED | 1/1 |
-| runbook | vm_beep_1200ms | drop | 1 | -/- | - | 1.5 | 8.03 | 2.15 | 10.18 | 10.42 | 6.871 / 8.671 | FILE PLAYED | 1/1 |
-| runbook | vm_beep_late | drop | 1 | -/- | - | 1.5 | 8.53 | 2.03 | 10.56 | 11.00 | 6.871 / 9.071 | FILE PLAYED | 1/1 |
-| runbook | vm_beep_long | drop | 1 | -/- | - | 1.5 | 19.56 | 1.62 | 21.18 | 21.44 | 18.832 / 19.682 | FILE PLAYED | 1/1 |
+| runbook | vm_2s_beep | drop | 1 | -/- | - | 1.5 | 2.51 | 1.49 | 4.00 | 4.22 | 1.4 / 2.5 | FILE PLAYED | 1/1 |
+| runbook | vm_beep_1200ms | drop | 1 | -/- | - | 1.5 | 8.12 | 2.36 | 10.48 | 10.44 | 6.871 / 8.671 | FILE PLAYED | 1/1 |
+| runbook | vm_beep_late | drop | 1 | -/- | - | 1.5 | 8.53 | 2.03 | 10.56 | 10.80 | 6.871 / 9.071 | FILE PLAYED | 1/1 |
+| runbook | vm_beep_long | drop | 1 | -/- | - | 1.5 | 20.06 | 1.48 | 21.54 | 21.84 | 18.832 / 19.682 | FILE PLAYED | 1/1 |
 | runbook | vm_beep_noisy | drop | 1 | -/refused | - | 1.5 | - | - | - | - | 6.871 / 7.971 | - | 1/1 |
 | runbook | vm_beep_short | drop | 1 | -/- | - | 1.5 | 7.53 | 1.93 | 9.46 | 9.72 | 6.871 / 7.971 | FILE PLAYED | 1/1 |
 | runbook | vm_carrier_noisy | drop | 1 | -/refused | - | 1.5 | - | - | - | - | 10.68 / 11.58 | - | 1/1 |
-| runbook | vm_double_beep | drop | 1 | -/- | - | 1.5 | 7.54 | 1.90 | 9.46 | 9.72 | 6.5 / 7.95 | FILE PLAYED | 1/1 |
+| runbook | vm_double_beep | drop | 1 | -/- | - | 1.5 | 7.53 | 1.93 | 9.46 | 9.72 | 6.5 / 7.95 | FILE PLAYED | 1/1 |
 | runbook | vm_nobeep | nodrop | 1 | -/refused | - | 1.5 | - | - | - | - | 6.871 / - | - | 1/1 |
 | runbook | vm_real_med | drop | 1 | -/- | - | 1.5 | 6.52 | 1.84 | 8.36 | 8.62 | 5.75 / 6.85 | FILE PLAYED | 1/1 |
-| amdbeep | h_real_two (stress) | agent | 3 | HUMAN/connect | 6.72-6.74 (mean 6.73) | - | - | - | - | - | - / - | - | 3/3 |
-| amdbeep | h_tv_loud (stress) | agent | 3 | NOTSURE/connect | 12.00-12.00 (mean 12.00) | - | - | - | - | - | - / - | - | 0/3: agent 11.16 s after they stopped |
+| amdbeep | h_real_two (stress) | agent | 3 | HUMAN/connect | 0.02-0.02 (mean 0.02) | 1.5/6.2 | - | - | - | - | - / - | - | 3/3 |
+| amdbeep | h_tv_loud (stress) | agent | 3 | NOTSURE/connect | 0.00-0.02 (mean 0.01) | 1.5/1.6 | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_real_two (stress) | agent | 3 | HUMAN/connect | 6.72-6.74 (mean 6.73) | - | - | - | - | - | - / - | - | 3/3 |
+| amdgate | h_tv_loud (stress) | agent | 3 | NOTSURE/connect | 12.00-12.04 (mean 12.01) | - | - | - | - | - | - / - | - | 0/3: agent 11.16 s after they stopped; agent 11.20 s after they stopped |
 
 ## 5. Secure keypad entry (secure_payment.lua + 10_secure_payment.xml)
 
@@ -293,38 +393,38 @@ Per call: agent leg and customer leg bridged and recorded as `originate.ts` does
 
 | case | final state | tokenize requests (mock) | prompts | masked frames non-zero | agent max peak during | unmasked | back with agent | entry s | stored recording | pass |
 |---|---|---|---|---|---|---|---|---|---|---|
-| P01_visa_good | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2535 | 1 | PASS | PASS | 51.37 | 58.34/58.62 s, 1 upload(s), +10.57 s | PASS |
-| P02_amex_4digit_cvv | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv_amex > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2572 | 1 | PASS | PASS | 52.12 | 59.08/59.38 s, 1 upload(s), +11.06 s | PASS |
-| P03_bad_then_good | completed | 1 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/3262 | 1 | PASS | PASS | 66.19 | 72.88/73.44 s, 1 upload(s), +10.49 s | PASS |
-| P04_three_failures | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/2606 | 1 | PASS | PASS | 52.78 | 59.74/60.02 s, 1 upload(s), +10.33 s | PASS |
-| P05_pound_after_each | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2572 | 1 | PASS | PASS | 52.11 | 59.1/59.4 s, 1 upload(s), +10.82 s | PASS |
-| P06_timeout_no_input | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3468 | 1 | PASS | PASS | 70.06 | 77.0/77.32 s, 1 upload(s), +10.37 s | PASS |
-| P07_timeout_mid_card | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3285 | 1 | PASS | PASS | 66.38 | 73.36/73.64 s, 1 upload(s), +10.59 s | PASS |
-| P08_caller_hangup_mid_card | customer_hangup | 0 | payment_intro > enter_card_number | 0/1019 | 1 | PASS | PASS | 21.03 | 24.02/24.26 s, 1 upload(s), +10.13 s | PASS |
-| P09_backend_slow_20s | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/3237 | 1 | PASS | PASS | 65.44 | 72.4/72.7 s, 1 upload(s), +10.37 s | PASS |
-| P10_backend_down_at_start | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.65 | 12.84/12.9 s, 1 upload(s), +10.26 s | PASS |
-| P11_backend_crash_mid_request | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2526 | 1 | PASS | PASS | 51.23 | 58.2/58.52 s, 1 upload(s), +11.02 s | PASS |
-| P12_backend_500 | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2523 | 1 | PASS | PASS | 51.32 | 58.1/58.56 s, 1 upload(s), +10.71 s | PASS |
-| P13_decline_retryable_then_ok | completed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/4563 | 1 | PASS | PASS | 91.99 | 98.94/99.26 s, 1 upload(s), +10.35 s | PASS |
-| P14_decline_final | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2522 | 1 | PASS | PASS | 51.27 | 58.08/58.52 s, 1 upload(s), +10.61 s | PASS |
-| P15_star_at_expiry | cancelled | 0 | payment_intro > enter_card_number > enter_expiry > returning_to_agent | 0/1484 | 1 | PASS | PASS | 30.39 | 37.36/37.66 s, 1 upload(s), +10.8 s | PASS |
-| P16_shipped_pins_vs_lab_cert | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.75 | 12.86/13.02 s, 1 upload(s), +10.62 s | PASS |
-| P17_wrong_cert_name | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.74 | 12.84/13.0 s, 1 upload(s), +10.55 s | PASS |
-| P18_agent_hangup_mid_entry | customer_hangup | 0 | payment_intro > enter_card_number | 0/988 | 1 | PASS | PASS | 20.47 | 23.4/23.72 s, 1 upload(s), +10.77 s | PASS |
-| P19_script_missing_fallback | failed | 0 |  | None/0 | None | PASS | PASS | 0.03 | 7.28/7.3 s, 1 upload(s), +10.4 s | PASS |
-| P20_typeahead_during_intro | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2534 | 1 | PASS | PASS | 51.42 | 58.34/58.68 s, 1 upload(s), +10.69 s | PASS |
-| P21_secret_file_missing | failed | 0 | unable_to_process > returning_to_agent | 0/259 | 1 | PASS | PASS | 5.62 | 12.84/12.88 s, 1 upload(s), +10.44 s | PASS |
-| P22_front_up_app_502 | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.84 | 12.86/13.1 s, 1 upload(s), +10.27 s | PASS |
-| P23_secret_mismatch | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.88 | 12.86/13.14 s, 1 upload(s), +10.06 s | PASS |
-| P24_watchdog_mid_field | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7623 | 1 | PASS | PASS | 153.31 | 160.1/160.56 s, 1 upload(s), +10.52 s | PASS |
-| P25_watchdog_during_tokenize | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7263 | 1 | PASS | PASS | 146.07 | 152.94/153.34 s, 1 upload(s), +10.86 s | PASS |
-| P26_queue_digit_action_bound | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2512 | 1 | PASS | PASS | 51.51 | 57.9/58.78 s, 1 upload(s), +10.74 s | PASS |
-| P27_dtmf_across_bridge_after_entry | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2534 | 1 | PASS | PASS | 51.37 | 60.34/60.64 s, 1 upload(s), +10.94 s | PASS |
-| P28_typeahead_over_card_prompt | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2385 | 1 | PASS | PASS | 48.36 | 55.36/55.62 s, 1 upload(s), +10.9 s | PASS |
-| P29_typeahead_intro_only | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3466 | 1 | PASS | PASS | 70.01 | 76.98/77.26 s, 1 upload(s), +10.55 s | PASS |
-| P30_agent_cancel_mid_card | failed | 0 | payment_intro > enter_card_number | 0/1210 | 1 | PASS | PASS | 24.82 | 94.86/95.06 s, 1 upload(s), +10.76 s | PASS |
-| X01_sensitive_dtmf_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2535 | 1 | PASS | PASS | 51.39 | 58.36/58.66 s, 1 upload(s), +10.05 s | PASS |
-| X02_global_debug_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2536 | 1 | PASS | PASS | 51.42 | 58.36/58.68 s, 1 upload(s), +10.22 s | PASS |
+| P01_visa_good | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2535 | 1 | PASS | PASS | 51.36 | 58.12/58.38 s, 1 upload(s), +10.68 s | PASS |
+| P02_amex_4digit_cvv | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv_amex > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2568 | 1 | PASS | PASS | 52.12 | 59.02/59.38 s, 1 upload(s), +10.15 s | PASS |
+| P03_bad_then_good | completed | 1 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/3265 | 1 | PASS | PASS | 65.93 | 72.74/72.98 s, 1 upload(s), +11.05 s | PASS |
+| P04_three_failures | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/2603 | 1 | PASS | PASS | 52.85 | 59.72/60.1 s, 1 upload(s), +10.75 s | PASS |
+| P05_pound_after_each | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2563 | 1 | PASS | PASS | 51.95 | 58.92/59.2 s, 1 upload(s), +10.39 s | PASS |
+| P06_timeout_no_input | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3467 | 1 | PASS | PASS | 70.06 | 76.98/77.3 s, 1 upload(s), +10.97 s | PASS |
+| P07_timeout_mid_card | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3284 | 1 | PASS | PASS | 66.37 | 73.32/73.62 s, 1 upload(s), +10.17 s | PASS |
+| P08_caller_hangup_mid_card | customer_hangup | 0 | payment_intro > enter_card_number | 0/1018 | 1 | PASS | PASS | 21.03 | 24.02/24.3 s, 1 upload(s), +10.68 s | PASS |
+| P09_backend_slow_20s | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/3230 | 1 | PASS | PASS | 65.32 | 72.26/72.58 s, 1 upload(s), +10.09 s | PASS |
+| P10_backend_down_at_start | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.63 | 12.86/12.9 s, 1 upload(s), +10.97 s | PASS |
+| P11_backend_crash_mid_request | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2529 | 1 | PASS | PASS | 51.38 | 58.24/58.66 s, 1 upload(s), +10.08 s | PASS |
+| P12_backend_500 | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2526 | 1 | PASS | PASS | 51.17 | 58.18/58.42 s, 1 upload(s), +10.52 s | PASS |
+| P13_decline_retryable_then_ok | completed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/4551 | 1 | PASS | PASS | 92.37 | 98.7/99.66 s, 1 upload(s), +10.83 s | PASS |
+| P14_decline_final | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2521 | 1 | PASS | PASS | 51.16 | 58.08/58.42 s, 1 upload(s), +10.18 s | PASS |
+| P15_star_at_expiry | cancelled | 0 | payment_intro > enter_card_number > enter_expiry > returning_to_agent | 0/1489 | 1 | PASS | PASS | 30.46 | 37.44/37.72 s, 1 upload(s), +10.27 s | PASS |
+| P16_shipped_pins_vs_lab_cert | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.73 | 12.86/13.0 s, 1 upload(s), +10.14 s | PASS |
+| P17_wrong_cert_name | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.75 | 12.84/12.98 s, 1 upload(s), +10.08 s | PASS |
+| P18_agent_hangup_mid_entry | customer_hangup | 0 | payment_intro > enter_card_number | 0/987 | 1 | PASS | PASS | 20.47 | 23.38/23.72 s, 1 upload(s), +10.26 s | PASS |
+| P19_script_missing_fallback | failed | 0 |  | None/0 | None | PASS | PASS | 0.05 | 7.28/7.34 s, 1 upload(s), +10.84 s | PASS |
+| P20_typeahead_during_intro | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2537 | 1 | PASS | PASS | 51.44 | 58.4/58.72 s, 1 upload(s), +10.09 s | PASS |
+| P21_secret_file_missing | failed | 0 | unable_to_process > returning_to_agent | 0/261 | 1 | PASS | PASS | 5.62 | 12.88/12.88 s, 1 upload(s), +10.56 s | PASS |
+| P22_front_up_app_502 | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.87 | 12.84/13.14 s, 1 upload(s), +10.34 s | PASS |
+| P23_secret_mismatch | failed | 0 | unable_to_process > returning_to_agent | 0/260 | 1 | PASS | PASS | 5.87 | 12.84/13.1 s, 1 upload(s), +10.17 s | PASS |
+| P24_watchdog_mid_field | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7666 | 1 | PASS | PASS | 153.98 | 160.98/161.24 s, 1 upload(s), +10.95 s | PASS |
+| P25_watchdog_during_tokenize | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7273 | 1 | PASS | PASS | 146.23 | 153.12/153.5 s, 1 upload(s), +10.12 s | PASS |
+| P26_queue_digit_action_bound | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2513 | 1 | PASS | PASS | 51.39 | 57.92/58.66 s, 1 upload(s), +10.11 s | PASS |
+| P27_dtmf_across_bridge_after_entry | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2539 | 1 | PASS | PASS | 51.48 | 60.46/60.74 s, 1 upload(s), +10.22 s | PASS |
+| P28_typeahead_over_card_prompt | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2392 | 1 | PASS | PASS | 48.51 | 55.48/55.76 s, 1 upload(s), +10.16 s | PASS |
+| P29_typeahead_intro_only | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3469 | 1 | PASS | PASS | 70.1 | 77.04/77.36 s, 1 upload(s), +10.68 s | PASS |
+| P30_agent_cancel_mid_card | failed | 0 | payment_intro > enter_card_number | 0/1206 | 1 | PASS | PASS | 24.84 | 94.78/95.08 s, 1 upload(s), +11.0 s | PASS |
+| X01_sensitive_dtmf_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2541 | 1 | PASS | PASS | 51.53 | 58.46/58.8 s, 1 upload(s), +10.87 s | PASS |
+| X02_global_debug_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2535 | 1 | PASS | PASS | 51.43 | 58.38/58.7 s, 1 upload(s), +10.05 s | PASS |
 
 Keypad digits FreeSWITCH itself exposed, per call (customer leg):
 
@@ -366,22 +466,22 @@ Keypad digits FreeSWITCH itself exposed, per call (customer leg):
 P11 outside a call (`p11-evidence.sh`: `runner/luasec_eof.lua`, the script's tokenize socket calls, against the mock CRM in drop mode):
 
 ```
-baseline: freeswitch used 4% of one core over 5 s (no calls)
-20-40 s after the probe started: freeswitch used 96% of one core over 20 s
+baseline: freeswitch used 3% of one core over 5 s (no calls)
+20-40 s after the probe started: freeswitch used 98% of one core over 20 s
 probe log (seconds since start, step):
     0.001 connect 1
-    0.004 handshake true
-    0.004 send 416
-    0.004 receive (status line) ...
+    0.005 handshake true
+    0.005 send 416
+    0.005 receive (status line) ...
     0.006 receive returned line=nil err=unexpected eof while reading partial=0
     0.006 second receive (first header line) ...
 RESULT: the second read never returned after 40 s (its timeout is 15 s)
 busiest freeswitch threads now (top -H):
         PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-          1 root      30  10 2273620  87036  40336 S  93.8   0.5   7:24.47 freeswi+
-      13685 root      30  10 2273620  87036  40336 R  87.5   0.5   0:37.80 freeswi+
-          7 root      30  10 2273620  87036  40336 S   0.0   0.5   0:00.12 freeswi+
-          8 root      30  10 2273620  87036  40336 S   0.0   0.5   0:01.22 freeswi+
+          1 root      30  10 2339160 114168  40424 S  99.9   0.7   9:39.55 freeswi+
+      20989 root      30  10 2339160 114168  40424 R  93.8   0.7   0:38.26 freeswi+
+         37 root      30  10 2339160 114168  40424 S   6.2   0.7   1:05.88 freeswi+
+          7 root      30  10 2339160 114168  40424 S   0.0   0.7   0:00.19 freeswi+
 after a FreeSWITCH restart: 4% of one core over 5 s
 ```
 
@@ -425,19 +525,19 @@ ESL ALL events (pci)                      0  lines with a test PAN or CVV run (f
 
 | check | result | detail |
 |---|---|---|
-| E1 | PASS | fs_cli with FS_ESL_PASSWORD: UP 0 years, 0 days, 0 hours, 31 minutes, 58 seconds, 322 milliseconds, 676 microseconds |
+| E1 | PASS | fs_cli with FS_ESL_PASSWORD: UP 0 years, 0 days, 0 hours, 44 minutes, 0 seconds, 274 milliseconds, 997 microseconds |
 | E2 | PASS | old repo password refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E3 | PASS | password 'ClueCon' refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E3 | PASS | password '<empty>' refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E4 | PASS | esl_password global = FS_ESL_PASSWORD |
-| E5 | PASS | fs_cli.sh -x status: ^@UP 0 years, 0 days, 0 hours, 31 minutes, 58 seconds, 915 milliseconds, 741 microseconds |
+| E5 | PASS | fs_cli.sh -x status: ^@UP 0 years, 0 days, 0 hours, 44 minutes, 0 seconds, 885 milliseconds, 968 microseconds |
 | E6 | PASS | event-listener: 'Connected to FreeSWITCH ESL' x2 |
 | E7 | PASS | compose without the value: error while interpolating services.freeswitch.environment.[]: required variable FS_ESL_PASSWORD is missing a value: set FS_ESL_PASSWORD in .env |
 | E8 | PASS | no env: ESL accepts none of '', ClueCon, the literal $FS_ESL_PASSWORD (name="password" value="0...") |
 | E9 | PASS | from 10.88.231.30: Content-Type: text/rude-rejection |
 | E10 | PASS | -r-------- root /etc/freeswitch/secure_payment.secret;-rw------- root /etc/freeswitch/.env; ignored: .env secure_payment.secret  |
 | E11 | INFO | copies of the ESL password: preprocessed freeswitch.xml.fsxml=1 (-rw-r--r--), freeswitch.log=0, console=0 |
-| L1 | PASS | freeswitch.log has no DEBUG lines after the matrix (levels:  120 [CONSOLE]  6 [CRIT]  25 [ERR]  3147 [INFO]  3712 [NOTICE]  14 [WARNING]  64 [] ) |
+| L1 | PASS | freeswitch.log has no DEBUG lines after the matrix (levels:  120 [CONSOLE]  6 [CRIT]  27 [ERR]  4381 [INFO]  4672 [NOTICE]  14 [WARNING]  64 [] ) |
 | L2 | PASS | console (docker logs) has no DEBUG lines |
 | L3 | PASS | 'RTP RECV DTMF' lines: file 0, console 0 |
 | L5 | PASS | no key pressed during the 30 secure entries was logged (RECV DTMF lines in entry windows: file 0, console 0; after entries, by design: file 2, console 2) |
