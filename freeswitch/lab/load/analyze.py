@@ -120,13 +120,13 @@ refv = {k: Counter(c["verdict"] for c in v).most_common(1)[0][0] for k, v in bas
 refb = {k: med([c["beep_s"] for c in v]) for k, v in base.items()}
 refbeep = {k: sum(1 for c in v if c["beep_s"] is not None) > len(v) / 2 for k, v in base.items()}
 reft = {k: med([c["verdict_s"] for c in v]) for k, v in base.items()}
-p("| calls | answered | verdicts as reference | beeps as reference | beep shift max s | verdict later max s | detectors started (avmd/amd) | bridge after answer median / max s | detectors after answer median / max s | degraded calls |")
-p("|---|---|---|---|---|---|---|---|---|---|")
+p("| calls | answered | machine busy | verdicts as reference | beeps as reference | beeps missed | beeps where none (unsafe) | beep shift max s | verdict later max s | detectors started (avmd/amd) | bridge after answer median / max s | detectors after answer median / max s | degraded calls |")
+p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 degraded_total = 0
 bad_examples = []
 for s in steps:
     cs = [c for c in s["calls"] if c["answered"]]
-    vok = bok = 0
+    vok = bok = missed = extra = 0
     shift, later, bad = [], [], 0
     for c in cs:
         k = c["clip"]
@@ -137,6 +137,8 @@ for s in steps:
         lt = (c["verdict_s"] - reft[k]) if (c["verdict_s"] is not None and reft.get(k) is not None) else None
         vok += not dv
         bok += not db
+        missed += (refbeep.get(k) and not hb) or 0
+        extra += (hb and not refbeep.get(k)) or 0
         if sh is not None:
             shift.append(sh)
         if lt is not None:
@@ -149,8 +151,10 @@ for s in steps:
     started = sum(1 for c in cs if c.get("detectors") == ["started", "started"])
     br = [c["bridge_s"] for c in cs if c["bridge_s"] is not None]
     de = [c["detectors_s"] for c in cs if c["detectors_s"] is not None]
-    p("| %d | %d | %d/%d | %d/%d | %s | %s | %d/%d | %s / %s | %s / %s | %d |" % (
-        len(s["calls"]), len(cs), vok, len(cs), bok, len(cs), f(max(shift) if shift else None), f(max(later) if later else None),
+    wb = window(s["t_all_up"] + 3, s["t_hold_end"] - 1)
+    p("| %d | %d | %s | %d/%d | %d/%d | %d | %d | %s | %s | %d/%d | %s / %s | %s / %s | %d |" % (
+        len(s["calls"]), len(cs), "%.0f%%" % (wb["host_busy"] * 100) if wb and wb["host_busy"] is not None else "-",
+        vok, len(cs), bok, len(cs), missed, extra, f(max(shift) if shift else None), f(max(later) if later else None),
         started, len(cs), f(med(br)), f(max(br) if br else None), f(med(de)), f(max(de) if de else None), bad))
 p("")
 p("Reference (step %s): %s." % (steps[0]["step"] if steps else "-", "; ".join(
