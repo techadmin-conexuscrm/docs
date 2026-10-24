@@ -111,6 +111,8 @@ bash "$TW/tests/runbook_test.sh" "$TW/RUNBOOK.md" > "$OUT/runbook_test.out" 2>&1
 gate "4d runbook_test.sh" $rc
 "$PY" "$TW/tests/amd_test.py" "$R/autoload_configs/amd.conf.xml" > "$OUT/amd.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/amd.out"
 gate "4e amd_test.py" $rc
+"$PY" "$TW/tests/queue_binding_test.py" "$R/scripts/api/app.py" > "$OUT/queue.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/queue.out"
+gate "4f queue_binding_test.py" $rc
 
 
 # 5. the runbook matches the final drafts

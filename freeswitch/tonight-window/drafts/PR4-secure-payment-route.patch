@@ -105,6 +105,27 @@ index 0000000..4f8645f
 +    </condition>
 +  </extension>
 +</include>
+diff --git a/scripts/api/app.py b/scripts/api/app.py
+index d32175e..439e0db 100644
+--- a/scripts/api/app.py
++++ b/scripts/api/app.py
+@@ -268,6 +268,16 @@ def route_to_queue(session, data, record, record_file):
+     # fifo_serviced_uuid on the caller leg to the consumer's uuid only when actually
+     # bridged, so that's the reliable "an agent picked up" signal. Check it first.
+     if session.getVariable("fifo_serviced_uuid"):
++        # Drop the DTMF-0 callback binding here too, not only on the timeout
++        # branch below. The dmachine that holds it lives in session->dmachine[]
++        # and is freed only when the session is destroyed, so a binding left
++        # armed here follows the leg anywhere it goes next -- including a
++        # uuid_transfer into secure card entry, where a "0" (expiry 1230, ZIP
++        # 78704) would fire callback_optin and hang the customer up mid-card.
++        # The secure_payment extension clears all digit actions itself, which
++        # is what actually protects card entry; this stops the binding
++        # outliving the queue on every other route out as well.
++        session.execute("clear_digit_action", "queue")
+         fire_and_forget_post(NOTIFY_URL, {
+             "callId": api_id,
+             "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
 index 0000000..611205c
