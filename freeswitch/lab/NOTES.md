@@ -620,3 +620,105 @@ not uploaded at all by the time the harness looks (`uploads: 0`), so the
 single-case path cannot measure this check. Worth fixing in the harness -
 wait for the upload rather than sampling - but it is a measurement of the
 recording sidecar, not of the drafts.
+
+### Fifth pass: three confirmed faults, all fixed, each failing first on real calls
+
+**1. The drop's silence wait was on the wrong scale (this was the
+"unexplained" vm_beep_1200ms row).** FreeSWITCH 1.10.12's
+`switch_ivr_wait_for_silence` scores a frame with
+`energy += abs(data[j++]); j += channels;` over 160 samples: on a mono line
+it reads every other sample, runs on into the zeroed rest of the buffer,
+and still divides by 160. A frame scores about HALF its true mean
+|sample|, the scale mod_amd's `silence_threshold` (640) is on. So the
+drop's 640, chosen "to agree with mod_amd", was about 1280 on mod_amd's
+scale: the lab's beep (true mean 1238) scored about 513 and never reset
+the quiet count, and the drop started 2.0 s after the greeting's last loud
+frame whatever the beep did. That is exactly the 8.52 s measured, which
+the fourth pass could not reconcile. `wfs-sim.py` replays the switch's own
+loop on the lab audio: 640 gives 8.52 s on `vm_beep_1200ms` (measured
+8.52), 8.52 s on the new `vm_beep_late` (beep ends 9.07), and 3.50 s on the
+7 s greeting played 16 dB quieter (the drop inside the greeting).
+- Fix: 400, in BE-17 `dropSteps()` (campaign-be17 c2619f30, merged up to
+  pr13/pr14), RUNBOOK F3 `droptest`, and the lab's amdbeep wait. Why not
+  320 (half of 640): an 80-sample score of line noise swings well above its
+  average, so a floor just under mod_amd's 640 (true mean 620) still reset
+  the count at 320; at 400 it does not, and a 1000 Hz beep at -20 dBm0
+  (568-804 depending on phase) still holds the drop at any phase.
+- Left as is, written down in the code: a beep at exactly 2000 Hz can fall
+  wholly on the samples the switch skips and score near 0 however loud.
+- Tests: the BE unit tests now render real 8 kHz samples (beeps in dBm0,
+  noise at a true mean) and score them with the switch's loop (2 fail at
+  640, 1 at 320, 0 at 400: `failfirst/P5-D1-be-tests-*.log`). Lab: new case
+  `vm_beep_late` (-20 dBm0 beep ending 2.2 s after the greeting) on be17 x2
+  and runbook; before 8.52-8.56 s FAIL, after 11.06-11.08 s pass;
+  vm_beep_1200ms 8.52 FAIL -> 10.66 pass (`failfirst/P5-D1-D3-drop-*.log`).
+
+**2. An entry the CRM ends mid-card (agent Cancel, error, watchdog) turned
+keypad protection off while the customer was still keying.** The CRM
+`uuid_bridge`s at once with no prompt; the script's session is then not
+ready, `reconnect()` returns early, and the script unset `sensitive_dtmf`
+straight away. New case **P30_agent_cancel_mid_card** (Cancel 4 digits in,
+the customer keys the other 12 and the CVV): before, all 15 keys were in
+freeswitch.log (`RECV DTMF`), `digits_dialed` (json CDR), DTMF events, and
+reached the agent's phone.
+- Fix (PR4): unset at once only when the script itself put the customer
+  back (after its closing prompt, as before). Any other way out keeps it on
+  and lifts it 60 s later (`sched_api +60 secure_payment_unprotect_<uuid>
+  uuid_setvar <uuid> sensitive_dtmf`); a new entry cancels that first
+  (`sched_del`), so a hold from an earlier entry can never lift protection
+  in the middle of a card. While held, the customer's keys reach nobody
+  (FreeSWITCH drops sensitive keys at the bridge), which is the point; P30
+  checks that a key crosses again after the hold.
+- After: none of the 15 keys anywhere, `sensitive_dtmf` still `true` when
+  the customer finishes, unset 60 s later and a "1" reaches the agent
+  (`failfirst/P5-D2-P30-*.log`). `tests/sp_sim.py`: new
+  `crm_bridged_mid_card`; 40 failed checks on the old script, 0 now.
+- Not changed here (BE, outside these branches): end-secure-entry.ts still
+  unmasks the recording right after its bridge, so on a line that carries
+  DTMF in-band the tones of keys pressed after a Cancel would be recorded.
+  Playing a short "returning you to your agent" prompt before the CRM's
+  bridge and delaying the unmask a few seconds would close that too.
+
+**3. Every drop left its recording, and its presigned link, in mod_httapi's
+cache for good.** mod_httapi writes `<md5 of url>.wav` and `.meta` (the
+whole link: org id, file id, key id, signature) to
+`<storage_dir>/http_file_cache`; `file-cache-ttl` only sets when a copy is
+fetched again and never deletes one. Each drop's link is new, so each drop
+is a new copy, in the container's writable layer. Only a Cache-Control
+no-store/no-cache answer makes mod_httapi delete both when playback ends.
+- Fix: BE-17 signs the playback link with `ResponseCacheControl: "no-store"`
+  (campaign-be17 7c755e9b, merged up); S3 then answers with
+  `Cache-Control: no-store`. PR1's httapi.conf.xml comment now says this,
+  and never to set `abs-file-cache-ttl` (with it mod_httapi ignores the
+  header).
+- Lab: be17https now fails if anything of its link is left in the cache;
+  `run-matrix.sh` reads `ResponseCacheControl` from the campaign branch and
+  the mock answers with it as S3 does. Before: two 332,730-byte copies and
+  their .meta files left; after: the directory is empty.
+- Not added: a periodic purge of the cache directory as a second guard
+  (no cron in the image; it would be its own change).
+
+### The matrix after the fifth pass: 75 of 90
+
+One full run, 04:35-05:21 UTC, on the drafts at docs 65a49b3 (no draft has
+changed since), BE-17 `dropSteps()` and the link's `ResponseCacheControl`
+read live from campaign-pr14 4a66a835 (`wait_for_silence:400 75 0 30000`,
+`no-store`). 90 rows (87 + `vm_beep_late` on be17 and runbook + P30).
+
+- Section 4: every mailbox row on be17, runbook and be17https passes,
+  including `vm_beep_1200ms` (10.66 s, after the beep) and `vm_beep_late`
+  (11.06 s); the http_file_cache is empty after both be17https rows.
+- Section 5: 30/30, including P30 and P26 (its recording-coverage check
+  passed this time: 59.98 s stored for a 60.72 s call); leak sweep 21/21.
+- Section 6: 15/15.
+
+The 15 red rows are the two causes the fourth pass already named and left
+unchanged on purpose, neither touched by this pass's three faults:
+- **9 - AMD's greeting trigger** (5 AMD mailbox cases NOTSURE/TOOLONG at
+  7.0 s, and the 4 amdbeep mailbox rows that need MACHINE). The fix is a
+  trade between `greeting`/`total_analysis_time` and how long a person who
+  never pauses waits in silence, which is Eric's call on recorded real
+  calls (research in `research/`).
+- **6 - BE-17 pressed on a live person** (be17/runbook x human_hello,
+  human_long, silent_then_hello): BE-17 is a button with no AMD; the fix is
+  BE-12.

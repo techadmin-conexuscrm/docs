@@ -1,11 +1,11 @@
 # FreeSWITCH lab: results
 
-Generated 2026-10-24 02:44 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab`.
-Drafts: docs `6148c02` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
+Generated 2026-10-24 05:21 UTC by `report.py` from `/tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/bt/fs-lab/matrix5`.
+Drafts: docs `65a49b3` (`freeswitch/tonight-window/drafts/`), applied to freeswitch-conf `origin/master` `8d95af1`.
 Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits) between the lab FreeSWITCH (the drafts' image and config) and a far-end FreeSWITCH, on a private docker network with no way out. Test values only. How to re-run: `README.md`.
 ## Summary
 
-**69 of 87 matrix rows pass** (experiments not counted).
+**75 of 90 matrix rows pass** (experiments not counted).
 
 | section | case | passed |
 |---|---|---|
@@ -34,7 +34,8 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 4 drop | be17 human_hello | FAIL 0/2 |
 | 4 drop | be17 human_long | FAIL 0/2 |
 | 4 drop | be17 silent_then_hello | FAIL 0/2 |
-| 4 drop | be17 vm_beep_1200ms | FAIL 0/2 |
+| 4 drop | be17 vm_beep_1200ms | PASS 2/2 |
+| 4 drop | be17 vm_beep_late | PASS 2/2 |
 | 4 drop | be17 vm_beep_long | PASS 2/2 |
 | 4 drop | be17 vm_beep_noisy | PASS 2/2 |
 | 4 drop | be17 vm_beep_short | PASS 2/2 |
@@ -44,7 +45,8 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 4 drop | runbook human_hello | FAIL 0/1 |
 | 4 drop | runbook human_long | FAIL 0/1 |
 | 4 drop | runbook silent_then_hello | FAIL 0/1 |
-| 4 drop | runbook vm_beep_1200ms | FAIL 0/1 |
+| 4 drop | runbook vm_beep_1200ms | PASS 1/1 |
+| 4 drop | runbook vm_beep_late | PASS 1/1 |
 | 4 drop | runbook vm_beep_long | PASS 1/1 |
 | 4 drop | runbook vm_beep_noisy | PASS 1/1 |
 | 4 drop | runbook vm_beep_short | PASS 1/1 |
@@ -74,15 +76,16 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 | 5 PCI | P23_secret_mismatch | PASS 1/1 |
 | 5 PCI | P24_watchdog_mid_field | PASS 1/1 |
 | 5 PCI | P25_watchdog_during_tokenize | PASS 1/1 |
-| 5 PCI | P26_queue_digit_action_bound | FAIL 0/1 |
+| 5 PCI | P26_queue_digit_action_bound | PASS 1/1 |
 | 5 PCI | P27_dtmf_across_bridge_after_entry | PASS 1/1 |
 | 5 PCI | P28_typeahead_over_card_prompt | PASS 1/1 |
 | 5 PCI | P29_typeahead_intro_only | PASS 1/1 |
+| 5 PCI | P30_agent_cancel_mid_card | PASS 1/1 |
 | 5 experiment | X01_sensitive_dtmf_experiment | PASS 1/1 |
 | 5 experiment | X02_global_debug_experiment | PASS 1/1 |
-| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 20/20 |
-| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 20/20 |
-| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 20/20 |
+| 5 PCI leak | card digits in freeswitch.log + console (RECV DTMF, INFO) | PASS 21/21 |
+| 5 PCI leak | card digits in CDR json + CHANNEL_HANGUP_COMPLETE/DESTROY (digits_dialed) | PASS 21/21 |
+| 5 PCI leak | card digits in ESL DTMF events (one per digit) | PASS 21/21 |
 | 6 ESL/logs | E1 | PASS 1/1 |
 | 6 ESL/logs | E2 | PASS 1/1 |
 | 6 ESL/logs | E3 | PASS 1/1 |
@@ -106,55 +109,57 @@ Every call is a real SIP call (TCP signalling, RTP audio, RFC 2833 keypad digits
 
 | case | runs | amd_result (cause) | time to verdict s | avmd beep detected | beep detected at s | wanted | pass |
 |---|---|---|---|---|---|---|---|
-| beep_only | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.31-2.33 (mean 2.32) | 5/5 | 1.04-1.04 (mean 1.04) | HUMAN + beep (mod_amd alone is wrong here; section 4 requires the flow to use the beep) | 5/5 |
-| human_hello | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.61-1.62 (mean 1.62) | 0/5 | - | HUMAN, no beep | 5/5 |
-| human_long | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.22-4.25 (mean 4.24) | 0/5 | - | HUMAN, no beep | 5/5 |
-| human_phrases | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 3.55-3.56 (mean 3.55) | 0/5 | - | HUMAN, no beep (three phrases, 0.4 s gaps) | 5/5 |
-| noise | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.43-1.45 (mean 1.44) | 0/5 | - | not MACHINE, no beep | 5/5 |
-| silence | 5 | NOTSURE (INITIALSILENCE) x5 | 2.52-2.53 (mean 2.52) | 0/5 | - | not MACHINE, no beep | 5/5 |
-| silent_then_hello | 5 | NOTSURE (INITIALSILENCE) x5 | 2.52-2.53 (mean 2.52) | 0/5 | - | not MACHINE, no beep | 5/5 |
-| vm_beep_1200ms | 5 | NOTSURE (TOOLONG) x5 | 7.01-7.05 (mean 7.03) | 5/5 | 7.68-7.72 (mean 7.70) | MACHINE + beep | 0/5 |
-| vm_beep_long | 5 | NOTSURE (TOOLONG) x5 | 7.01-7.05 (mean 7.03) | 5/5 | 19.46-19.48 (mean 19.46) | MACHINE + beep | 0/5 |
-| vm_beep_noisy | 5 | NOTSURE (TOOLONG) x5 | 7.00-7.03 (mean 7.02) | 0/5 | - | MACHINE + beep (on a line with a noise floor) | 0/5 |
-| vm_beep_short | 5 | NOTSURE (TOOLONG) x5 | 7.01-7.03 (mean 7.02) | 5/5 | 7.70-7.70 (mean 7.70) | MACHINE + beep | 0/5 |
-| vm_nobeep | 5 | NOTSURE (TOOLONG) x5 | 7.02-7.04 (mean 7.02) | 0/5 | - | MACHINE, no beep | 0/5 |
+| beep_only | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 2.31-2.34 (mean 2.32) | 5/5 | 1.04-1.04 (mean 1.04) | HUMAN + beep (mod_amd alone is wrong here; section 4 requires the flow to use the beep) | 5/5 |
+| human_hello | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 1.61-1.63 (mean 1.63) | 0/5 | - | HUMAN, no beep | 5/5 |
+| human_long | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 4.22-4.27 (mean 4.24) | 0/5 | - | HUMAN, no beep | 5/5 |
+| human_phrases | 5 | HUMAN (SILENCEAFTERGREETING) x5 | 3.56-3.60 (mean 3.57) | 0/5 | - | HUMAN, no beep (three phrases, 0.4 s gaps) | 5/5 |
+| noise | 5 | NOTSURE (INITIALSILENCE) x5 | 2.62-2.66 (mean 2.64) | 0/5 | - | not MACHINE, no beep | 5/5 |
+| silence | 5 | NOTSURE (INITIALSILENCE) x5 | 2.52-2.56 (mean 2.53) | 0/5 | - | not MACHINE, no beep | 5/5 |
+| silent_then_hello | 5 | NOTSURE (INITIALSILENCE) x5 | 2.52-2.55 (mean 2.54) | 0/5 | - | not MACHINE, no beep | 5/5 |
+| vm_beep_1200ms | 5 | NOTSURE (TOOLONG) x5 | 7.02-7.05 (mean 7.03) | 5/5 | 7.70-7.74 (mean 7.71) | MACHINE + beep | 0/5 |
+| vm_beep_long | 5 | NOTSURE (TOOLONG) x5 | 7.00-7.09 (mean 7.04) | 5/5 | 19.46-19.74 (mean 19.53) | MACHINE + beep | 0/5 |
+| vm_beep_noisy | 5 | NOTSURE (TOOLONG) x5 | 7.02-7.07 (mean 7.04) | 0/5 | - | MACHINE + beep (on a line with a noise floor) | 0/5 |
+| vm_beep_short | 5 | NOTSURE (TOOLONG) x5 | 7.00-7.07 (mean 7.03) | 5/5 | 7.68-7.76 (mean 7.71) | MACHINE + beep | 0/5 |
+| vm_nobeep | 5 | NOTSURE (TOOLONG) x5 | 7.01-7.11 (mean 7.04) | 0/5 | - | MACHINE, no beep | 0/5 |
 
 Event plumbing (all runs): amd::info Event-Name = `None`; received by a `CUSTOM amd::info` subscriber: 60/60; by a `CLONE` subscriber: 0/60; avmd::beep received by a `CUSTOM avmd::beep` subscriber: 20/20 beeps.
 
 ## 4. Voicemail drop
 
-Flows: **amdbeep** = what BE-12's automatic drop would do: AMD verdict; HUMAN/NOTSURE go to an agent at once; MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:200 10 0 5000`), then plays. **be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with an https link shaped like a real presigned S3 url - extensionless key plus a SigV4 query string, served GET-only with 403 on HEAD - as BE-17 really plays it (D5). Steps used: BE-17 dropSteps (c3fa3ab0): wait_for_silence:640 75 0 30000,playback:https://(^^;nohead=true;ext=wav)%(host_and_path)s,hangup:NORMAL_CLEARING; RUNBOOK F3 droptest: avmd_start,wait_for_silence:640 75 0 30000,playback:%s,hangup:NORMAL_CLEARING. Drop = `drop_nolead.wav` (`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict. amdbeep also treats an avmd beep inside the first 2 s as a machine whatever mod_amd said (D6). `wait ran s` is how long `wait_for_silence` actually ran: reaching its timeout means it gave up and played anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2).
+Flows: **amdbeep** = what BE-12's automatic drop would do: AMD verdict; HUMAN/NOTSURE go to an agent at once; MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:400 10 0 5000`), then plays. **be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with an https link shaped like a real presigned S3 url - extensionless key plus a SigV4 query string, served GET-only with 403 on HEAD - as BE-17 really plays it (D5). Steps used: BE-17 dropSteps (b2fcb66f): wait_for_silence:400 75 0 30000,playback:https://(^^;nohead=true;ext=wav)%(host_and_path)s,hangup:NORMAL_CLEARING; RUNBOOK F3 droptest: avmd_start,wait_for_silence:400 75 0 30000,playback:%s,hangup:NORMAL_CLEARING; BE-17 link ResponseCacheControl: no-store. Drop = `drop_nolead.wav` (`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict. amdbeep also treats an avmd beep inside the first 2 s as a machine whatever mod_amd said (D6). `wait ran s` is how long `wait_for_silence` actually ran: reaching its timeout means it gave up and played anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2). be17https also fails if anything of its link is left in mod_httapi's `http_file_cache` after the call (the recording copy or the .meta file holding the link).
 
 | flow | case | runs | verdict (at s) | held s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| amdbeep | beep_only | 3 | HUMAN (2.33-2.35 (mean 2.34)) | - | 2.33-2.36 (mean 2.34) | 0.69-0.70 (mean 0.70) | 3.02-3.06 (mean 3.04) | 3.28-3.32 (mean 3.30) | - / 1.5 | False | FILE PLAYED | NORMAL_CLEARING | 3/3 |
-| amdbeep | human_hello | 3 | HUMAN (1.61-1.63 (mean 1.62)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
-| amdbeep | human_long | 3 | HUMAN (4.24-4.25 (mean 4.25)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
-| amdbeep | human_phrases | 3 | HUMAN (3.56-3.56 (mean 3.56)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
-| amdbeep | silent_then_hello | 3 | NOTSURE (2.52-2.53 (mean 2.52)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
-| amdbeep | vm_beep_1200ms | 3 | NOTSURE (7.02-7.02 (mean 7.02)) | - | - | - | - | - | 6.871 / 8.671 | None | - | NORMAL_CLEARING | 0/3 |
-| amdbeep | vm_beep_long | 3 | NOTSURE (7.02-7.04 (mean 7.02)) | - | - | - | - | - | 18.832 / 19.682 | None | - | NORMAL_CLEARING | 0/3 |
-| amdbeep | vm_beep_noisy | 3 | NOTSURE (7.02-7.02 (mean 7.02)) | - | - | - | - | - | 6.871 / 7.971 | None | - | NORMAL_CLEARING | 0/3 |
-| amdbeep | vm_beep_short | 3 | NOTSURE (7.02-7.04 (mean 7.02)) | - | - | - | - | - | 6.871 / 7.971 | None | - | NORMAL_CLEARING | 0/3 |
-| amdbeep | vm_nobeep | 3 | NOTSURE (7.00-7.03 (mean 7.01)) | 0.00-0.00 (mean 0.00) | - | - | - | - | 6.871 / - | None | - | NORMAL_CLEARING | 3/3 |
-| be17 | human_hello | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 2.00-2.00 (mean 2.00) | 3.50-3.50 (mean 3.50) | 3.76-3.76 (mean 3.76) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
-| be17 | human_long | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 3.78-3.80 (mean 3.79) | 5.28-5.30 (mean 5.29) | 5.56-5.56 (mean 5.56) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
-| be17 | silent_then_hello | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 2.00-2.00 (mean 2.00) | 3.50-3.50 (mean 3.50) | 3.76-3.76 (mean 3.76) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
-| be17 | vm_beep_1200ms | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 7.02-7.02 (mean 7.02) | 8.52-8.52 (mean 8.52) | 8.78-8.78 (mean 8.78) | 6.871 / 8.671 | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
-| be17 | vm_beep_long | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 20.18-20.20 (mean 20.19) | 21.68-21.70 (mean 21.69) | 21.94-21.96 (mean 21.95) | 18.832 / 19.682 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
-| be17 | vm_beep_noisy | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 8.46-8.46 (mean 8.46) | 9.96-9.96 (mean 9.96) | 10.22-10.22 (mean 10.22) | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
-| be17 | vm_beep_short | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 7.02-7.04 (mean 7.03) | 8.52-8.54 (mean 8.53) | 8.78-8.78 (mean 8.78) | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
-| be17 | vm_nobeep | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 7.02-7.02 (mean 7.02) | 8.52-8.52 (mean 8.52) | 8.78-8.78 (mean 8.78) | 6.871 / - | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
-| be17https | vm_beep_noisy | 1 | - (-) | - | 1.50 | 8.48 | 9.98 | 10.50 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
-| be17https | vm_beep_short | 1 | - (-) | - | 1.50 | 7.02 | 8.52 | 8.78 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| amdbeep | beep_only | 3 | HUMAN (2.32-2.35 (mean 2.34)) | - | 2.32-2.36 (mean 2.34) | 0.70-0.72 (mean 0.71) | 3.04-3.06 (mean 3.05) | 3.30-3.34 (mean 3.32) | - / 1.5 | False | FILE PLAYED | NORMAL_CLEARING | 3/3 |
+| amdbeep | human_hello | 3 | HUMAN (1.62-1.70 (mean 1.65)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
+| amdbeep | human_long | 3 | HUMAN (4.24-4.26 (mean 4.24)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
+| amdbeep | human_phrases | 3 | HUMAN (3.57-3.59 (mean 3.58)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
+| amdbeep | silent_then_hello | 3 | NOTSURE (2.51-2.53 (mean 2.52)) | 0.00-0.00 (mean 0.00) | - | - | - | - | - / - | None | - | NORMAL_CLEARING | 3/3 |
+| amdbeep | vm_beep_1200ms | 3 | NOTSURE (7.03-7.05 (mean 7.05)) | - | - | - | - | - | 6.871 / 8.671 | None | - | NORMAL_CLEARING | 0/3 |
+| amdbeep | vm_beep_long | 3 | NOTSURE (7.02-7.03 (mean 7.02)) | - | - | - | - | - | 18.832 / 19.682 | None | - | NORMAL_CLEARING | 0/3 |
+| amdbeep | vm_beep_noisy | 3 | NOTSURE (7.03-7.03 (mean 7.03)) | - | - | - | - | - | 6.871 / 7.971 | None | - | NORMAL_CLEARING | 0/3 |
+| amdbeep | vm_beep_short | 3 | NOTSURE (7.02-7.03 (mean 7.02)) | - | - | - | - | - | 6.871 / 7.971 | None | - | NORMAL_CLEARING | 0/3 |
+| amdbeep | vm_nobeep | 3 | NOTSURE (7.02-7.05 (mean 7.04)) | 0.00-0.00 (mean 0.00) | - | - | - | - | 6.871 / - | None | - | NORMAL_CLEARING | 3/3 |
+| be17 | human_hello | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 1.98-2.00 (mean 1.99) | 3.48-3.50 (mean 3.49) | 3.76-3.76 (mean 3.76) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
+| be17 | human_long | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 3.90-3.94 (mean 3.92) | 5.40-5.44 (mean 5.42) | 5.66-5.66 (mean 5.66) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
+| be17 | silent_then_hello | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 2.00-2.02 (mean 2.01) | 3.50-3.52 (mean 3.51) | 3.76-3.78 (mean 3.77) | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/2 |
+| be17 | vm_beep_1200ms | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 9.18-9.20 (mean 9.19) | 10.68-10.70 (mean 10.69) | 10.94-11.10 (mean 11.02) | 6.871 / 8.671 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17 | vm_beep_late | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 9.58-9.58 (mean 9.58) | 11.08-11.08 (mean 11.08) | 11.34-11.34 (mean 11.34) | 6.871 / 9.071 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17 | vm_beep_long | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 20.20-20.22 (mean 20.21) | 21.70-21.72 (mean 21.71) | 21.96-21.98 (mean 21.97) | 18.832 / 19.682 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17 | vm_beep_noisy | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 8.48-8.52 (mean 8.50) | 9.98-10.02 (mean 10.00) | 10.28-10.36 (mean 10.32) | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17 | vm_beep_short | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 8.46-8.48 (mean 8.47) | 9.96-9.98 (mean 9.97) | 10.22-10.30 (mean 10.26) | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17 | vm_nobeep | 2 | - (-) | - | 1.50-1.50 (mean 1.50) | 7.00-7.02 (mean 7.01) | 8.50-8.52 (mean 8.51) | 8.78-8.78 (mean 8.78) | 6.871 / - | False | FILE PLAYED | NORMAL_CLEARING | 2/2 |
+| be17https | vm_beep_noisy | 1 | - (-) | - | 1.50 | 8.46 | 10.00 | 10.24 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| be17https | vm_beep_short | 1 | - (-) | - | 1.50 | 8.46 | 9.98 | 10.22 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
 | runbook | human_hello | 1 | - (-) | - | 1.50 | 2.00 | 3.50 | 3.76 | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
-| runbook | human_long | 1 | - (-) | - | 1.50 | 3.82 | 5.32 | 5.58 | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
-| runbook | silent_then_hello | 1 | - (-) | - | 1.50 | 2.00 | 3.50 | 3.76 | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
-| runbook | vm_beep_1200ms | 1 | - (-) | - | 1.50 | 7.02 | 8.52 | 8.78 | 6.871 / 8.671 | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
-| runbook | vm_beep_long | 1 | - (-) | - | 1.50 | 20.18 | 21.68 | 21.94 | 18.832 / 19.682 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
-| runbook | vm_beep_noisy | 1 | - (-) | - | 1.50 | 8.46 | 9.96 | 10.22 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
-| runbook | vm_beep_short | 1 | - (-) | - | 1.50 | 7.04 | 8.54 | 8.78 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
-| runbook | vm_nobeep | 1 | - (-) | - | 1.50 | 7.02 | 8.52 | 8.78 | 6.871 / - | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | human_long | 1 | - (-) | - | 1.50 | 3.88 | 5.40 | 5.74 | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
+| runbook | silent_then_hello | 1 | - (-) | - | 1.50 | 2.00 | 3.50 | 3.74 | - / - | False | FILE PLAYED | NORMAL_CLEARING | 0/1 |
+| runbook | vm_beep_1200ms | 1 | - (-) | - | 1.50 | 9.20 | 10.70 | 10.94 | 6.871 / 8.671 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | vm_beep_late | 1 | - (-) | - | 1.50 | 9.56 | 11.06 | 11.32 | 6.871 / 9.071 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | vm_beep_long | 1 | - (-) | - | 1.50 | 20.20 | 21.70 | 21.96 | 18.832 / 19.682 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | vm_beep_noisy | 1 | - (-) | - | 1.50 | 8.50 | 10.00 | 10.26 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | vm_beep_short | 1 | - (-) | - | 1.50 | 8.50 | 10.00 | 10.24 | 6.871 / 7.971 | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
+| runbook | vm_nobeep | 1 | - (-) | - | 1.50 | 7.04 | 8.54 | 8.80 | 6.871 / - | False | FILE PLAYED | NORMAL_CLEARING | 1/1 |
 
 ## 5. Secure keypad entry (secure_payment.lua + 10_secure_payment.xml)
 
@@ -162,37 +167,38 @@ Per call: agent leg and customer leg bridged and recorded as `originate.ts` does
 
 | case | final state | tokenize requests (mock) | prompts | masked frames non-zero | agent max peak during | unmasked | back with agent | entry s | stored recording | pass |
 |---|---|---|---|---|---|---|---|---|---|---|
-| P01_visa_good | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2634 | 1 | PASS | PASS | 53.37 | 60.34/60.62 s, 1 upload(s), +11.04 s | PASS |
-| P02_amex_4digit_cvv | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv_amex > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2468 | 1 | PASS | PASS | 50.03 | 57.02/57.28 s, 1 upload(s), +10.62 s | PASS |
-| P03_bad_then_good | completed | 1 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/3164 | 1 | PASS | PASS | 63.97 | 70.92/71.22 s, 1 upload(s), +10.29 s | PASS |
-| P04_three_failures | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/2501 | 1 | PASS | PASS | 50.67 | 57.66/57.92 s, 1 upload(s), +10.2 s | PASS |
-| P05_pound_after_each | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2466 | 1 | PASS | PASS | 50.0 | 56.98/57.26 s, 1 upload(s), +10.82 s | PASS |
-| P06_timeout_no_input | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3367 | 1 | PASS | PASS | 68.04 | 74.98/75.3 s, 1 upload(s), +10.4 s | PASS |
-| P07_timeout_mid_card | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3186 | 1 | PASS | PASS | 64.46 | 71.38/71.72 s, 1 upload(s), +10.53 s | PASS |
-| P08_caller_hangup_mid_card | customer_hangup | 0 | payment_intro > enter_card_number | 0/1017 | 1 | PASS | PASS | 21.02 | 24.0/24.28 s, 1 upload(s), +10.06 s | PASS |
-| P09_backend_slow_20s | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/3364 | 1 | PASS | PASS | 67.95 | 74.94/75.2 s, 1 upload(s), +10.81 s | PASS |
-| P10_backend_down_at_start | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.63 | 10.84/10.88 s, 1 upload(s), +10.73 s | PASS |
-| P11_backend_crash_mid_request | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2620 | 1 | PASS | PASS | 53.06 | 60.08/60.34 s, 1 upload(s), +10.26 s | PASS |
-| P12_backend_500 | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2622 | 1 | PASS | PASS | 53.08 | 60.1/60.34 s, 1 upload(s), +10.35 s | PASS |
-| P13_decline_retryable_then_ok | completed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/4664 | 1 | PASS | PASS | 93.97 | 100.94/101.22 s, 1 upload(s), +11.02 s | PASS |
-| P14_decline_final | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2622 | 1 | PASS | PASS | 53.11 | 60.1/60.38 s, 1 upload(s), +10.41 s | PASS |
-| P15_star_at_expiry | cancelled | 0 | payment_intro > enter_card_number > enter_expiry > returning_to_agent | 0/1385 | 1 | PASS | PASS | 28.38 | 35.36/35.64 s, 1 upload(s), +10.62 s | PASS |
-| P16_shipped_pins_vs_lab_cert | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.77 | 10.84/11.02 s, 1 upload(s), +10.49 s | PASS |
-| P17_wrong_cert_name | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.77 | 10.88/11.04 s, 1 upload(s), +10.37 s | PASS |
-| P18_agent_hangup_mid_entry | customer_hangup | 0 | payment_intro > enter_card_number | 0/988 | 1 | PASS | PASS | 20.39 | 23.4/23.66 s, 1 upload(s), +10.63 s | PASS |
-| P19_script_missing_fallback | failed | 0 |  | None/0 | None | PASS | PASS | 0.03 | 7.26/7.28 s, 1 upload(s), +10.36 s | PASS |
-| P20_typeahead_during_intro | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2637 | 1 | PASS | PASS | 53.4 | 60.4/60.66 s, 1 upload(s), +10.65 s | PASS |
-| P21_secret_file_missing | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.64 | 10.86/10.9 s, 1 upload(s), +10.29 s | PASS |
-| P22_front_up_app_502 | failed | 0 | unable_to_process > returning_to_agent | 0/159 | 1 | PASS | PASS | 3.84 | 10.84/11.1 s, 1 upload(s), +10.13 s | PASS |
-| P23_secret_mismatch | failed | 0 | unable_to_process > returning_to_agent | 0/159 | 1 | PASS | PASS | 3.9 | 10.84/11.16 s, 1 upload(s), +10.87 s | PASS |
-| P24_watchdog_mid_field | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7620 | 1 | PASS | PASS | 153.15 | 160.06/160.4 s, 1 upload(s), +10.5 s | PASS |
-| P25_watchdog_during_tokenize | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7162 | 1 | PASS | PASS | 143.93 | 150.9/151.2 s, 1 upload(s), +11.05 s | PASS |
-| P26_queue_digit_action_bound | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2611 | 1 | PASS | PASS | 53.9 | 59.88/61.16 s, 1 upload(s), +10.54 s | FAIL |
-| P27_dtmf_across_bridge_after_entry | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2635 | 1 | PASS | PASS | 53.37 | 62.38/62.64 s, 1 upload(s), +10.72 s | PASS |
-| P28_typeahead_over_card_prompt | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2286 | 1 | PASS | PASS | 46.41 | 53.38/53.68 s, 1 upload(s), +10.85 s | PASS |
-| P29_typeahead_intro_only | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3370 | 1 | PASS | PASS | 68.06 | 75.04/75.32 s, 1 upload(s), +10.41 s | PASS |
-| X01_sensitive_dtmf_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2637 | 1 | PASS | PASS | 53.42 | 60.4/60.66 s, 1 upload(s), +10.11 s | PASS |
-| X02_global_debug_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2634 | 1 | PASS | PASS | 53.41 | 60.34/60.66 s, 1 upload(s), +10.3 s | PASS |
+| P01_visa_good | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2638 | 1 | PASS | PASS | 53.32 | 60.22/60.38 s, 1 upload(s), +10.66 s | PASS |
+| P02_amex_4digit_cvv | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv_amex > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2466 | 1 | PASS | PASS | 50.02 | 56.96/57.26 s, 1 upload(s), +10.21 s | PASS |
+| P03_bad_then_good | completed | 1 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/3161 | 1 | PASS | PASS | 63.85 | 70.88/71.1 s, 1 upload(s), +10.98 s | PASS |
+| P04_three_failures | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/2501 | 1 | PASS | PASS | 50.69 | 57.66/57.94 s, 1 upload(s), +10.87 s | PASS |
+| P05_pound_after_each | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2466 | 1 | PASS | PASS | 50.03 | 56.96/57.28 s, 1 upload(s), +10.44 s | PASS |
+| P06_timeout_no_input | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3366 | 1 | PASS | PASS | 67.99 | 74.98/75.24 s, 1 upload(s), +10.05 s | PASS |
+| P07_timeout_mid_card | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3186 | 1 | PASS | PASS | 64.46 | 71.36/71.7 s, 1 upload(s), +10.19 s | PASS |
+| P08_caller_hangup_mid_card | customer_hangup | 0 | payment_intro > enter_card_number | 0/1018 | 1 | PASS | PASS | 21.02 | 24.0/24.24 s, 1 upload(s), +10.69 s | PASS |
+| P09_backend_slow_20s | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/3344 | 1 | PASS | PASS | 67.65 | 74.56/74.92 s, 1 upload(s), +10.7 s | PASS |
+| P10_backend_down_at_start | failed | 0 | unable_to_process > returning_to_agent | 0/158 | 1 | PASS | PASS | 3.62 | 10.82/10.86 s, 1 upload(s), +10.67 s | PASS |
+| P11_backend_crash_mid_request | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2620 | 1 | PASS | PASS | 53.08 | 60.06/60.34 s, 1 upload(s), +10.93 s | PASS |
+| P12_backend_500 | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2611 | 1 | PASS | PASS | 53.07 | 59.88/60.32 s, 1 upload(s), +10.32 s | PASS |
+| P13_decline_retryable_then_ok | completed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/4663 | 1 | PASS | PASS | 93.9 | 100.92/101.16 s, 1 upload(s), +10.98 s | PASS |
+| P14_decline_final | failed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/2621 | 1 | PASS | PASS | 53.07 | 60.08/60.32 s, 1 upload(s), +10.36 s | PASS |
+| P15_star_at_expiry | cancelled | 0 | payment_intro > enter_card_number > enter_expiry > returning_to_agent | 0/1385 | 1 | PASS | PASS | 28.37 | 35.38/35.64 s, 1 upload(s), +10.57 s | PASS |
+| P16_shipped_pins_vs_lab_cert | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.73 | 10.86/11.0 s, 1 upload(s), +10.43 s | PASS |
+| P17_wrong_cert_name | failed | 0 | unable_to_process > returning_to_agent | 0/159 | 1 | PASS | PASS | 3.75 | 10.82/10.99 s, 1 upload(s), +10.36 s | PASS |
+| P18_agent_hangup_mid_entry | customer_hangup | 0 | payment_intro > enter_card_number | 0/991 | 1 | PASS | PASS | 20.51 | 23.46/23.76 s, 1 upload(s), +10.52 s | PASS |
+| P19_script_missing_fallback | failed | 0 |  | None/0 | None | PASS | PASS | 0.03 | 7.28/7.3 s, 1 upload(s), +10.16 s | PASS |
+| P20_typeahead_during_intro | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2630 | 1 | PASS | PASS | 53.34 | 60.26/60.6 s, 1 upload(s), +10.51 s | PASS |
+| P21_secret_file_missing | failed | 0 | unable_to_process > returning_to_agent | 0/159 | 1 | PASS | PASS | 3.63 | 10.84/10.88 s, 1 upload(s), +10.18 s | PASS |
+| P22_front_up_app_502 | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.87 | 10.86/11.12 s, 1 upload(s), +10.98 s | PASS |
+| P23_secret_mismatch | failed | 0 | unable_to_process > returning_to_agent | 0/160 | 1 | PASS | PASS | 3.83 | 10.86/11.1 s, 1 upload(s), +10.81 s | PASS |
+| P24_watchdog_mid_field | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7626 | 1 | PASS | PASS | 153.32 | 160.16/160.56 s, 1 upload(s), +10.31 s | PASS |
+| P25_watchdog_during_tokenize | failed | 2 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > card_not_accepted_try_again > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > unable_to_process > returning_to_agent | 0/7167 | 1 | PASS | PASS | 144.03 | 150.98/151.28 s, 1 upload(s), +10.75 s | PASS |
+| P26_queue_digit_action_bound | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2616 | 1 | PASS | PASS | 53.44 | 59.98/60.72 s, 1 upload(s), +10.62 s | PASS |
+| P27_dtmf_across_bridge_after_entry | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2634 | 1 | PASS | PASS | 53.34 | 62.34/62.6 s, 1 upload(s), +10.72 s | PASS |
+| P28_typeahead_over_card_prompt | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2286 | 1 | PASS | PASS | 46.38 | 53.36/53.64 s, 1 upload(s), +10.72 s | PASS |
+| P29_typeahead_intro_only | failed | 0 | payment_intro > enter_card_number > invalid_try_again > enter_card_number > invalid_try_again > enter_card_number > returning_to_agent | 0/3365 | 1 | PASS | PASS | 67.99 | 74.96/75.28 s, 1 upload(s), +10.27 s | PASS |
+| P30_agent_cancel_mid_card | failed | 0 | payment_intro > enter_card_number | 0/1211 | 1 | PASS | PASS | 24.81 | 94.88/95.06 s, 1 upload(s), +10.5 s | PASS |
+| X01_sensitive_dtmf_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2628 | 1 | PASS | PASS | 53.39 | 60.24/60.66 s, 1 upload(s), +10.29 s | PASS |
+| X02_global_debug_experiment | completed | 1 | payment_intro > enter_card_number > enter_expiry > enter_cvv > enter_zip > one_moment > payment_captured > returning_to_agent | 0/2641 | 1 | PASS | PASS | 53.47 | 60.48/60.74 s, 1 upload(s), +10.34 s | PASS |
 
 Keypad digits FreeSWITCH itself exposed, per call (customer leg):
 
@@ -227,6 +233,7 @@ Keypad digits FreeSWITCH itself exposed, per call (customer leg):
 | P27_dtmf_across_bridge_after_entry | `1` | `1` | `1` |
 | P28_typeahead_over_card_prompt | `-` | `-` | `none` |
 | P29_typeahead_intro_only | `-` | `-` | `none` |
+| P30_agent_cancel_mid_card | `1` | `1` | `1` |
 | X01_sensitive_dtmf_experiment | `-` | `-` | `none` |
 | X02_global_debug_experiment | `-` | `-` | `none` |
 
@@ -234,21 +241,21 @@ P11 outside a call (`p11-evidence.sh`: `runner/luasec_eof.lua`, the script's tok
 
 ```
 baseline: freeswitch used 3% of one core over 5 s (no calls)
-20-40 s after the probe started: freeswitch used 101% of one core over 20 s
+20-40 s after the probe started: freeswitch used 100% of one core over 20 s
 probe log (seconds since start, step):
     0.001 connect 1
     0.005 handshake true
-    0.006 send 416
-    0.006 receive (status line) ...
-    0.007 receive returned line=nil err=unexpected eof while reading partial=0
-    0.007 second receive (first header line) ...
+    0.005 send 416
+    0.005 receive (status line) ...
+    0.006 receive returned line=nil err=unexpected eof while reading partial=0
+    0.006 second receive (first header line) ...
 RESULT: the second read never returned after 40 s (its timeout is 15 s)
 busiest freeswitch threads now (top -H):
         PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-          1 root      20   0 2272184  84820  40632 S  93.8   0.5   2:41.98 freeswi+
-       4058 root      20   0 2272184  84820  40632 R  93.8   0.5   0:39.56 freeswi+
-          7 root      20   0 2272184  84820  40632 S   0.0   0.5   0:00.03 freeswi+
-          8 root      20   0 2272184  84820  40632 S   0.0   0.5   0:00.37 freeswi+
+          1 root      30  10 2273848  85828  40396 S  99.9   0.5   2:32.81 freeswi+
+       4067 root      30  10 2273848  85828  40396 R  99.9   0.5   0:39.46 freeswi+
+          7 root      30  10 2273848  85828  40396 S   0.0   0.5   0:00.03 freeswi+
+          8 root      30  10 2273848  85828  40396 S   0.0   0.5   0:00.34 freeswi+
 after a FreeSWITCH restart: 3% of one core over 5 s
 ```
 
@@ -262,12 +269,12 @@ freeswitch.log                            0
 cdr-csv.txt                               0  
 cdr-json.txt                              0  
 core-db.bin                               0  
-freeswitch.log per-digit                  1  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
-console.txt per-digit                     1  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
+freeswitch.log per-digit                  3  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
+console.txt per-digit                     2  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
 ESL ALL events (pci)                      0  lines with a test PAN or CVV run (full-string search)
   events carrying a full PAN/CVV run, by name: {}
-  DTMF events (one digit each): 1
-  ESL log-stream lines about DTMF: 93
+  DTMF events (one digit each): 2
+  ESL log-stream lines about DTMF: 95
 ```
 
 Leak sweep (`pci-grep.sh`, pci-grep-after-experiments.txt):
@@ -280,34 +287,34 @@ freeswitch.log                            0
 cdr-csv.txt                               0  
 cdr-json.txt                              0  
 core-db.bin                               0  
-freeswitch.log per-digit                  1  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
-console.txt per-digit                     1  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
+freeswitch.log per-digit                  3  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
+console.txt per-digit                     2  'RECV DTMF' lines (INFO); channels whose logged digits spell a test card number: 0
 ESL ALL events (pci)                      0  lines with a test PAN or CVV run (full-string search)
   events carrying a full PAN/CVV run, by name: {}
-  DTMF events (one digit each): 1
-  ESL log-stream lines about DTMF: 93
+  DTMF events (one digit each): 2
+  ESL log-stream lines about DTMF: 95
 ```
 
 ## 6. ESL password from the environment, log hardening
 
 | check | result | detail |
 |---|---|---|
-| E1 | PASS | fs_cli with FS_ESL_PASSWORD: UP 0 years, 0 days, 0 hours, 10 minutes, 54 seconds, 216 milliseconds, 53 microseconds |
+| E1 | PASS | fs_cli with FS_ESL_PASSWORD: UP 0 years, 0 days, 0 hours, 11 minutes, 18 seconds, 588 milliseconds, 66 microseconds |
 | E2 | PASS | old repo password refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E3 | PASS | password 'ClueCon' refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E3 | PASS | password '<empty>' refused: [ERROR] fs_cli.c:1699 main() Error Connecting []  |
 | E4 | PASS | esl_password global = FS_ESL_PASSWORD |
-| E5 | PASS | fs_cli.sh -x status: ^@UP 0 years, 0 days, 0 hours, 10 minutes, 54 seconds, 799 milliseconds, 596 microseconds |
+| E5 | PASS | fs_cli.sh -x status: ^@UP 0 years, 0 days, 0 hours, 11 minutes, 19 seconds, 425 milliseconds, 35 microseconds |
 | E6 | PASS | event-listener: 'Connected to FreeSWITCH ESL' x2 |
 | E7 | PASS | compose without the value: error while interpolating services.freeswitch.environment.[]: required variable FS_ESL_PASSWORD is missing a value: set FS_ESL_PASSWORD in .env |
 | E8 | PASS | no env: ESL accepts none of '', ClueCon, the literal $FS_ESL_PASSWORD (name="password" value="1...") |
 | E9 | PASS | from 10.88.231.30: Content-Type: text/rude-rejection |
 | E10 | PASS | -r-------- root /etc/freeswitch/secure_payment.secret;-rw------- root /etc/freeswitch/.env; ignored: .env secure_payment.secret  |
 | E11 | INFO | copies of the ESL password: preprocessed freeswitch.xml.fsxml=1 (-rw-r--r--), freeswitch.log=0, console=0 |
-| L1 | PASS | freeswitch.log has no DEBUG lines after the matrix (levels:  121 [CONSOLE]  6 [CRIT]  25 [ERR]  1273 [INFO]  2413 [NOTICE]  14 [WARNING]  64 [] ) |
+| L1 | PASS | freeswitch.log has no DEBUG lines after the matrix (levels:  172 [CONSOLE]  9 [CRIT]  33 [ERR]  1412 [INFO]  3184 [NOTICE]  20 [WARNING]  96 [] ) |
 | L2 | PASS | console (docker logs) has no DEBUG lines |
 | L3 | PASS | 'RTP RECV DTMF' lines: file 0, console 0 |
-| L5 | PASS | no key pressed during the 29 secure entries was logged (RECV DTMF lines in entry windows: file 0, console 0; after entries, by design: file 1, console 1) |
+| L5 | PASS | no key pressed during the 30 secure entries was logged (RECV DTMF lines in entry windows: file 0, console 0; after entries, by design: file 3, console 2) |
 | L4 | INFO | core-dump limit: drafts (dump-cores no) 'Max core file size 0 unlimited bytes ' vs master (dump-cores yes) 'Max core file size unlimited unlimited bytes ' |
 
 
@@ -660,4 +667,354 @@ and these 6 rows are its acceptance test; (b) in the meantime BE-17 could
 refuse when `amd_result` exists and says HUMAN (costs nothing today, closes
 the hole the day BE-12 lands); (c) the agent-facing wording should say the
 message plays immediately, because today the button is the only guard.
+
+### Found in the fourth pass: eight confirmed faults, six fixed
+
+Each one was confirmed by an independent skeptic before this pass started.
+The lab could not see five of them because no case produced the input that
+triggers them; those cases exist now and no case was deleted, skipped or
+weakened to get a green.
+
+27. **AMD called a person who answers in phrases a MACHINE** (D1). mod_amd
+    counts a "word" every time voice resumes after `between_words_silence`
+    (250 ms) and declares MACHINE/MAXWORDS at `maximum_number_of_words`;
+    the only escape, `after_greeting_silence` (800 ms), ends the call as
+    HUMAN. So any pause between 250 and 800 ms chains words instead of
+    ending the analysis, and a person saying "Hello? ... yeah, this is
+    Mike ... who's this?" was a MACHINE within a few seconds. The lab could
+    not see it: its three human cases were one word, one espeak sentence,
+    and silence then one word - none of them ever produced a second word
+    group. Fixed in PR1's amd.conf.xml (greeting 2500 -> 5000,
+    maximum_number_of_words 3 -> 12, maximum_word_length 5000 -> 6000,
+    total_analysis_time 6000 -> 7000) with tests/amd_test.py driving a port
+    of the pinned mod_amd from the config file. New lab case
+    `human_phrases` (three phrases, explicit 0.4 s gaps).
+
+28. **The drop's silence wait never ended on a line that is not digitally
+    silent** (D2). `wait_for_silence:200 ...` asks for 1.5 s of frames
+    under an energy level of 200 - below carrier comfort noise, a car or an
+    office - so on a real line nothing counted as silence, the wait ran its
+    whole 30 s and then fell through to playback anyway (it has no failure
+    branch). Most carrier mailboxes stop recording at 30-45 s, so the
+    message was cut off or lost while the CRM had already written
+    "Voicemail left". Every drop case in the lab used anullsrc digital
+    silence, an energy floor of exactly 0, so the threshold never mattered
+    and the timeout branch had no coverage at all. Raised to 640, what
+    mod_amd treats as silence on the same signal, in BE-17's dropSteps and
+    in the lab's model of BE-12's play step. New lab case `vm_beep_noisy`
+    (the same greeting and beep over a white-noise floor measured at mean
+    492, max 561 per 20 ms frame - above the old 200, below 640), through
+    every drop flow, and a row now FAILS if the wait reached its timeout.
+
+29. **A voicemail drop could pull a customer out of card entry** (D4,
+    High). While a customer keys their card their leg is in the
+    secure_payment extension and the agent's is parked; `dropAllowed`
+    checked only that the call was "ongoing" with a valid other leg, so
+    "Machine: drop voicemail" uuid_transferred a live, paying customer out
+    of card entry, played them the recording and hung up - and Lua's hangup
+    hook treats that transfer as "the customer is elsewhere" and
+    deliberately does not bridge them back, leaving the agent parked on a
+    dead line. Every other path that moves the customer leg already calls
+    `assertNoSecureEntry`; the drop, added later, did not. Fixed in
+    ConexusCRM-BE (be17 -> pr13 -> pr14) with a db case that fails without
+    it.
+
+30. **A voicemail drop could never play a real presigned link** (D5,
+    High). Telephony files are stored under telephony/<org>/<uuid> with no
+    extension and a SigV4 query string has no "." either, so mod_httapi's
+    find_ext() found no file format; the content-type fallback lives inside
+    the HEAD branch that `nohead=true` skips, and `nohead` is there because
+    S3 signs a presigned link for GET only. switch_core_file_open() then
+    refused the cache file. Measured here on a real channel: "Unknown file
+    Format" / "Invalid cache file ... Discarding file", playback failed in
+    20 ms, and the next step - hangup - still ran, so the mailbox recorded
+    silence while the lead was stamped "Voicemail left" and a retry was
+    refused with "already_dropped". The parameter cannot be written
+    `(nohead=true,ext=wav)`: the inline dialplan splits that comma first
+    (measured: a truncated URL plus an "Invalid Application ext=wav)..."
+    and DESTINATION_OUT_OF_ORDER). `switch_event_create_brackets`' `^^`
+    prefix chooses the separator, so `(^^;nohead=true;ext=wav)` carries
+    both. Same URL, same channel, with the fix: the file played for 6.94 s.
+    Fixed in ConexusCRM-BE; the extension comes from the recording's stored
+    mime type and a format FreeSWITCH cannot open now refuses the drop
+    up front. The lab missed it because its one https row played
+    /vm/drop.wav, whose last path segment ends in .wav; be17https now plays
+    a presigned-shaped link (the mock serves that shape GET-only and
+    answers HEAD with 403, as S3 does).
+
+31. **A beep-only mailbox was judged HUMAN and the row accepted any
+    verdict** (D6). `greet` is set after only `min_word_length` (100 ms) of
+    voice, so a mailbox whose greeting is just a beep - or whose first word
+    is followed by a gap over 800 ms - comes out HUMAN/SILENCEAFTERGREETING
+    and, under the amdbeep flow, is handed to an agent as a live customer
+    while the lead is burned as a connect. The row's criterion was
+    "(any) verdict + beep", so the wrong verdict was invisible, and
+    beep_only was in no drop flow at all. Raising after_greeting_silence
+    far enough to catch it would delay the verdict on every real person,
+    which is the wrong trade; instead the flow now treats an avmd beep
+    inside the first 2 s as a machine whatever mod_amd said (avmd detects
+    it 5/5 at about 1.0 s), the row records HUMAN rather than accepting
+    anything, and beep_only runs through the drop flow.
+
+32. **Keys typed over a field prompt were thrown away** (D7). read_field()
+    played the prompt and then drained every queued key, so it could not
+    tell the previous field's leftovers from digits the caller had started
+    keying over this prompt. Fixed in PR4 (the drain now runs BEFORE the
+    prompt; a field that fills up drains only its own 1 s tail; collect()
+    plays a prompt before every retry). The lab recorded this as working on
+    the strength of P20, which sends an early burst AND THEN the whole card
+    again - that shows the dropped keys do not corrupt the entry, not that
+    type-ahead works. New `P28_typeahead_over_card_prompt` keys the card
+    0.5 s into enter_card_number.wav and re-keys nothing, so the entry can
+    only complete if those keys are kept; a new OVER_PROMPT step waits for
+    that prompt's PLAYBACK_START rather than guessing the time. New
+    `P29_typeahead_intro_only` keys over the intro and re-keys nothing:
+    those keys are dropped on purpose (before the card prompt nothing tells
+    them from keys pressed earlier, and a remainder that passes Luhn would
+    be posted as someone else's PAN), so what is required is that the
+    customer is prompted again rather than left in silence and the entry
+    ends without taking a card. The sentence in "What worked as designed"
+    has been corrected.
+
+### The two of the eight NOT fixed, and why
+
+**D3: the drop is still fire-and-forget.** `sendDrop` returns true on
+`uuid_transfer ... +OK`, which only means FreeSWITCH accepted the
+transfer; `dropVoicemail` then writes the "Voicemail left" disposition and
+`voicemailDroppedAt` and takes the one-drop lock. If `playback` fails at
+that point - an S3 5xx, a DNS or TLS hiccup, or a link that has aged past
+its 300 s signature - the next step, `hangup`, still runs: the mailbox
+gets dead air, the compliance record says a recorded message was left on a
+number that required written consent, and a retry is refused.
+
+Not fixed tonight, deliberately. Confirming the playback means the
+disposition is no longer written in the request that the agent's button
+makes: `wait_for_silence` alone can run 30 s, so the request cannot wait
+for it, and the write has to move to an event. That changes when and
+whether a compliance record exists and what the agent's screen says - a
+behaviour change for Eric, and the kind of thing that gets an adversarial
+review before it goes near a live floor, not a change made at 3 a.m. on
+the night of a window.
+
+What I would do, for whoever picks it up: keep the drop context in Redis
+under the customer leg uuid when the transfer is accepted (the one-drop
+lock is already there), and settle it from an event the BE *already*
+subscribes to - `CHANNEL_HANGUP_COMPLETE` on that leg, which carries the
+channel variables. A playback that really ran leaves evidence there that
+one which never opened the file does not - `playback_last_offset_pos` is
+the likely candidate; confirm in the lab which variable is actually set on
+each path before relying on it, the harness already reads
+`Application-Response == "FILE PLAYED"` for the same question.
+That avoids subscribing to `PLAYBACK_START` platform-wide, which would
+mean a handler call for every prompt and every piece of hold music on the
+system. Settle on that event: write the disposition and
+`voicemailDroppedAt` only if it played, and on failure clear the lock,
+leave the lead alone and tell the agent.
+
+Worth saying plainly: D5 removed the only *systematic* cause. Before it,
+**every** drop against a real presigned link failed this way - the lab now
+plays one end to end. What is left is the intermittent case.
+
+**D8: a transfer out of secure entry still leaves the agent parked.**
+Lua's hangup hook treats `status == "transfer"` as "the customer is
+elsewhere", fires `final("failed","transfer")` and does not bridge them
+back; `progress-listener.ts` folds every "failed" into "cancelled", and
+`endSecureEntry` skips the re-bridge for "cancelled" because "Lua
+reconnects the customer itself" - which is exactly what Lua did not do.
+`releaseAgentLeg` does not take the agent channel out of `park`. The agent
+sits in silence while the CRM says the customer is back.
+
+Not fixed tonight. The fix needs three things at once: a new state or
+reason in PR4's Lua so the BE can tell a transfer from a customer-driven
+cancel, a change in `end-secure-entry.ts` (which is telephony code, not on
+any of the campaign branches), and a new PCI case that uuid_transfers the
+customer leg mid-entry - and a new PCI case means another full matrix run.
+PR4's Lua is also being edited by the static review in parallel tonight.
+
+The trigger the finding describes end to end - the voicemail drop pulling
+the customer out - is closed by D4 above, and every other BE path that
+moves the customer leg already calls `assertNoSecureEntry`. What remains
+is a transfer from outside the BE (fs_cli, another system, or a race), so
+this is worth doing properly in its own PR rather than rushed here.
+
+### The new red: AMD's greeting trigger cannot fire inside its own window
+
+This is the one thing this pass found that nobody had raised, and it is
+why section 3 is not green.
+
+PR1's fix for D1 raised `greeting` 2500 -> 5000 so that a person who
+answers with a sentence in one breath (2.6-3 s of voice) is not called a
+MACHINE. It left `total_analysis_time` at 7000. In mod_amd,
+`voice_duration` only accumulates on frames at or above
+`silence_threshold` and is reset by any silence of `between_words_silence`
+(250 ms) or more, so LONGGREETING now needs **5000 ms of accumulated voice
+inside a 7000 ms wall-clock window** - a voice density above about 71%.
+Ordinary speech does not reach that: the gaps between words are 120-180 ms,
+under the 250 ms reset but still silence, so they do not count towards it.
+
+Measured on the lab's own audio through the same G.711 round trip
+(`failfirst/D1-amd-greeting-vs-analysis-window.log`): a deliberately
+continuous 13.4 s greeting - one sentence, no pauses between sentences at
+all, the easiest machine there is - reaches 5000 ms of voice at t = 7.22 s
+and so is **NOTSURE/TOOLONG at 7.00 s**. It misses by 220 ms. With
+`total_analysis_time` at 9 s or more the same clip is MACHINE/LONGGREETING
+at 7.22 s.
+
+So under the drafted config every mailbox in the lab is NOTSURE. Before
+PR1 they were MACHINE - but by MAXWORDS, the very bug D1 removes, not by
+anything about their length. Section 3's machine rows and the `amdbeep`
+rows that depend on a MACHINE verdict therefore go red. That is the
+harness doing its job: it is reporting that the configuration does not do
+what those rows demand.
+
+`tests/amd_test.py` does not catch it because it drives the state machine
+from hand-written envelopes in which voice is continuous, so its "7 s
+greeting, no real pauses" row reaches LONGGREETING at 5720 ms. Real audio
+has word gaps and about half the density. This is the difference between
+a unit test and a real call, and it is the reason this lab exists.
+
+**Not changed tonight, on purpose.** Raising `total_analysis_time` is the
+obvious fix and the lab says 9 s would be enough for this clip, but that
+number is also how long a live person who never pauses for 800 ms sits in
+silence before AMD gives up and sends them to an agent - on an outbound
+dialer that is dead air on a real customer. That is Eric's trade, not
+mine, and it wants its own measurement on recorded real calls rather than
+espeak.
+
+Nothing in tonight's window depends on it. AMD is advisory (RUNBOOK
+section F says so), BE-17's drop is a manual button with no AMD on the
+call at all, and BE-12's automatic drop is not being built tonight. The
+config errs in the safe direction: it will not call a person a machine.
+What it will also not do is call a machine a machine - so **BE-12 cannot
+be built on this verdict as it stands**, and the avmd beep is the signal
+that actually works (5/5 detections, see section 3).
+
+### The matrix after this pass: 69 of 87
+
+The matrix grew from 77 rows to 87 (the new cases above). 69 pass. The 18
+that do not are four separate things, and only one of them is new work
+this pass introduced:
+
+**9 rows - AMD's greeting trigger (the section above).** Section 3's five
+mailbox cases (`vm_beep_short`, `vm_beep_long`, `vm_beep_1200ms`,
+`vm_beep_noisy`, `vm_nobeep`) are NOTSURE/TOOLONG at 7.0 s where the row
+asks for MACHINE, and the four `amdbeep` rows that need a MACHINE verdict
+to start a drop follow from it. Not a harness error: the rows ask for the
+right thing and the configuration cannot deliver it. See above for why it
+was not changed tonight.
+
+**6 rows - BE-17 pressed on a live person**, unchanged from the third pass
+and still out of scope here (`be17`/`runbook` x `human_hello`,
+`human_long`, `silent_then_hello`). BE-17 is a button with no AMD on the
+call; the real fix is BE-12.
+
+**2 rows - `vm_beep_1200ms` on `be17`/`runbook`, NEW, caused by D2.** With
+the threshold at 640 the drop's `PLAYBACK_START` lands at 8.52 s and the
+nominal end of the 1.2 s beep is 8.671 s, so `drop_before_beep_end` trips;
+at 200 the drop started at 10.70 s and it did not. What the mailbox
+actually hears is still after the beep - `drop_heard_onset` is 8.78 s
+against a beep that the far end's own recording shows ending at 8.68 s -
+so no message is lost, and the other beep cases (0.25 s, 0.5 s, and the
+noisy line) all pass. But the margin on the longest beep is now 0.15 s on
+the sending clock, and I could not reconcile that with the arithmetic:
+reading the real `switch_ivr_wait_for_silence`
+(switch_ivr_play_say.c:2080), a loud frame resets `silence_hits`, so the
+beep at 7.50-8.68 should have reset the count and pushed the drop out to
+about 10.7 s. It did not. **Left red deliberately** rather than relaxing
+the check: until that is explained, the drop's timing against a long beep
+is not understood, and a row that is not understood should not be made to
+pass. It is a 0.15 s margin on a case that still delivers the message, not
+a reason to hold the window.
+
+**1 row - P26, the recording-coverage check.** The call itself passes
+every assertion it has (`state_ok`, `requests_ok`, `no_digit_action_vars`,
+`probe_ok`, `masked_silent`, `reconnected`, `bridged_after_entry` are all
+true, the card was taken, nothing leaked). What fails is the check added
+later that the stored recording covers the call: 59.88 s against a
+61.16 s call, where the check allows 1.0 s. Every other case this run is
+within 0.3 s. This is the repo's upload-audio sidecar, which nothing in
+this pass touches; P26 is the only case that does extra `uuid_broadcast`
+work before the entry, which is the obvious suspect for the later start.
+Re-running P26 on its own does not settle it: standalone the sidecar has
+not uploaded at all by the time the harness looks (`uploads: 0`), so the
+single-case path cannot measure this check. Worth fixing in the harness -
+wait for the upload rather than sampling - but it is a measurement of the
+recording sidecar, not of the drafts.
+
+### Fifth pass: three confirmed faults, all fixed, each failing first on real calls
+
+**1. The drop's silence wait was on the wrong scale (this was the
+"unexplained" vm_beep_1200ms row).** FreeSWITCH 1.10.12's
+`switch_ivr_wait_for_silence` scores a frame with
+`energy += abs(data[j++]); j += channels;` over 160 samples: on a mono line
+it reads every other sample, runs on into the zeroed rest of the buffer,
+and still divides by 160. A frame scores about HALF its true mean
+|sample|, the scale mod_amd's `silence_threshold` (640) is on. So the
+drop's 640, chosen "to agree with mod_amd", was about 1280 on mod_amd's
+scale: the lab's beep (true mean 1238) scored about 513 and never reset
+the quiet count, and the drop started 2.0 s after the greeting's last loud
+frame whatever the beep did. That is exactly the 8.52 s measured, which
+the fourth pass could not reconcile. `wfs-sim.py` replays the switch's own
+loop on the lab audio: 640 gives 8.52 s on `vm_beep_1200ms` (measured
+8.52), 8.52 s on the new `vm_beep_late` (beep ends 9.07), and 3.50 s on the
+7 s greeting played 16 dB quieter (the drop inside the greeting).
+- Fix: 400, in BE-17 `dropSteps()` (campaign-be17 c2619f30, merged up to
+  pr13/pr14), RUNBOOK F3 `droptest`, and the lab's amdbeep wait. Why not
+  320 (half of 640): an 80-sample score of line noise swings well above its
+  average, so a floor just under mod_amd's 640 (true mean 620) still reset
+  the count at 320; at 400 it does not, and a 1000 Hz beep at -20 dBm0
+  (568-804 depending on phase) still holds the drop at any phase.
+- Left as is, written down in the code: a beep at exactly 2000 Hz can fall
+  wholly on the samples the switch skips and score near 0 however loud.
+- Tests: the BE unit tests now render real 8 kHz samples (beeps in dBm0,
+  noise at a true mean) and score them with the switch's loop (2 fail at
+  640, 1 at 320, 0 at 400: `failfirst/P5-D1-be-tests-*.log`). Lab: new case
+  `vm_beep_late` (-20 dBm0 beep ending 2.2 s after the greeting) on be17 x2
+  and runbook; before 8.52-8.56 s FAIL, after 11.06-11.08 s pass;
+  vm_beep_1200ms 8.52 FAIL -> 10.66 pass (`failfirst/P5-D1-D3-drop-*.log`).
+
+**2. An entry the CRM ends mid-card (agent Cancel, error, watchdog) turned
+keypad protection off while the customer was still keying.** The CRM
+`uuid_bridge`s at once with no prompt; the script's session is then not
+ready, `reconnect()` returns early, and the script unset `sensitive_dtmf`
+straight away. New case **P30_agent_cancel_mid_card** (Cancel 4 digits in,
+the customer keys the other 12 and the CVV): before, all 15 keys were in
+freeswitch.log (`RECV DTMF`), `digits_dialed` (json CDR), DTMF events, and
+reached the agent's phone.
+- Fix (PR4): unset at once only when the script itself put the customer
+  back (after its closing prompt, as before). Any other way out keeps it on
+  and lifts it 60 s later (`sched_api +60 secure_payment_unprotect_<uuid>
+  uuid_setvar <uuid> sensitive_dtmf`); a new entry cancels that first
+  (`sched_del`), so a hold from an earlier entry can never lift protection
+  in the middle of a card. While held, the customer's keys reach nobody
+  (FreeSWITCH drops sensitive keys at the bridge), which is the point; P30
+  checks that a key crosses again after the hold.
+- After: none of the 15 keys anywhere, `sensitive_dtmf` still `true` when
+  the customer finishes, unset 60 s later and a "1" reaches the agent
+  (`failfirst/P5-D2-P30-*.log`). `tests/sp_sim.py`: new
+  `crm_bridged_mid_card`; 40 failed checks on the old script, 0 now.
+- Not changed here (BE, outside these branches): end-secure-entry.ts still
+  unmasks the recording right after its bridge, so on a line that carries
+  DTMF in-band the tones of keys pressed after a Cancel would be recorded.
+  Playing a short "returning you to your agent" prompt before the CRM's
+  bridge and delaying the unmask a few seconds would close that too.
+
+**3. Every drop left its recording, and its presigned link, in mod_httapi's
+cache for good.** mod_httapi writes `<md5 of url>.wav` and `.meta` (the
+whole link: org id, file id, key id, signature) to
+`<storage_dir>/http_file_cache`; `file-cache-ttl` only sets when a copy is
+fetched again and never deletes one. Each drop's link is new, so each drop
+is a new copy, in the container's writable layer. Only a Cache-Control
+no-store/no-cache answer makes mod_httapi delete both when playback ends.
+- Fix: BE-17 signs the playback link with `ResponseCacheControl: "no-store"`
+  (campaign-be17 7c755e9b, merged up); S3 then answers with
+  `Cache-Control: no-store`. PR1's httapi.conf.xml comment now says this,
+  and never to set `abs-file-cache-ttl` (with it mod_httapi ignores the
+  header).
+- Lab: be17https now fails if anything of its link is left in the cache;
+  `run-matrix.sh` reads `ResponseCacheControl` from the campaign branch and
+  the mock answers with it as S3 does. Before: two 332,730-byte copies and
+  their .meta files left; after: the directory is empty.
+- Not added: a periodic purge of the cache directory as a second guard
+  (no cron in the image; it would be its own change).
 
