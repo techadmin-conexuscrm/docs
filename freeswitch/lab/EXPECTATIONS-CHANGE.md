@@ -1,3 +1,5 @@
+> **APPROVED by Eric, 2026-10-24.**
+
 # Lab expectations: what changed with the AMD strategy (for Eric to approve)
 
 The lab used to ask mod_amd one question - "person or machine?" - and grade

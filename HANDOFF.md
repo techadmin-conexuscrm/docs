@@ -59,6 +59,14 @@ is merged. Your job:
 > - The lab may fix campaign BE branches where the failure lies there.
 > - Warm transfer: **CLEAN** (`battle-tests/01-warm-transfer.md`; BE d6ec6696, FE 2e258c21).
 
+
+> **Eric's decisions, 2026-10-24:**
+> 1. The 21 lab expectation changes are **APPROVED** ("no beep, no automatic voicemail message"; NOTSURE counts as a person).
+> 2. **Pilot mode is APPROVED:** the agent joins at answer, AMD logs only, and a drop plays only after a beep.
+> 3. **Build BE-12:** start the beep detector at answer on campaign calls.
+> 4. **New feature:** a 12-second minimum on campaign calls, a VM-drop countdown pop-up, the hold message and a short-call tracker. Spec: `plans/min-call-duration-12s.md`.
+> 5. **Channel capacity** is 10 today (the carrier trunk); sizing questions are open in that spec.
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
