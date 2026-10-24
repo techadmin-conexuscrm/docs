@@ -550,6 +550,8 @@ N0=$(sudo docker exec fs grep -c 'RECV DTMF' /var/log/freeswitch/freeswitch.log)
 | B11b **type-ahead** | at the card prompt, start keying `4111111111111111` about a second into the prompt, without waiting for it to finish; then expiry `1230`, code `123`, ZIP `78704` normally | the same as B1 first time: "received securely", **Agent screen** `Visa •••• 1111 · 12/30`. You are **not** asked for the card again, and you do not sit in silence. | OK, or what you heard |
 | B11c **typed ahead between fields** | card `4111111111111111#` and, within a second of the `#` and without waiting for the next question, expiry `1230`; then code `123` and ZIP `78704` after their prompts | no "not valid" anywhere. You are **not** asked for the expiry (you already keyed it): the next thing you hear after the card prompt is the code prompt. Then the same as B1: "received securely", **Agent screen** `Visa •••• 1111 · 12/30`. | OK, or what you heard |
 | B12 **queue caller, transferred** | from your mobile, call the test company's number that goes to a ring group with callback on (the default) and wait in its queue, pressing nothing; agent A answers and transfers you to agent B; B clicks **Start secure entry**; key B1's card, expiry, CVV and ZIP (`1230` and `78704` have a `0`) | the same as B1. You never hear "we will return your call", and the call does not drop at a `0`. The `secure_payment` extension runs `clear_digit_action all` before it asks for anything, and `app.py` now also drops the binding when the agent answers. | OK, or what you heard; then B10's commands again |
+| B13 **talking over the closing prompt** | key B1's card, expiry, CVV and ZIP; as soon as "Returning you to your agent now" starts, say out loud "four one one one" until it ends; then play this call's recording in the CRM | in the recording, **silence from the intro through the end of "Returning you to your agent now"**: your "four one one one" is not in it, nor in the transcript. Voice comes back only once you and the agent are talking again. (The script now tells the CRM the entry is over only after it has put you back with the agent, and the CRM unmasks the recording on that message.) | OK, or what the recording has |
+| B14 **hang up during the closing prompt** | key B1's card, expiry, CVV and ZIP; as soon as "Returning you to your agent now" starts, hang up | **Agent screen:** "Customer hung up during payment" within a few seconds, and **the agent's line ends by itself** (the agent does not sit in silence and does not have to hang up). The call is saved. | OK, or how long the agent's line stayed up |
 
 B10 commands. On the FS box, in the same terminal as `BSTART` and `N0`.
 FreeSWITCH would log a keypad digit one per line (`RECV DTMF 4:...`) and
@@ -589,7 +591,7 @@ after a declined card it only asks again if about a minute is left. Then
 you hear "unable to take your card details right now" and go back to the
 agent, before the CRM's own 3-minute limit cuts in without a word.
 
-If any of B1, B4, B7, B9, B10 or B12 is NOT OK, switch secure entry off with the
+If any of B1, B4, B7, B9, B10, B12, B13 or B14 is NOT OK, switch secure entry off with the
 no-downtime rollback in §4. Leave everything else.
 
 ### C. Other payments (not FreeSWITCH; checks nothing else broke)

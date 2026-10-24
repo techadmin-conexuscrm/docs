@@ -159,5 +159,15 @@ printf '%s\n' "$B" | grep -q 'digits_dialed' && ok "B10: looks at digits_dialed 
 printf '%s\n' "$B" | grep -qE 'docker logs .*fs' && ok "B10: looks at docker logs" \
   || bad "B10: does not look at 'docker logs fs'"
 
+# the closing prompt: the final event goes after the bridge, so speech over
+# "Returning you to your agent now" stays masked, and a hang-up there ends
+# the agent's leg
+printf '%s\n' "$B" | grep -E '^\| B13' | grep -i 'returning you to your agent' | grep -qi 'recording' \
+  && ok "B13: speech over the closing prompt is checked in the recording" \
+  || bad "B13: nothing checks the recording while 'Returning you to your agent now' plays"
+printf '%s\n' "$B" | grep -E '^\| B14' | grep -i 'returning you to your agent' | grep -qi 'hang up' \
+  && ok "B14: a hang-up during the closing prompt is tested" \
+  || bad "B14: no test of a hang-up during 'Returning you to your agent now'"
+
 echo "runbook_test: $fails failed"
 exit $((fails > 0))

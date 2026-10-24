@@ -143,12 +143,24 @@ function make_session()
   function s:setHangupHook(name) S.hook = name end
   function s:ready() return not S.gone end
   function s:execute(app, data) rec("execute", app, data) end
-  function s:hangup(cause) rec("hangup", cause); S.gone = true end
+  -- the script's own hang-up runs mod_lua's hook like any other
+  function s:hangup(cause) rec("hangup", cause); S.gone = true; fire_hook("hangup") end
   function s:streamFile(path)
     local name = path:match("([^/]+)$")
     local dur = S.cfg.prompt_s[name] or 3
     rec("play", name)
     S.heard = true
+    -- the customer hangs up (or someone else uuid_transfers the leg) one
+    -- second into this prompt: playback stops and mod_lua runs the hook as
+    -- soon as streamFile returns
+    local cut = (S.cfg.hangup_in == name and "hangup") or (S.cfg.transfer_in == name and "transfer")
+    if cut then
+      S.t = S.t + 1
+      S.gone = true
+      rec(cut == "hangup" and "hung_up" or "transferred")
+      fire_hook(cut)
+      return
+    end
     S.t = S.t + dur
     -- A prompt is not interruptible (streamFile has no input callback), so
     -- the keys the customer goes on pressing while it plays are queued on
@@ -218,7 +230,9 @@ function run(cfg, src)
   freeswitch = {
     API = function() return { executeString = function(_, cmd)
       rec("api", cmd)
-      if cmd:match("^uuid_exists") then return "true" end
+      if cmd:match("^uuid_exists") then return cfg.agent_gone and "false" or "true" end
+      -- uuid_bridge of a customer leg that is gone (hung up or moved away)
+      if cmd:match("^uuid_bridge") and S.gone then return "-ERR no such channel" end
       return "+OK"
     end } end,
     getGlobalVariable = function(n) return cfg.globals[n] end,
@@ -351,6 +365,14 @@ SCENARIOS = {
     "everything_typed_ahead_after_card": dict(
         keys=keys(VISA + "#") + [(c, 0.3, False) for c in "123012378704"],
         replies=[OK], want=dict(pan=VISA, expiry="1230", cvv="123", zip="78704"), clean=True),
+    # The card is saved, and the customer hangs up while "Returning you to
+    # your agent now" plays. The agent's leg is still parked: only a
+    # customer_hangup makes the CRM end it.
+    "hangup_during_returning_prompt": dict(keys=GOOD_FAST, replies=[OK], hangup_in="returning_to_agent.wav"),
+    # ...or someone else moves the customer away (a voicemail drop) over it
+    "transferred_during_returning_prompt": dict(keys=GOOD_FAST, replies=[OK], transfer_in="returning_to_agent.wav"),
+    # the agent's leg is gone by the time the card is saved
+    "agent_gone_at_reconnect": dict(keys=GOOD_FAST, replies=[OK], agent_gone=True),
     # "*" pressed while a prompt plays still goes back to the agent
     "star_during_prompt": dict(keys=keys(VISA + "#") + [("*", 2.0, False)], replies=[]),
     # A pause is one failed attempt, not the end of the entry: 12 s to find
@@ -461,6 +483,8 @@ def run_all(script_path, secret_path, ca_path):
                              "replies": [[r for r in rep] for rep in sc["replies"]],
                              "probe": list(sc.get("probe", PROBE_OK)),
                              "cert": sc.get("cert", {}),
+                             "hangup_in": sc.get("hangup_in"), "transfer_in": sc.get("transfer_in"),
+                             "agent_gone": sc.get("agent_gone", False),
                              "globals": globals_, "prompt_s": PROMPT_S})
         out = run(cfg, src)
         log = []
@@ -521,13 +545,15 @@ def check(results):
         # digits_dialed (json CDR and CHANNEL_HANGUP, which
         # scripts/event/esl_listener.py POSTs to the CRM in full).
         moved_away = name in ("transferred_mid_card", "crm_bridged_mid_card")
+        hung = any(e["kind"] in ("hung_up", "hangup") for e in r["log"])
+        moved_late = name == "transferred_during_returning_prompt"
         def idx(kind, pred):
             return [i for i, e in enumerate(r["log"])
                     if e["kind"] == kind and pred(e["a"])]
         unset = idx("api", lambda c: c.startswith("uuid_setvar ") and c.strip().endswith(" sensitive_dtmf"))
         held = [(i, r["log"][i]["a"]) for i in idx("api", lambda c: c.startswith("sched_api ")
                                                     and c.strip().endswith(" sensitive_dtmf"))]
-        if name != "customer_hangup_mid_card" and not moved_away:
+        if not hung and not moved_away and not moved_late:
             bridge = idx("api", lambda c: c.startswith("uuid_bridge"))
             played = idx("play", lambda _a: True)
             expect(name, unset, "sensitive_dtmf never unset at the end of the entry")
@@ -563,9 +589,43 @@ def check(results):
         expect(name, all(e["b"] == "true" for e in reads),
                "a key was read while sensitive_dtmf was not true on the channel")
 
+        # The final event is what the CRM acts on: it unmasks the recording
+        # and stops watching the call. Sent before the customer is bridged
+        # back, everything said over "Returning you to your agent now" goes
+        # into an unmasked recording (and its transcript), and a hang-up
+        # during that prompt is never reported, so the parked agent leg is
+        # never ended.
+        ev = [i for i, e in enumerate(r["log"]) if e["kind"] == "event"
+              and e["a"].get("Secure-Payment-State") in ("completed", "cancelled", "failed")]
+        bridged = [i for i, e in enumerate(r["log"]) if e["kind"] == "api" and e["a"].startswith("uuid_bridge")]
+        if ev and bridged:
+            expect(name, ev[0] > bridged[-1],
+                   "the final event (on which the CRM unmasks the recording) was sent before the customer "
+                   "was bridged back: the closing prompt is recorded unmasked")
+
     def state(name):
         f = finals(results[name])
         return f[-1] if f else (None, None, None)
+
+    for n in ("hangup_during_returning_prompt", "transferred_during_returning_prompt"):
+        st = state(n)
+        expect(n, CRM_ON_FINAL.get(st[1]) == "hangs_up_agent_leg",
+               "the customer left during 'Returning you to your agent' but the CRM was told %r ('%s'): "
+               "the agent stays parked on a dead line" % (st[1:], CRM_ON_FINAL.get(st[1])))
+        r = results[n]
+        cut = [i for i, e in enumerate(r["log"]) if e["kind"] in ("hung_up", "transferred")]
+        expect(n, not any(e["kind"] == "api" and e["a"].startswith("uuid_bridge") for e in r["log"][cut[0]:]),
+               "uuid_bridge sent after the customer leg was gone")
+    expect("transferred_during_returning_prompt", state("transferred_during_returning_prompt")[2] == "transfer",
+           "the transfer is not named as the reason: %r" % (state("transferred_during_returning_prompt"),))
+    # the agent's leg is gone: the CRM must still hear the entry's own result
+    # (it then sees the agent leg dead and ends the call as the agent's
+    # hang-up), not a customer hang-up the script caused itself
+    r = results["agent_gone_at_reconnect"]
+    expect("agent_gone_at_reconnect", state("agent_gone_at_reconnect")[1] == "completed",
+           "want completed, got %r" % (state("agent_gone_at_reconnect"),))
+    expect("agent_gone_at_reconnect", plays(r)[-1:] == ["agent_unavailable.wav"]
+           and any(e["kind"] == "hangup" for e in r["log"]), "customer not told and hung up: %r" % plays(r))
 
     expect("happy_path", state("happy_path")[1] == "completed", "not completed: %r" % (state("happy_path"),))
     expect("decline_then_ok", state("decline_then_ok")[1] == "completed", "not completed")

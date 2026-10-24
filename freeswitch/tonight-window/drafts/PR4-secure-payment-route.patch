@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..568c4b0
+index 0000000..2bcd22b
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,917 @@
+@@ -0,0 +1,930 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -168,7 +168,8 @@ index 0000000..568c4b0
 +      full argument line (API-Command-Argument), so the card would reach any
 +      ESL client subscribed to API or ALL events;
 +    - always reconnects the customer to the agent at the end (pcall), and the
-+      CRM's watchdog does it too if this script never gets there.
++      CRM's watchdog does it too if this script never gets there. The final
++      event goes after the bridge, not before (see reconnect).
 +
 +  Requires on the FreeSWITCH host: LuaSec + LuaSocket for the Lua version
 +  mod_lua is built with (e.g. Debian: lua-sec, lua-socket), the CA bundle at
@@ -889,15 +890,27 @@ index 0000000..568c4b0
 +end
 +
 +-- ── reconnect ───────────────────────────────────────────────────────────────
-+local function reconnect()
++-- Runs BEFORE the final event (state, reason) is sent, because the CRM acts
++-- on that event at once: it unmasks the recording and stops watching the
++-- call. Sent first, the customer would still be in here for the whole of
++-- "Returning you to your agent now", talking into an unmasked recording, and
++-- a hang-up (or a transfer) during that prompt would never be reported, so
++-- the agent's parked leg would never be ended. Sent after, such a hang-up
++-- reaches the CRM as customer_hangup (the hang-up hook sends it) and the agent
++-- leg is ended. Only when the agent's leg is already gone is the result sent
++-- first: the customer is hung up here, and the CRM, seeing the agent leg
++-- dead, ends the call as the agent's hang-up.
++local function reconnect(state, reason)
 +  if hung_up or transferred or not session:ready() then return end
 +  local agent_up = api:executeString("uuid_exists " .. AGENT_UUID)
 +  if agent_up and agent_up:match("^true") then
 +    play("returning_to_agent.wav")
++    if hung_up or transferred then return end
 +    local r = api:executeString("uuid_bridge " .. CUSTOMER_UUID .. " " .. AGENT_UUID)
 +    reconnected = r ~= nil and r:match("^%+OK") ~= nil
 +  else
 +    log("warning", "agent leg gone; ending the call")
++    final(state, reason)
 +    play("agent_unavailable.wav")
 +    session:hangup("NORMAL_CLEARING")
 +  end
@@ -1018,8 +1031,8 @@ index 0000000..568c4b0
 +  result, reason = "failed", "error"
 +end
 +if not hung_up and not transferred then
++  reconnect(result or "failed", reason)
 +  final(result or "failed", reason)
-+  reconnect()
 +end
 +-- The keys are the customer's again only once nothing of the card can
 +-- still be coming. sensitive_dtmf left on for the rest of the call would
