@@ -43,7 +43,7 @@ All drafts are in
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
 | PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret, and one line in `scripts/api/app.py` so a queue's `0 = callback` binding is dropped when an agent answers, not only on a queue timeout. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. A pin counts only on the leaf itself or on the certificate whose **signature** is on the leaf (checked by OpenSSL, not by name), never on a pinned certificate the server merely sends alongside it, nor on one that only shares its name - otherwise anyone holding a mis-issued certificate for `api.tryconexus.com` could append a (public) Let's Encrypt intermediate, or name their own intermediate like one, and be accepted. | the swap (would also work live with `reloadxml`) |
-| PR5 | `claude/fs-log-hardening` | log level `info`, `dump-cores no`, no debug lines in the file log | the swap |
+| PR5 | `claude/fs-log-hardening` | log level `info`, no debug lines in the file log, and **no core dumps**: `ulimits: core` 0/0 on the `freeswitch` service in `docker-compose.yml`, core files git- and docker-ignored. (`dump-cores no` alone turns nothing off: FreeSWITCH only acts on it when it is `yes`, and a docker-ce host gives containers an unlimited core limit. A core file would hold any card digits still in memory and land in `/home/admin/freeswitch-conf`.) W7 checks the limit. | the swap |
 
 They merge cleanly together. The XML parses, and the old password appears
 nowhere.
@@ -446,6 +446,7 @@ local a = pcall(require, "socket"); local b = pcall(require, "ssl"); local c = p
 stream:write(string.format("%s socket=%s ssl=%s ssl.https=%s\n", _VERSION, tostring(a), tostring(b), tostring(c)))
 EOF
 fsx 'lua /tmp/luacheck.lua'          # all true
+sudo docker exec fs grep 'core file' /proc/1/limits   # Max core file size  0  0  bytes. Anything else: core dumps are on; switch secure entry off (§4) and tell me
 sudo docker compose logs --since 5m event-listener | grep -E 'Connected to FreeSWITCH ESL|Failed|Error' | tail -5   # Connected
 ```
 

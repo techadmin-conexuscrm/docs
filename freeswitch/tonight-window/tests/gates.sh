@@ -114,6 +114,9 @@ gate "4e amd_test.py" $rc
 "$PY" "$TW/tests/queue_binding_test.py" "$R/scripts/api/app.py" > "$OUT/queue.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/queue.out"
 gate "4f queue_binding_test.py" $rc
 
+"$PY" "$TW/tests/core_dump_test.py" "$M" "$TW/RUNBOOK.md" > "$OUT/core_dump.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/core_dump.out"
+gate "4h core_dump_test.py (core limit 0/0 in compose, core files ignored, W7 checks it)" $rc
+
 # 4g. the TLS pin check on real certificates with real LuaSec (needs docker and
 # the lab image; skipped, not failed, without them)
 if docker image inspect conexus-fs:lab > /dev/null 2>&1; then

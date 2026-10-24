@@ -1,3 +1,30 @@
+diff --git a/.dockerignore b/.dockerignore
+index 074a3a2..2fbfd16 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -4,6 +4,8 @@
+ __pycache__
+ **/__pycache__
+ **/*.pyc
++core
++core.*
+ call-cdr-json
+ recording
+ voicemail_recordings
+diff --git a/.gitignore b/.gitignore
+index fe4fd80..e2aead9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,6 +3,9 @@ call-cdr-json/*
+ sounds/*
+ !sounds/en/
+ !sounds/music/
++# core dumps (docker-compose.yml turns them off; never commit one)
++/core
++/core.[0-9]*
+ voicemail_welcome_message/*
+ voicemail_recordings/*
+ recording/*
 diff --git a/autoload_configs/logfile.conf.xml b/autoload_configs/logfile.conf.xml
 index 7f7d151..961988f 100755
 --- a/autoload_configs/logfile.conf.xml
@@ -12,10 +39,10 @@ index 7f7d151..961988f 100755
      </profile>
      <profile name="stdout">
 diff --git a/autoload_configs/switch.conf.xml b/autoload_configs/switch.conf.xml
-index 6fbc972..5011fbb 100755
+index 6fbc972..9afdd6c 100755
 --- a/autoload_configs/switch.conf.xml
 +++ b/autoload_configs/switch.conf.xml
-@@ -35,11 +35,11 @@
+@@ -35,11 +35,15 @@
      <!--Most channels to create per second -->
      <param name="sessions-per-second" value="30"/>
      <!-- Default Global Log Level - value is one of debug,info,notice,warning,err,crit,alert -->
@@ -25,7 +52,31 @@ index 6fbc972..5011fbb 100755
      <param name="mailer-app" value="sendmail"/>
      <param name="mailer-app-args" value="-t"/>
 -    <param name="dump-cores" value="yes"/>
++    <!-- "no" only stops FreeSWITCH raising the core limit to unlimited; it
++         lowers nothing. Core dumps are off because docker-compose.yml runs
++         this container with ulimits core 0 (a core file would hold any card
++         digits still in memory, written into /etc/freeswitch = this repo). -->
 +    <param name="dump-cores" value="no"/>
  
    </settings>
  
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 6b588fc..80ceab4 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -7,6 +7,15 @@ services:
+     container_name: fs
+     network_mode: host
+     restart: unless-stopped
++    # No core dumps: a core file holds whatever card digits secure entry
++    # still has in memory, and lands in the working directory, which is this
++    # repo folder on the host. switch.conf.xml's dump-cores=no does not lower
++    # the limit, and docker-ce hosts hand containers an unlimited one. Hard 0
++    # too, so nothing inside can raise it again.
++    ulimits:
++      core:
++        soft: 0
++        hard: 0
+     environment:
+       # Default credential for mod_deepgram_transcribe. Set it in .env (or the
+       # deploy shell); a per-call channel variable of the same name overrides it.
