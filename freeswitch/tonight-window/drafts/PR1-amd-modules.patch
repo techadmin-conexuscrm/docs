@@ -1,62 +1,76 @@
 diff --git a/autoload_configs/amd.conf.xml b/autoload_configs/amd.conf.xml
 new file mode 100644
-index 0000000..4e661f8
+index 0000000..62ca7f5
 --- /dev/null
 +++ b/autoload_configs/amd.conf.xml
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,72 @@
 +
 +<configuration name="amd.conf" description="mod_amd Configuration">
 +  <!--
-+    A MACHINE verdict is what lets a campaign play a recorded message at
-+    whoever answered and drop the call, so a wrong MACHINE reaches a live
-+    customer; a missed machine only costs an agent the twenty seconds they
-+    already spend today. Every doubt therefore lands on HUMAN or NOTSURE
-+    (a dialer sends both to an agent), and these numbers are set from
-+    mod_amd's own arithmetic rather than from a lab recording:
++    mod_amd ONLY DECIDES WHO GETS AN AGENT. It never decides whether a
++    recorded message plays: that is the beep's job (mod_avmd, see
++    avmd.conf.xml and scripts/campaign_amd.lua). Research and the sweep
++    behind every number here: docs freeswitch/lab/research/AMD-STRATEGY.md.
 +
-+      - voice_duration in mod_amd accumulates across a whole utterance and
-+        is reset only by a silence of between_words_silence or more. A
-+        person saying "Hello, this is John speaking, who's calling please?"
-+        in one breath is 2.6-3 s of voice with 80-200 ms gaps, so it is one
-+        unbroken stretch. greeting=5000 keeps that below the line; the old
-+        2500 called that person a MACHINE.
-+      - a "word" is counted only when voice returns after a
-+        between_words_silence gap, so N spoken phrases give N-1 words. A
-+        person answering in phrases easily makes four or five, and someone
-+        answering in short bursts ("Yeah. Hi. Speaking. Uh-huh.") makes ten
-+        inside the analysis window. maximum_number_of_words=12 is above
-+        anything reachable in 7 s at a human rate, so in practice the word
-+        count no longer decides anything; the old 3 called a person with
-+        four phrases a MACHINE. LONGGREETING below is what actually fires.
-+      - maximum_word_length=6000 stays above greeting, so an unbroken
-+        stretch is reported as LONGGREETING rather than MAXWORDLENGTH.
-+      - total_analysis_time=7000: room for a 5 s stretch to be seen. A
-+        person who is still talking at 7 s is NOTSURE/TOOLONG -> an agent.
-+      - silence_notsure=1: 2.5 s of initial silence is NOTSURE, not MACHINE.
-+      - silence_threshold=640 (average sample level of a 20 ms frame):
-+        steady line or street noise below it is silence, not a "greeting".
++      HUMAN or NOTSURE -> an agent at once (a person is the expensive
++                          mistake; an agent hearing a mailbox is the cheap one)
++      MACHINE          -> the voicemail path: hold for a beep (at most 30 s
++                          after answer); no beep -> an agent, never a recording
 +
-+    What this does and does not catch (tests/amd_test.py checks both against
-+    a port of webitel/mod_amd at the pinned SHA):
-+      - caught: a greeting with no real pause in it - MACHINE/LONGGREETING
-+        about 5.7 s after answer. This is the only trigger that fires;
-+      - MISSED: a greeting read as separate sentences with pauses between
-+        them. voice_duration resets at each pause and eight words are never
-+        reached, so it comes back HUMAN. That is the safe direction.
++    Some people and some mailboxes make exactly the same sound ("Hello,
++    yeah?" and a 1.5 s "Please leave a message"), so no setting can call
++    every clip right. These are set so that no person is ever MACHINE in
++    the research corpus (35 clips, each at 6 levels x 3 speeds), with the
++    most room on every dial, and so that long greetings still are.
 +
-+    So MACHINE here is ADVISORY. Do not let it drive a voicemail drop or any
-+    other automatic action until the hit rate has been measured on recorded
-+    real calls (not on synthetic speech, which is shorter and more even than
-+    a person and was what the earlier numbers were set from).
++    How mod_amd decides (webitel/mod_amd 52e6bc6): every 20 ms frame is
++    voice or silence by its average sample level against silence_threshold;
++    voice_duration counts voiced frames and is reset by a pause of
++    between_words_silence; the first rule to trip ends the analysis.
++
++      - between_words_silence=800 (was 250): THE fix. At 250 the ordinary
++        0.3-0.6 s pauses between a greeting's sentences reset
++        voice_duration, so `greeting` only ever measured one sentence and
++        could not tell a mailbox from a person who says one long sentence
++        (D1 and the "greeting cannot fire inside its window" finding are
++        the same fault). At 800 it measures how much talking happens before
++        the first real pause: people stop after a second or three and wait,
++        a mailbox reads its whole script. Safe band 600-1000.
++      - greeting=5000: 5 s of voiced sound with no 0.8 s pause is MACHINE.
++        The most any person in the corpus reached in any variant is 3,860 ms
++        (a slow 4 s talker, slowed and turned up). Safe band 4000-6000.
++      - after_greeting_silence=1200 (was 800): a 1.2 s pause after talk is
++        HUMAN. The 2-second rule (47 CFR 64.1200(a)(7)) counts from the
++        end of the person's greeting, so this plus the bridge must stay
++        under 2 s; 1200 is Twilio's default for the same thing. At 800 a
++        mailbox's pause before its beep read as "a person stopped".
++      - total_analysis_time=12000 (was 7000): long greetings (a carrier's
++        default, a number read out, a real 11 s greeting) reach 5 s of voice
++        at 7.8-10 s; at 7000 every one of them was NOTSURE. A person who
++        never pauses for 1.2 s waits up to this long for an agent; in
++        agent-first dialing (today) the agent is already on the line.
++      - silence_threshold=1024 (was 640): street noise under a talking
++        person, turned up, read as one long greeting at 896 and below.
++        Above 1024 quiet callers vanish. Safe band 1024-1536.
++      - maximum_number_of_words=12 and maximum_word_length=6000: at these
++        settings neither ever decides (kept above greeting); the old
++        maximum_number_of_words=3 called "Hello? ... Hello? ... anyone
++        there?" a MACHINE.
++      - initial_silence=2500, silence_notsure=1: nobody speaks for 2.5 s ->
++        NOTSURE -> an agent (mod_amd's default 0 would make it MACHINE).
++
++    tests/amd_test.py checks these numbers against a port of the pinned
++    mod_amd. Expect on real calls (AMD-STRATEGY.md section 7): measure in
++    shadow mode first; nothing plays by itself until the pilot says so.
 +  -->
 +  <settings>
-+    <param name="silence_threshold" value="640"/>
++    <param name="silence_threshold" value="1024"/>
 +    <param name="maximum_word_length" value="6000"/>
 +    <param name="maximum_number_of_words" value="12"/>
-+    <param name="between_words_silence" value="250"/>
++    <param name="between_words_silence" value="800"/>
 +    <param name="min_word_length" value="100"/>
-+    <param name="total_analysis_time" value="7000"/>
-+    <param name="after_greeting_silence" value="800"/>
++    <param name="total_analysis_time" value="12000"/>
++    <param name="after_greeting_silence" value="1200"/>
 +    <param name="greeting" value="5000"/>
 +    <param name="initial_silence" value="2500"/>
 +    <param name="silence_notsure" value="1"/>
@@ -64,10 +78,10 @@ index 0000000..4e661f8
 +</configuration>
 diff --git a/autoload_configs/avmd.conf.xml b/autoload_configs/avmd.conf.xml
 new file mode 100644
-index 0000000..cfd710f
+index 0000000..257034e
 --- /dev/null
 +++ b/autoload_configs/avmd.conf.xml
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,85 @@
 +<configuration name="avmd.conf" description="AVMD config">
 +	<settings>
 +
@@ -107,7 +121,18 @@ index 0000000..cfd710f
 +			<!-- required number of consecutive elements in the SMA buffer
 +				 without reset. This parameter helps to avoid false beeps, bigger this value is
 +				smaller the probability of getting false detection -->
-+			<param name="sample_n_continuous_streak" value="3"/>
++			<!-- 8, not 3: the beep alone decides whether a recorded message
++				 plays (scripts/campaign_amd.lua), so a false beep is a
++				 recording played to a person. At 3 avmd heard a "beep" in a
++				 person's speech over street noise (3 of 54 runs); at 5, 8
++				 and 12 never (0 of 1,134 runs plus 3 minutes of real speech),
++				 and 8 still hears every real beep in the research corpus
++				 (648/648; 12 starts missing them). docs
++				 freeswitch/lab/research/AMD-STRATEGY.md section 6. Known
++				 limits at any streak: no beep is heard on a line with a
++				 modest noise floor, a 2000 Hz beep is never heard, a 440 Hz
++				 one rarely; those mailboxes go to an agent. -->
++			<param name="sample_n_continuous_streak" value="8"/>
 +
 +			<!-- define number of samples to skip starting from the beginning
 +				 of the frame and/or after reset  has happened. This serves the purpose of skipping first few
@@ -116,7 +141,7 @@ index 0000000..cfd710f
 +			<param name="sample_n_to_skip" value="0"/>
 +
 +			<param name="require_continuous_streak_amp" value="1"/>
-+			<param name="sample_n_continuous_streak_amp" value="3"/>
++			<param name="sample_n_continuous_streak_amp" value="8"/>
 +
 +			<!-- define/undefine this to enable/disable simplified estimation
 +				 of frequency based on approximation of sin(x) with (x)
@@ -279,3 +304,168 @@ index 000fad8..4f05d2f 100644
  ##applications/mod_directory
  #applications/mod_distributor
  applications/mod_dptools
+diff --git a/scripts/campaign_amd.lua b/scripts/campaign_amd.lua
+new file mode 100644
+index 0000000..74aa9c4
+--- /dev/null
++++ b/scripts/campaign_amd.lua
+@@ -0,0 +1,159 @@
++--[[
++campaign_amd.lua - who gets an agent, and whether a recorded message plays,
++on a campaign dialer call. Runs on the CUSTOMER leg the moment it answers:
++
++    <originate ...> 'lua:campaign_amd.lua' inline
++
++Nothing calls it yet: it is the FreeSWITCH half of the campaign dialer's
++automatic voicemail path (ConexusCRM-BE BE-12), drafted with PR1 so the lab
++can prove it on real calls. Research behind every rule here: docs
++freeswitch/lab/research/AMD-STRATEGY.md, sections 3 and 8.2.
++
++Two detectors, each used for what it is good at:
++  - mod_amd decides WHO GETS AN AGENT. HUMAN and NOTSURE go to an agent at
++    once. Only MACHINE takes the voicemail path.
++  - the mod_avmd BEEP alone decides WHETHER A RECORDING PLAYS. No beep, no
++    recording, ever. A beep heard before an agent is joined means a
++    mailbox, whatever mod_amd said (that is how a short "please leave a
++    message" greeting, which mod_amd calls HUMAN, still gets its message).
++
++The decision table, whatever happens first:
++  beep, before an agent is joined  -> drop allowed: wait for the beep to end,
++                                      play, hang up ("drop"); otherwise hang up
++                                      as a machine ("machine_hangup")
++  HUMAN or NOTSURE                 -> an agent now ("connect")
++  MACHINE, drop allowed            -> hold for a beep until HOLD_MS after
++                                      answer; beep -> as above; none -> an
++                                      agent ("connect_late"), never a recording
++  MACHINE, drop not allowed        -> hang up ("machine_hangup"). Not an
++                                      abandoned call if it really was a machine
++                                      (FCC 03-153 fn. 538); the CRM counts it as
++                                      one unless a beep proves it was
++  no verdict by NO_VERDICT_MS      -> an agent ("connect"): mod_amd always ends
++                                      by total_analysis_time, so this is only a
++                                      fail-safe for an AMD that never started
++  they hang up first               -> nothing ("cancel")
++
++So a person can only ever hear a recording if mod_avmd hears a beep that is
++not there; neither mod_amd nor the agent's button can play one by itself.
++
++Channel variables, set by the CRM at originate (nothing comes from the far
++end):
++  conexus_drop_ok      "true" when this call may get a recorded message
++                       (BE-17's dropAllowed: drops on, a recording, the
++                       result set, not on do-not-call, written consent or the
++                       company's attestation). Anything else: never plays.
++  conexus_drop_target  what to play (BE-17's playback link).
++
++Every decision is reported as a CUSTOM event, subclass conexus::amd, with
++Unique-ID, decision, amd_result, amd_cause, verdict_ms and beep_ms (from
++answer). mod_amd's own amd::info event has no Event-Name, and the CRM's ESL
++router drops events without one (lab NOTES item 5); avmd::beep is a normal
++CUSTOM event. On "connect" the CRM bridges the parked leg to a free agent
++and reads avmd_detect once more just before uuid_bridge: a beep that landed
++in those few hundred ms still sends the call to the voicemail path. Both
++listeners keep running after "connect", so a beep during the agent's call is
++on record (avmd_detect) for the agent's "drop voicemail" button, which is
++refused without one.
++]]
++
++local HOLD_MS = 30000        -- MACHINE: how long after answer to wait for a beep
++local NO_VERDICT_MS = 15000  -- total_analysis_time (12000) + room; fail-safe only
++local STEP_MS = 20           -- one media frame
++-- After the beep event: the line quiet for 50 frames, then FreeSWITCH's own
++-- 0.5 s countdown; 3.5 s at most after the event. The beep event arrives
++-- about 0.2 s into the beep. 400 is on wait_for_silence's own scale (it
++-- reads every other sample of a mono frame and divides by all 160: about
++-- half the level mod_amd's 640 means), so a mailbox beep resets the count
++-- and the message starts about 1.5 s after the beep ends; the research
++-- model put every beep clip in every variant after the beep (216/216,
++-- 0.28-1.52 s after it ended). The same threshold BE-17 and RUNBOOK F3 use.
++local DROP_WAIT = "400 50 0 3500"
++
++local s = session
++if not s or not s:ready() then return end
++local uuid = s:get_uuid()
++
++local function var(name)
++  local v = s:getVariable(name)
++  if v == nil or v == "" or v == "_undef_" then return nil end
++  return v
++end
++
++-- Time is measured on the wall clock from the moment the leg answered, not
++-- by counting sleeps: a session:sleep(20) takes 20-40 ms of wall time, and
++-- counted that way a 30 s hold ran 47 s in the lab. LuaSocket (PR2) has a
++-- sub-millisecond clock; answer_uepoch is when FreeSWITCH saw the answer.
++local have_socket, socket = pcall(require, "socket")
++local now = have_socket and socket.gettime or os.time
++local answered = (tonumber(var("answer_uepoch") or "") or 0) / 1e6
++if answered <= 0 then answered = now() end
++local function since_answer() return math.floor((now() - answered) * 1000 + 0.5) end
++
++local drop_target = var("conexus_drop_target")
++local drop_ok = var("conexus_drop_ok") == "true" and drop_target ~= nil
++
++local verdict_ms, beep_ms = nil, nil
++
++local function tell(decision, extra)
++  local e = freeswitch.Event("CUSTOM", "conexus::amd")
++  e:addHeader("Unique-ID", uuid)
++  e:addHeader("decision", decision)
++  e:addHeader("amd_result", var("amd_result") or "")
++  e:addHeader("amd_cause", var("amd_cause") or "")
++  e:addHeader("verdict_ms", verdict_ms and tostring(verdict_ms) or "")
++  e:addHeader("beep_ms", beep_ms and tostring(beep_ms) or "")
++  for k, v in pairs(extra or {}) do e:addHeader(k, v) end
++  e:fire()
++end
++
++-- An agent now: hand the leg to the CRM, parked, still listening.
++local function connect(decision)
++  tell(decision)
++  s:setAutoHangup(false)
++  s:execute("park")
++end
++
++-- A beep is on record: the voicemail path.
++local function mailbox()
++  if not drop_ok then
++    tell("machine_hangup")
++    s:hangup("NORMAL_CLEARING")
++    return
++  end
++  tell("drop")
++  s:execute("wait_for_silence", DROP_WAIT)
++  if not s:ready() then return end
++  s:execute("playback", drop_target)
++  -- what playback said ("FILE PLAYED" or why not): the CRM settles the
++  -- drop on this, not on the transfer having been accepted
++  tell("drop_done", { playback = var("current_application_response") or "" })
++  s:hangup("NORMAL_CLEARING")
++end
++
++s:execute("avmd_start")   -- beep listener (a media bug: returns at once)
++s:execute("amd")          -- mod_amd (a media bug: returns at once)
++
++while s:ready() do
++  local ms = since_answer()
++  if var("avmd_detect") == "TRUE" then
++    beep_ms = beep_ms or ms
++    return mailbox()
++  end
++  local v = var("amd_result")
++  if v and not verdict_ms then verdict_ms = ms end
++  if v == "HUMAN" or v == "NOTSURE" then return connect("connect") end
++  if v == "MACHINE" then
++    if not drop_ok then
++      tell("machine_hangup")
++      s:hangup("NORMAL_CLEARING")
++      return
++    end
++    if ms >= HOLD_MS then return connect("connect_late") end
++  elseif not v and ms >= NO_VERDICT_MS then
++    return connect("connect")
++  end
++  s:sleep(STEP_MS)
++end
++-- they hung up before anything was decided
++tell("cancel")

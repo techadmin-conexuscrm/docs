@@ -39,7 +39,7 @@ All drafts are in
 
 | PR | Branch | What it does | Applied by |
 |---|---|---|---|
-| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`. The AMD numbers are set so a person who answers with a sentence is never called a MACHINE; see section F, **AMD is advisory**. | the swap |
+| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`, and `scripts/campaign_amd.lua` (the dialer's call flow; nothing calls it yet). Set to the AMD strategy (docs `freeswitch/lab/research/AMD-STRATEGY.md`): **mod_amd only decides who gets an agent** (HUMAN and NOTSURE at once, only MACHINE takes the voicemail path) and **the mod_avmd beep alone decides whether a recording plays**. Numbers: `silence_threshold` 1024, `between_words_silence` 800, `after_greeting_silence` 1200, `total_analysis_time` 12000, `greeting` 5000; avmd's `sample_n_continuous_streak` (and `_amp`) 8. See section F, **AMD is advisory**. | the swap |
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
 | PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret, and one line in `scripts/api/app.py` so a queue's `0 = callback` binding is dropped when an agent answers, not only on a queue timeout. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. A pin counts only on the leaf itself or on the certificate whose **signature** is on the leaf (checked by OpenSSL, not by name), never on a pinned certificate the server merely sends alongside it, nor on one that only shares its name - otherwise anyone holding a mis-issued certificate for `api.tryconexus.com` could append a (public) Let's Encrypt intermediate, or name their own intermediate like one, and be accepted. | the swap (would also work live with `reloadxml`) |
@@ -59,8 +59,8 @@ all worked.
 
 | # | Item | Why | Restart or live | Risk | Status |
 |---|---|---|---|---|---|
-| 1 | **mod_avmd** (beep detector) | voicemail drop waits for the beep (BE-17); predictive (BE-12) | restart (new image) | Medium: the new image might not start; rollback takes 1 more minute | **In** |
-| 2 | **mod_amd** (person or machine) | the predictive verdict (BE-12) | restart (same image) | Medium: a community module. It does nothing unless a call asks for it. | **In** |
+| 1 | **mod_avmd** (beep detector) | the beep alone decides whether a voicemail drop may play (BE-17 refuses without one; BE-12) | restart (new image) | Medium: the new image might not start; rollback takes 1 more minute | **In** |
+| 2 | **mod_amd** (person or machine) | who gets an agent on a predictive call (BE-12); never plays anything by itself | restart (same image) | Medium: a community module. It does nothing unless a call asks for it. | **In** |
 | 3 | **LuaSec + LuaSocket** | secure entry posts the card over checked TLS | restart (same image) | Low | **In** |
 | 4 | **Secure card entry ON**: extension, script, 13 prompts, shared secret | your decision | live-capable; goes in with the swap | **Medium-high.** It has never run on live telephony. It is switched on for every agent with the permission as soon as FreeSWITCH is back. §5 tests it before the floor opens. | **In** |
 | 5 | **ESL password rotation** | the current one is in plain text in the repository | restart + API restart | Medium: a mismatch would cut call control. W6 compares the two sides; rollback is a file copy. **It adds no extra outage**, because the API restarts tonight anyway for item 4's secret. | **In** |
@@ -623,6 +623,11 @@ no-downtime rollback in §4. Leave everything else.
 
 ### F. AMD and the voicemail drop (A8): your own mobile only
 
+The rule these steps test (docs `freeswitch/lab/research/AMD-STRATEGY.md`):
+**mod_amd only decides who gets an agent** (HUMAN and NOTSURE at once, only
+MACHINE takes the voicemail path); **the beep alone decides whether a
+recording plays**. No beep, no message, whatever mod_amd said.
+
 BE-17's button is not on `main` yet, so this uses the same FreeSWITCH steps
 it will send. Paste on the FS box, with your number. `leg` finds the
 **customer's** channel of the call to your mobile: the one FreeSWITCH names
@@ -634,34 +639,45 @@ M=5551234567     # your mobile, digits only
 leg() { fsx 'show channels' | awk -F, -v m="$M@" 'index($5, m) && $5 ~ /^sofia\/external\// { print $1; exit }'; }
 amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   fsx "uuid_transfer $U 'avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING' inline"
-  sleep 9;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
-  sleep 12; fsx "uuid_getvar $U avmd_detect"; }
+  sleep 13; fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
+  sleep 10; fsx "uuid_getvar $U avmd_detect"; }
+beep() { [ "$(fsx "uuid_getvar $U avmd_detect" | tr -d '[:space:]')" = TRUE ]; }
 droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
-  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:400 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
+  fsx "uuid_broadcast $U avmd_start:: aleg"
+  i=0; until beep || [ $i -ge 60 ]; do sleep 0.5; i=$((i + 1)); done
+  if ! beep; then echo "no beep in 30 s: no drop (no beep, no recording)"; return 0; fi
+  fsx "uuid_transfer $U 'wait_for_silence:400 50 0 3500,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
 ```
 
-(`400` is the same number BE-17 sends. It is on `wait_for_silence`'s own
-scale, which reads half the samples and so scores a sound at about half the
-level mod_amd's `640` means: at 640 a quiet mailbox beep did not count as
-sound, and the message could start over it.)
+(`droptest` starts the beep detector on your leg (`uuid_broadcast`, so the
+call stays connected; the `avmd <uuid> start` API is no good here: in the lab
+it started the detector at the wrong sample rate and it never heard a beep)
+and plays nothing until it hears the beep; then it waits for the line to be quiet for 1 s (50 frames) and plays,
+3.5 s after the beep at most. `400` is the same number BE-17 sends. It is on
+`wait_for_silence`'s own scale, which reads half the samples and so scores a
+sound at about half the level mod_amd's numbers mean: at 640 a quiet mailbox
+beep did not count as sound, and the message could start over it.)
 
 | # | Do | Good | Paste back |
 |---|---|---|---|
-| F1 **machine** | click-to-call your mobile; **decline** it, so your voicemail greeting plays; type `amdtest` | `amd_result` = `MACHINE` (or `NOTSURE`); `avmd_detect` = `TRUE` after the beep | the `amdtest` output |
-| F2 **person, one word** | call again; **answer**, say "Hello?", stay quiet; type `amdtest` | `amd_result` = `HUMAN` | the output |
-| F2b **person, a sentence** | call again; **answer** with a full sentence and keep talking for about five seconds ("Hello, this is <name> speaking, who's calling please?"), then stop; type `amdtest` | `amd_result` = `HUMAN` or `NOTSURE`. **`MACHINE` is a NO-GO for the drop**: with BE-17 live that customer would get a recording played at them and the call dropped. Tell me and we leave the drop off. | the output |
-| F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | the agent's line ends at once; the message plays after the greeting, within a few seconds of it ending; your mailbox has it | OK + whether it started before or after the beep, **and roughly how long after the greeting ended** (if it is about 30 s, `wait_for_silence` gave up instead of hearing the line go quiet, and the mailbox will have stopped recording - tell me) |
+| F1 **machine** | click-to-call your mobile; **decline** it, so your voicemail greeting plays; type `amdtest` | `amd_result` = `MACHINE`, `HUMAN` or `NOTSURE` (it started mid-greeting, so any verdict is possible); `avmd_detect` = `TRUE` after the beep. **The beep is the test**: if `avmd_detect` is not `TRUE`, your mailbox's beep is one the detector can't hear (very short, 2000 Hz, or a noisy line). Tell me; drops would not play on such mailboxes, which is safe. | the `amdtest` output |
+| F2 **person, one word** | call again; **answer**, say "Hello?", stay quiet; type `amdtest` | `amd_result` = `HUMAN` or `NOTSURE`; `avmd_detect` **not** `TRUE` | the output |
+| F2b **person, a sentence** | call again; **answer** with a full sentence and keep talking for about five seconds ("Hello, this is <name> speaking, who's calling please?"), then stop; type `amdtest` | `amd_result` = `HUMAN` or `NOTSURE`; `avmd_detect` **not** `TRUE`. **`avmd_detect` = `TRUE` on a person is a NO-GO for the drop** (a beep heard in speech would play the message to a person): tell me and we leave the drop off. `MACHINE` here is worth reporting too (it would send a person down the voicemail path) but plays nothing by itself. | the output |
+| F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | `droptest` waits; after your mailbox's beep the agent's line ends and the message plays, starting a second or two after the beep; your mailbox has it. If it says "no beep in 30 s", nothing played: that is the safe outcome for a beep the detector can't hear (same as F1). | OK + whether it started before or after the beep, **and roughly how long after it** |
+| F3b **no drop on a person** | call again; **answer**, say "Hello?", then keep quiet; type `droptest` | after 30 s: "no beep in 30 s: no drop"; you heard **no** message | OK, or what you heard |
 
-**AMD is advisory tonight.** `amd.conf.xml` is set so that doubt lands on
-HUMAN or NOTSURE, because a wrong MACHINE plays a recording at a live
-customer while a missed machine only costs an agent the twenty seconds they
-already spend today. The cost of that setting: only a greeting read *without
-a real pause in it* is caught (MACHINE/LONGGREETING, about 5.7 s after
-answer); a greeting read as separate sentences comes back NOTSURE or HUMAN.
-So F1 may legitimately say `NOTSURE` — that is not a failure. Nothing may be
-wired to drop a call on `amd_result` until the hit rate has been measured on
-recorded real calls; `tests/amd_test.py` only checks the arithmetic of
-webitel/mod_amd against these numbers, not real audio.
+**AMD is advisory tonight.** Nothing on the floor acts on it yet: BE-17's
+button is the only thing that can play a message, and it refuses unless a
+beep is on record for the call (`avmd_detect`), which needs the dialer to
+start the beep detector at answer (BE-12, not tonight). With these numbers
+mod_amd calls long greetings MACHINE (5 s of talk without a 0.8 s pause, at
+about 8-10 s after answer) and short ones HUMAN; short mailboxes still get
+their message from their beep. The research corpus is synthetic speech and
+a few real voices; the real hit rate comes from shadow mode on recorded
+calls (AMD-STRATEGY.md section 7) before anything plays by itself.
+`tests/amd_test.py` checks the arithmetic of webitel/mod_amd against these
+numbers and `tests/campaign_amd_test.py` the call flow; the lab
+(`freeswitch/lab`) checks both on real calls.
 
 ### G. Record (CLAUDE.md)
 

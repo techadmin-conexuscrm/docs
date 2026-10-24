@@ -124,4 +124,23 @@ facts["vm_beep_noisy"]["noise_floor_fs_score_max"] = max(fs)
 json.dump({k: {a: round(b, 3) for a, b in v.items()} for k, v in facts.items()}, open(f"{F}/facts.json", "w"), indent=1)
 print(json.dumps(facts, indent=1))
 PY
+# the AMD research corpus (research/corpus.py): 23 more far-end clips - more
+# people (fast, slow, four phrases, "Hello? ... Hello? ... anyone there?",
+# street noise, a TV, real voices from the Open Speech Repository) and more
+# mailboxes (a 1.5 s greeting, a carrier default, a noisy line, a number read
+# out, a double beep, real voices, no beep) - and clips.json: what the
+# strategy (research/AMD-STRATEGY.md) must do with every clip, old and new.
+# The real-voice recordings are downloaded once (Telchemy's Open Speech
+# Repository, free for VoIP testing) and checked by sha256, not committed;
+# OSR_DIR may point at a copy already downloaded.
+OSR=${OSR_DIR:-$OUT/osr}; mkdir -p "$OSR"
+for n in 0030 0031; do
+  o="$OSR/OSR_us_000_${n}_8k.wav"
+  [ -s "$o" ] || curl -sSf -o "$o" "https://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_${n}_8k.wav"
+done
+( cd "$OSR" && sha256sum -c --quiet - ) <<'SUMS'
+d3e1cfba98a44ddfc6e99508e663794c8dc41bdb2baced224f779c453143b622  OSR_us_000_0030_8k.wav
+dff349ae6b5d71a696c22bb838319addd5eb10dc0fafd1b15ddfbde13d57a43c  OSR_us_000_0031_8k.wav
+SUMS
+python3 "$(cd "$(dirname "$0")" && pwd)/../research/corpus.py" "$F" "$OSR"
 ls -la "$F" "$WT/sounds/secure_payment" | grep -c wav

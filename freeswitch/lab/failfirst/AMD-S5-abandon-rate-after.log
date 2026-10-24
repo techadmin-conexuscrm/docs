@@ -1,0 +1,4 @@
+ ✓  db  src/components/dialer-campaigns/services/monitor.db.test.ts (5 tests) 532ms
+ ✓  db  src/components/dialer-campaigns/services/abandon-rate.db.test.ts (4 tests) 98ms
+ Test Files  2 passed (2)
+      Tests  9 passed (9)

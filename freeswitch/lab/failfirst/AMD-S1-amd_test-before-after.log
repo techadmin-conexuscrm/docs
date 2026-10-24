@@ -1,0 +1,40 @@
+# AMD strategy pass: tests/amd_test.py on PR1's amd.conf.xml as drafted before (640/250/800/greeting 5000/total 7000), then on the strategy's (1024/800/1200/5000/12000)
+## before
+  person   hello                        -> HUMAN   SILENCEAFTERGREETING at 1400 ms
+  person   hello, pause, yes?           -> HUMAN   SILENCEAFTERGREETING at 2140 ms
+  person   sentence in one breath       -> HUMAN   SILENCEAFTERGREETING at 3920 ms
+  person   sentence in phrases          -> HUMAN   SILENCEAFTERGREETING at 4980 ms
+  person   talkative                    -> HUMAN   SILENCEAFTERGREETING at 6580 ms
+  person   fast talker                  -> HUMAN   SILENCEAFTERGREETING at 6720 ms
+  person   slow talker, one breath      -> HUMAN   SILENCEAFTERGREETING at 5500 ms
+  person   hello, hello, anyone there?  -> HUMAN   SILENCEAFTERGREETING at 1240 ms
+  person   silent                       -> NOTSURE INITIALSILENCE       at 2500 ms
+  person   noisy line                   -> NOTSURE INITIALSILENCE       at 2500 ms
+  machine  7 s greeting, no real pauses -> MACHINE LONGGREETING         at 5720 ms
+  machine  19 s greeting                -> MACHINE LONGGREETING         at 5700 ms
+  machine  carrier greeting, sentences 0.4 s apart -> NOTSURE TOOLONG              at 7000 ms
+  machine  11 s greeting, three sentences -> NOTSURE TOOLONG              at 7000 ms
+  missed   7 s greeting, pauses between sentences -> NOTSURE TOOLONG              at 7000 ms (known, and the safe direction)
+FAIL total_analysis_time 7000 is under 10000: long greetings never reach `greeting`
+FAIL a voicemail greeting (carrier greeting, sentences 0.4 s apart) is reported NOTSURE/TOOLONG: AMD catches nothing
+FAIL a voicemail greeting (11 s greeting, three sentences) is reported NOTSURE/TOOLONG: AMD catches nothing
+amd_test: 10 people, 4 machines, 1 known misses, 3 failed
+exit 1
+## after
+  person   hello                        -> HUMAN   SILENCEAFTERGREETING at 1800 ms
+  person   hello, pause, yes?           -> HUMAN   SILENCEAFTERGREETING at 2540 ms
+  person   sentence in one breath       -> HUMAN   SILENCEAFTERGREETING at 4320 ms
+  person   sentence in phrases          -> HUMAN   SILENCEAFTERGREETING at 5380 ms
+  person   talkative                    -> HUMAN   SILENCEAFTERGREETING at 6980 ms
+  person   fast talker                  -> HUMAN   SILENCEAFTERGREETING at 7120 ms
+  person   slow talker, one breath      -> HUMAN   SILENCEAFTERGREETING at 5900 ms
+  person   hello, hello, anyone there?  -> HUMAN   SILENCEAFTERGREETING at 4880 ms
+  person   silent                       -> NOTSURE INITIALSILENCE       at 2500 ms
+  person   noisy line                   -> NOTSURE INITIALSILENCE       at 2500 ms
+  machine  7 s greeting, no real pauses -> MACHINE LONGGREETING         at 5720 ms
+  machine  19 s greeting                -> MACHINE LONGGREETING         at 5700 ms
+  machine  carrier greeting, sentences 0.4 s apart -> MACHINE LONGGREETING         at 6200 ms
+  machine  11 s greeting, three sentences -> MACHINE LONGGREETING         at 7780 ms
+  missed   7 s greeting, pauses between sentences -> HUMAN   SILENCEAFTERGREETING at 7900 ms (known, and the safe direction)
+amd_test: 10 people, 4 machines, 1 known misses, 0 failed
+exit 0

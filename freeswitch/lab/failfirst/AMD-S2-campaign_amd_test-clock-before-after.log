@@ -1,0 +1,49 @@
+# tests/campaign_amd_test.py on scripts/campaign_amd.lua as first written (time counted by sleeps), then with the wall clock (LuaSocket gettime from answer_uepoch). On a real call a session:sleep(20) took ~31 ms: the 30 s hold ran 47 s (lab, vm_nobeep_long, no event in 45 s).
+## before
+ok   both listeners start at answer, avmd first
+ok   HUMAN -> connect, parked, nothing played
+ok   HUMAN -> connect within one sleep of the verdict
+ok   connect leaves the leg up (no auto hangup)
+ok   connect event carries the verdict
+ok   NOTSURE -> connect, nothing played
+ok   beep before the verdict -> drop: wait for silence, play, hang up
+ok   the drop waits on the strategy's silence (400 50 0 3500)
+ok   the drop reports what playback said
+ok   the drop plays the CRM's target
+FAIL beep_ms recorded (within a sleep of the beep): 1780
+ok   beep, drop not allowed -> machine_hangup, nothing played
+ok   drop allowed but no target -> never plays
+ok   MACHINE, then a beep -> drop after the beep
+FAIL MACHINE, no beep -> connect_late at 30 s, nothing played: ['connect_late'] 45000
+ok   MACHINE, drop not allowed -> machine_hangup at once, nothing played
+FAIL no verdict at all -> connect by 15 s (fail-safe): ['connect'] 22500
+ok   hang-up before anything -> cancel, nothing played
+ok   no beep, HUMAN -> no recording
+ok   no beep, NOTSURE -> no recording
+ok   no beep, MACHINE -> no recording
+campaign_amd_test: 3 failed
+exit 1
+## after
+ok   both listeners start at answer, avmd first
+ok   HUMAN -> connect, parked, nothing played
+ok   HUMAN -> connect within one sleep of the verdict
+ok   connect leaves the leg up (no auto hangup)
+ok   connect event carries the verdict
+ok   NOTSURE -> connect, nothing played
+ok   beep before the verdict -> drop: wait for silence, play, hang up
+ok   the drop waits on the strategy's silence (400 50 0 3500)
+ok   the drop reports what playback said
+ok   the drop plays the CRM's target
+ok   beep_ms recorded (within a sleep of the beep)
+ok   beep, drop not allowed -> machine_hangup, nothing played
+ok   drop allowed but no target -> never plays
+ok   MACHINE, then a beep -> drop after the beep
+ok   MACHINE, no beep -> connect_late at 30 s, nothing played
+ok   MACHINE, drop not allowed -> machine_hangup at once, nothing played
+ok   no verdict at all -> connect by 15 s (fail-safe)
+ok   hang-up before anything -> cancel, nothing played
+ok   no beep, HUMAN -> no recording
+ok   no beep, NOTSURE -> no recording
+ok   no beep, MACHINE -> no recording
+campaign_amd_test: 0 failed
+exit 0

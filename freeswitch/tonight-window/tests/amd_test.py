@@ -19,9 +19,15 @@ sample frames):
 
 Each case below is an answer as (voiced ms, silence ms) chunks. The human
 cases are what a person actually does on the phone; none of them may come
-back MACHINE, because a MACHINE verdict is what lets a campaign play a
-recorded message at a live customer and drop the call. The machine cases are
+back MACHINE. Under the strategy (docs freeswitch/lab/research/
+AMD-STRATEGY.md) MACHINE no longer plays anything by itself - only the
+mod_avmd beep does - but it still sends the call down the voicemail path:
+held up to 30 s for a beep that never comes, or hung up on when no drop is
+allowed. On a person that is an abandoned call. The machine cases are
 voicemail greetings and must still be caught, or enabling AMD buys nothing.
+The config-level checks are the strategy's own limits: the 2-second rule
+(after_greeting_silence + bridge), an analysis window long greetings can
+finish in, and maximum_word_length kept above greeting.
 """
 import sys
 import xml.etree.ElementTree as ET
@@ -93,6 +99,12 @@ PEOPLE = {
     "talkative": talk(600, 300, 500, 300, 550, 300, 600, 300, 500, 300, 650, 300, 600),
     # a fast talker: short phrases with the shortest gaps that still count
     "fast talker": talk(*([350, 280] * 10)),
+    # a slow talker, one 4 s breath: the most voice any person in the AMD
+    # research corpus reached (3.86 s, slowed and turned up)
+    "slow talker, one breath": talk(*([480, 120] * 7 + [500])),
+    # "Hello? ... Hello? ... Is anyone there?" into dead air, 0.8-1.1 s apart:
+    # every gap is a "word" at a short between_words_silence (MAXWORDS at 3)
+    "hello, hello, anyone there?": talk(450, 1100, 450, 800, 900),
     # answers and says nothing
     "silent": [("s", 4000)],
     # a noisy line: every frame below silence_threshold counts as silence
@@ -105,12 +117,22 @@ PEOPLE = {
 MACHINES = {
     "7 s greeting, no real pauses": talk(*([800, 120] * 7)),
     "19 s greeting": talk(*([900, 150] * 18)),
+    # A carrier's default greeting: sentences with ordinary 0.4 s pauses
+    # between them, ~11 s. At between_words_silence 250 every pause reset
+    # voice_duration, so this never reached `greeting` (NOTSURE/TOOLONG):
+    # the fault behind every red mailbox row of the fourth and fifth lab
+    # passes. It must be caught now.
+    "carrier greeting, sentences 0.4 s apart": talk(*([1500, 400] * 6 + [1500])),
+    # three sentences 0.45 s apart, words with 150-200 ms gaps inside them
+    # (about 11 s, the shape of vm_real_long in the research corpus)
+    "11 s greeting, three sentences": talk(*([300, 150] * 9 + [300, 450] + [300, 180] * 9 + [300, 450] + [300, 200] * 9 + [300])),
 }
 
-# Greetings mod_amd cannot tell from a person: read as separate sentences,
-# voice_duration resets at every pause. Reported for the record, not failed:
-# a missed machine costs an agent twenty seconds, a wrong MACHINE reaches a
-# live customer. Same reason MACHINE must stay advisory.
+# Greetings mod_amd cannot tell from a person: read as separate sentences
+# with pauses long enough to look like a person who stopped, or too short to
+# reach `greeting`. Reported for the record, not failed: a missed machine
+# costs an agent a few seconds, a wrong MACHINE abandons a live customer.
+# Under the strategy their beep still gets them the message.
 MISSED_OK = {
     "7 s greeting, pauses between sentences": talk(*([700, 300] * 7)),
 }
@@ -128,6 +150,19 @@ def main():
             sys.exit(1)
 
     fails = []
+    # The 2-second rule (47 CFR 64.1200(a)(7)): an agent within 2 s of the
+    # end of a person's greeting. mod_amd needs after_greeting_silence of
+    # quiet to say HUMAN and the bridge takes about 0.3 s more.
+    if p["after_greeting_silence"] + 300 > 2000:
+        fails.append("after_greeting_silence %d + 300 ms bridge is over the 2 s the law allows"
+                     % p["after_greeting_silence"])
+    # Long greetings reach 5 s of voice at 7.8-10 s after answer (research
+    # corpus): below 10000 they are cut off as NOTSURE before they can be.
+    if p["total_analysis_time"] < 10000:
+        fails.append("total_analysis_time %d is under 10000: long greetings never reach `greeting`"
+                     % p["total_analysis_time"])
+    if p["maximum_word_length"] <= p["greeting"]:
+        fails.append("maximum_word_length must stay above greeting (else it is the same rule under another name)")
     for name, chunks in PEOPLE.items():
         r, cause, ms = verdict(p, chunks)
         print("  person   %-28s -> %-7s %-20s at %d ms" % (name, r, cause, ms))

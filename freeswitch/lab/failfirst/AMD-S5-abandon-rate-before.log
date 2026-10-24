@@ -1,0 +1,21 @@
+     ✓ counts agents, leads and today's calls for each campaign; today is the company's own day 113ms
+     × today's answered and abandoned tiles use the same evidence as the 30-day rate: a MACHINE verdict alone is not a machine 58ms
+     ✓ an agent wrapping up past the countdown shows as overdue and not free; no customer detail anywhere 56ms
+     ✓ only readers of THIS company's campaigns; another company's campaigns and calls never show 52ms
+     ✓ pushed to exactly those who may read the campaigns, while watched, for a minute after the last look; never to everyone 227ms
+     × a person wrongly called MACHINE and hung up on (no agent, no voicemail) is an abandoned person's call 55ms
+     × MACHINE held for a beep that never came, then joined late and marked abandoned, counts 14ms
+     ✓ a voicemail left (after a beep) is a machine's answer, whatever AMD said; a MACHINE verdict joined to an agent in time is a person's 18ms
+     ✓ calls nobody answered are in neither side 16ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { abandonRate30d: +0, …(2) } to match object { abandonRate30d: 0.5, answerRate: 1 }
+- Expected
++ Received
+AssertionError: expected +0 to be 0.5 // Object.is equality
+- Expected
++ Received
+AssertionError: expected { …(10) } to match object { today: { placed: 3, …(3) }, …(1) }
+- Expected
++ Received
+ Test Files  2 failed (2)
+      Tests  3 failed | 6 passed (9)

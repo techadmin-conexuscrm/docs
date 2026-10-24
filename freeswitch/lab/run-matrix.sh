@@ -26,7 +26,8 @@ if [ "$(docker image inspect -f '{{index .Config.Labels "lab.src"}}' conexus-fs:
   printf 'FROM conexus-fs:lab\nLABEL lab.src=%s\n' "$H" | docker build -q -t conexus-fs:lab - >/dev/null
 fi
 rm -rf "$LABRUN/results" "$WT/recording" "$WT/call-cdr-json"
-rm -rf "$LABRUN/audio/far" && "$LAB/audio/make-audio.sh" "$LABRUN/audio" "$WT" >/dev/null
+# OSR_DIR: the research corpus's two real-voice recordings, downloaded once
+rm -rf "$LABRUN/audio/far" && OSR_DIR=${OSR_DIR:-$LABRUN/osr} "$LAB/audio/make-audio.sh" "$LABRUN/audio" "$WT" >/dev/null
 "$LAB/up.sh" "$WT" "$LABRUN"
 R="docker exec fslab-fs python3 /lab/runner/lab.py"
 $R pci   | tee "$LABRUN/pci.log"
@@ -49,14 +50,27 @@ m = re.search(r"droptest\(\).*?uuid_transfer \$U '([^']*)' inline", open(sys.arg
 print(re.sub(r"playback:[^,]*", "playback:%s", m.group(1)) if m else "")
 PY
 )
+# does droptest start the beep detector and wait for avmd_detect before it
+# transfers? If so, the command that starts it ("%s" = the leg)
+RBB=$(python3 - "$DOCS/freeswitch/tonight-window/RUNBOOK.md" <<'PY'
+import re, sys
+m = re.search(r"droptest\(\)(.*?)uuid_transfer \$U", open(sys.argv[1]).read(), re.S)
+st = re.search(r'fsx "([^"]*avmd[^"]*)"', m.group(1)) if m else None
+print(st.group(1).replace("$U", "%s") if st and re.search(r"beep|avmd_detect", m.group(1)) else "")
+PY
+)
+# BE-17's guard: the channel variable dropVoicemail() must find "TRUE" (the
+# beep detector's) before it sends anything; empty = no guard on the branch
+BEG=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/voicemail-drop.ts" | sed -n 's/.*BEEP_VARIABLE = "\([a-z_]*\)".*/\1/p' | head -1)
 # what the playback link asks S3 to answer as Cache-Control (voicemailPlaybackLink)
 BECC=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/campaign-audio.ts" | python3 -c '
 import re, sys
 m = re.search(r"ResponseCacheControl:\s*\"([^\"]*)\"", sys.stdin.read())
 print(m.group(1) if m else "")')
-printf 'BE-17 dropSteps (%s): %s\nRUNBOOK F3 droptest: %s\nBE-17 link ResponseCacheControl: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "$RBS" "${BECC:-(none)}" | tee "$LABRUN/drop-steps.txt"
+printf 'BE-17 dropSteps (%s): %s\nBE-17 refuses unless this is TRUE: %s\nRUNBOOK F3 droptest: %s\nRUNBOOK F3 starts the beep detector, then waits for a beep: %s\nBE-17 link ResponseCacheControl: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "${BEG:-(no guard)}" "$RBS" "${RBB:-no}" "${BECC:-(none)}" | tee "$LABRUN/drop-steps.txt"
 mkdir -p "$LABRUN/results" && cp "$LABRUN/drop-steps.txt" "$LABRUN/results/drop-steps.txt"
-docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" -e LAB_BE17_RESPONSE_CACHE_CONTROL="$BECC" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
+docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" -e LAB_BE17_RESPONSE_CACHE_CONTROL="$BECC" \
+  -e LAB_BE17_GUARD="$BEG" -e LAB_RUNBOOK_BEEP_FIRST="$RBB" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
 "$LAB/esl-checks.sh" "$WT" "$LABRUN"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call
 $R pci X01_sensitive_dtmf_experiment X02_global_debug_experiment | tee "$LABRUN/pci-x.log"

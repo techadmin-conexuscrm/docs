@@ -49,34 +49,45 @@ p("")
 summary = []
 
 # ── 3. AMD ──────────────────────────────────────────────────────────────────
+from collections import Counter, OrderedDict
+WANT = {"agent": "an agent within 2 s of their last word; never MACHINE, never a beep",
+        "drop": "the voicemail path on the beep",
+        "agent_or_drop": "an agent, or the voicemail path on the real beep",
+        "nodrop": "no beep heard, never the voicemail path"}
 amd = load(R + "/amd/results.json", [])
 if amd:
     p("## 3. Voicemail detection (mod_amd + mod_avmd, runbook F1 steps at answer)")
     p("")
-    p("`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the file. "
-      "Time = seconds from answer. Beep times in the files: short greeting 7.47-7.97 s (1.2 s beep: to 8.67 s), long greeting 19.43-19.68 s, beep only 1.00-1.50 s. "
-      "A person (silence, noise, a silent caller) must never be MACHINE.")
+    p("`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the clip. "
+      "Time = seconds from answer. Every row is judged on the **AMD strategy** (`research/AMD-STRATEGY.md`), not on "
+      "mod_amd's raw verdict: mod_amd only decides who gets an agent (HUMAN and NOTSURE at once, MACHINE takes the "
+      "voicemail path), the avmd beep alone decides whether a recording plays (a beep heard before the agent is joined "
+      "means a mailbox). `strategy does` applies that to the verdict and beep times measured on the call, with the "
+      "CRM's bridge 0.3 s after the verdict and a MACHINE held for a beep until 30 s. Clips over a noise floor "
+      "(`vm_beep_noisy`, `vm_carrier_noisy`): mod_avmd cannot hear a beep there (research section 6), so an agent is "
+      "the right outcome when no beep was heard. `stress` rows are the research's stress clips: reported, not counted. "
+      "Expected outcomes and what changed: `EXPECTATIONS-CHANGE.md`.")
     p("")
-    p("| case | runs | amd_result (cause) | time to verdict s | avmd beep detected | beep detected at s | wanted | pass |")
-    p("|---|---|---|---|---|---|---|---|")
-    from collections import Counter, OrderedDict
+    p("| case | expect | runs | amd_result (cause) | time to verdict s | beep heard | beep at s | strategy does (at s) | wanted | pass |")
+    p("|---|---|---|---|---|---|---|---|---|---|")
     by = OrderedDict()
-    for r in amd:
+    for r in sorted(amd, key=lambda r: (r.get("stress", False), r["case"])):
         by.setdefault(r["case"], []).append(r)
-    want = {"human_hello": "HUMAN, no beep", "human_long": "HUMAN, no beep", "vm_beep_short": "MACHINE + beep",
-            "vm_beep_long": "MACHINE + beep", "vm_beep_1200ms": "MACHINE + beep", "vm_beep_late": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep",
-            "beep_only": "HUMAN + beep (mod_amd alone is wrong here; section 4 requires the flow to use the beep)",
-            "vm_beep_noisy": "MACHINE + beep (on a line with a noise floor)",
-            "human_phrases": "HUMAN, no beep (three phrases, 0.4 s gaps)",
-            "silence": "not MACHINE, no beep", "noise": "not MACHINE, no beep",
-            "silent_then_hello": "not MACHINE, no beep"}
     for case, rs in by.items():
         v = Counter("%s (%s)" % (r.get("verdict"), r.get("cause")) for r in rs)
+        acts = Counter(str(r.get("outcome")) for r in rs)
         beeps = sum(1 for r in rs if r.get("t_beep"))
         ok = sum(1 for r in rs if r.get("pass"))
-        p("| %s | %d | %s | %s | %d/%d | %s | %s | %d/%d |" % (case, len(rs), ", ".join("%s x%d" % kv for kv in v.items()),
-          rng([r.get("t_verdict") for r in rs]), beeps, len(rs), rng([r.get("t_beep") for r in rs]), want.get(case, ""), ok, len(rs)))
-        summary.append(("3 AMD", case, ok, len(rs)))
+        exp = rs[0].get("expect", "")
+        stress = rs[0].get("stress")
+        whys = sorted({r.get("why", "") for r in rs if not r.get("pass")})
+        p("| %s%s | %s | %d | %s | %s | %d/%d | %s | %s (%s) | %s | %d/%d%s |" % (
+            case, " (stress)" if stress else "", exp, len(rs), ", ".join("%s x%d" % kv for kv in v.items()),
+            rng([r.get("t_verdict") for r in rs]), beeps, len(rs), rng([r.get("t_beep") for r in rs]),
+            ", ".join("%s x%d" % kv for kv in acts.items()), rng([r.get("t_outcome") for r in rs]),
+            WANT.get(exp, exp) + (" (noisy line: an agent if no beep is heard)" if case in ("vm_beep_noisy", "vm_carrier_noisy") and exp == "drop" else ""),
+            ok, len(rs), (": " + "; ".join(whys)) if whys else ""))
+        summary.append(("3 AMD stress" if stress else "3 AMD", case, ok, len(rs)))
     r0 = amd[0]
     p("")
     p("Event plumbing (all runs): amd::info Event-Name = `%s`; received by a `CUSTOM amd::info` subscriber: %s/%d; "
@@ -92,26 +103,28 @@ if drop:
     p("## 4. Voicemail drop")
     p("")
     steps = open(R + "/drop-steps.txt").read().strip().replace("\n", "; ") if os.path.exists(R + "/drop-steps.txt") else "-"
-    p("Flows: **amdbeep** = what BE-12's automatic drop would do: AMD verdict; HUMAN/NOTSURE go to an agent at once; "
-      "MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:400 10 0 5000`), then plays. "
-      "**be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if "
-      "the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with "
-      "an https link shaped like a real presigned S3 url - extensionless key plus a SigV4 query string, served GET-only "
-      "with 403 on HEAD - as BE-17 really plays it (D5). Steps used: %s. Drop = `drop_nolead.wav` "
-      "(`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). "
-      "Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only "
-      "if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict. "
-      "amdbeep also treats an avmd beep inside the first 2 s as a machine whatever mod_amd said (D6). "
-      "`wait ran s` is how long `wait_for_silence` actually ran: reaching its timeout means it gave up and played "
-      "anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2). "
-      "be17https also fails if anything of its link is left in mod_httapi's `http_file_cache` after the call "
-      "(the recording copy or the .meta file holding the link)." % steps)
+    p("Flows: **amdbeep** = the strategy's own call flow, PR1's `scripts/campaign_amd.lua`, on the customer leg from "
+      "answer (`conexus_drop_ok=true`); the lab plays the CRM around it: on `connect` it waits the 0.3 s bridge, reads "
+      "`avmd_detect` once more (a beep in those few hundred ms still means a mailbox) and otherwise \"bridges an agent\". "
+      "The script plays the drop itself after a beep: `wait_for_silence:400 50 0 3500`, then playback; that wait may "
+      "time out as long as the message still starts after the last beep and within 3 s of it. "
+      "**be17** = the agent's button: the beep detector listening from answer (`avmd_start`, as the dialer must start "
+      "it, AMD-STRATEGY.md 8.2), the agent presses 1.5 s in and, if refused, again 0.5 s after the greeting (and its "
+      "beep) has ended; BE-17's guard and steps are read from the top campaign branch. **runbook** = RUNBOOK F3 "
+      "`droptest`, read from the runbook, typed 1.5 s in. **be17https** = be17 with an https link shaped like a real "
+      "presigned S3 url (extensionless key plus a SigV4 query string, GET-only, 403 on HEAD), as BE-17 really plays "
+      "it (D5); it also fails if anything of its link is left in mod_httapi's `http_file_cache`. "
+      "Steps used: %s. Drop = `drop_nolead.wav` (`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays "
+      "`default_voicemail.wav`). Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. "
+      "A person passes only if nothing plays and (amdbeep) the flow hands them to an agent at once, within 2 s of their "
+      "last word. A mailbox with a beep passes only with the message starting after the last beep has ended (heard "
+      "after it too); on a noisy line where avmd heard no beep, nothing playing is the right outcome. A mailbox with "
+      "no beep passes only if nothing plays. BE-17's 30 s wait reaching its timeout still fails a row (D2)." % steps)
     p("")
-    p("| flow | case | runs | verdict (at s) | held s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
+    p("| flow | case | expect | runs | verdict / decision | at s | presses at s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | playback | pass |")
     p("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
-    from collections import OrderedDict
     by = OrderedDict()
-    for r in drop:
+    for r in sorted(drop, key=lambda r: (r.get("stress", False), r["flow"], r["case"], r["run"])):
         by.setdefault((r["flow"], r["case"]), []).append(r)
     for (flow, case), rs in by.items():
         f = rs[0].get("facts", {})
@@ -119,15 +132,18 @@ if drop:
         ok = sum(1 for r in rs if r.get("pass"))
         waits = rng([r.get("wait_ran_s") for r in rs])
         if any(r.get("wait_timed_out") for r in rs):
-            waits += " TIMED OUT"
-        p("| %s | %s | %d | %s (%s) | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d/%d |" % (
-            flow, case, len(rs), ",".join(sorted({str(r.get("verdict") or "-") for r in rs})), rng([r.get("t_verdict") for r in rs]),
-            rng([r.get("held_s") for r in rs]),
+            waits += " (timed out)"
+        vd = ",".join(sorted({"%s/%s" % (r.get("verdict") or "-", r.get("decision") or ("refused" if (r.get("action") or "").startswith(("refused", "no beep")) else "-")) for r in rs}))
+        at = rng([r.get("t_route") if r.get("t_route") is not None else r.get("sent_at") for r in rs]) if flow == "amdbeep" else "-"
+        presses = ",".join(sorted({"/".join("%.1f" % x for x in (r.get("presses") or [])) for r in rs})) or "-"
+        whys = sorted({r.get("why", "") for r in rs if not r.get("pass")})
+        stress = rs[0].get("stress")
+        p("| %s | %s%s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d/%d%s |" % (
+            flow, case, " (stress)" if stress else "", rs[0].get("expect", ""), len(rs), vd, at, presses,
             rng([r.get("sent_at") for r in rs]), waits, rng([r.get("drop_onset") for r in rs]), rng([r.get("drop_heard_onset") for r in rs]), ends,
-            ",".join(sorted({str(r.get("drop_over_greeting")) for r in rs})),
-            ",".join(sorted({str(r.get("playback_response") or "-")[:22] for r in rs})),
-            ",".join(sorted({str(r.get("hangup_cause")) for r in rs})), ok, len(rs)))
-        summary.append(("4 drop", "%s %s" % (flow, case), ok, len(rs)))
+            ",".join(sorted({str(r.get("playback_response") or "-")[:22] for r in rs})), ok, len(rs),
+            (": " + "; ".join(whys)) if whys else ""))
+        summary.append(("4 drop stress" if stress else "4 drop", "%s %s" % (flow, case), ok, len(rs)))
     p("")
 
 # ── 5. PCI ──────────────────────────────────────────────────────────────────
@@ -218,8 +234,11 @@ head = ["## Summary", "", "| section | case | passed |", "|---|---|---|"]
 for sec, case, ok, n in summary:
     head.append("| %s | %s | %s %d/%d |" % (sec, case, "PASS" if ok == n else "FAIL", ok, n))
 head.append("")
-tot = [s for s in summary if s[0] != "5 experiment"]
-head.insert(2, "**%d of %d matrix rows pass** (experiments not counted)." % (sum(1 for s in tot if s[2] == s[3]), len(tot)))
+NOT_COUNTED = ("5 experiment", "3 AMD stress", "4 drop stress")
+tot = [s for s in summary if s[0] not in NOT_COUNTED]
+extra = [s for s in summary if s[0] in ("3 AMD stress", "4 drop stress")]
+head.insert(2, "**%d of %d matrix rows pass** (experiments not counted; the research's %d stress rows reported, not counted: %d of them pass)."
+            % (sum(1 for s in tot if s[2] == s[3]), len(tot), len(extra), sum(1 for s in extra if s[2] == s[3])))
 head.insert(3, "")
 notes = os.path.join(LAB, "NOTES.md")
 body = out[:5] + head + out[5:]

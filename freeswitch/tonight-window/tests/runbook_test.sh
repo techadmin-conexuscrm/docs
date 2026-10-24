@@ -173,5 +173,20 @@ printf '%s\n' "$B" | grep -E '^\| B14' | grep -i 'returning you to your agent' |
   && ok "B14: a hang-up during the closing prompt is tested" \
   || bad "B14: no test of a hang-up during 'Returning you to your agent now'"
 
+# ── F: the AMD strategy (docs freeswitch/lab/research/AMD-STRATEGY.md) ─────
+F=$(block_after '^### F\. AMD and the voicemail drop')
+# droptest: no recording without a beep. The transfer that plays must come
+# after a check of avmd_detect, and a "no beep" path must end without one.
+dt=$(printf '%s\n' "$F" | awk '/^droptest\(\)/ { on = 1 } on { print } on && /; }$/ { exit }')
+printf '%s\n' "$dt" | awk '/avmd_detect|beep/ && !t { b = 1 } /uuid_transfer/ { t = 1; if (!b) bad = 1 } END { exit !(t && !bad) }' \
+  && printf '%s\n' "$dt" | grep -q 'no beep' \
+  && ok "F3: droptest plays nothing until the beep detector has heard a beep" \
+  || bad "F3: droptest can play the message without a beep on record"
+printf '%s\n' "$dt" | grep -q 'wait_for_silence:400 50 0 3500' && ok "F3: droptest waits as the call flow does (400 50 0 3500)" \
+  || bad "F3: droptest does not wait as campaign_amd.lua does (wait_for_silence:400 50 0 3500)"
+# amdtest reads the verdict after total_analysis_time (12 s) can have ended it
+first_sleep=$(printf '%s\n' "$F" | awk '/^amdtest\(\)/ { on = 1 } on' | grep -o 'sleep [0-9]*' | head -1 | cut -d' ' -f2)
+[ "${first_sleep:-0}" -ge 13 ] && ok "F1: amdtest reads amd_result after the 12 s analysis window" \
+  || bad "F1: amdtest reads amd_result after ${first_sleep:-?} s, before total_analysis_time (12 s) can have ended"
 echo "runbook_test: $fails failed"
 exit $((fails > 0))

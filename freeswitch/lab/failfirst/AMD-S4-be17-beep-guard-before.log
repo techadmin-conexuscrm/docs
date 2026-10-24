@@ -1,0 +1,28 @@
+     × reads the beep detector's variable on the customer leg 6ms
+     × anything but TRUE is no beep ("_undef_") 1ms
+     × anything but TRUE is no beep ("FALSE") 1ms
+     × anything but TRUE is no beep ("true ish") 0ms
+     × anything but TRUE is no beep ("") 0ms
+     × anything but TRUE is no beep ("-ERR No such channel!\n") 0ms
+     × anything but TRUE is no beep ("+OK") 0ms
+     × FreeSWITCH not answering is no beep, never a drop 0ms
+     × refuses to build an ESL command from anything but a channel uuid 1ms
+     × the agent is told why and what to do 1ms
+     × allowed: only the customer leg goes into the drop steps; "Voicemail left" is saved; a second press does nothing 122ms
+     ✓ refused (no_written_consent): the reason, no FreeSWITCH command, nothing saved 46ms
+     ✓ refused (drops_off): the reason, no FreeSWITCH command, nothing saved 39ms
+     ✓ refused (no_result_set): the reason, no FreeSWITCH command, nothing saved 31ms
+     ✓ refused: consent withdrawn, the number on the do-not-call list, no recording anywhere 138ms
+     ✓ a manual dialer call: only with the company's default recording 79ms
+     ✓ a chosen result later moved out of Not reached is no longer used 40ms
+     ✓ only the agent on that live call, in that company; never an API key 67ms
+     × FreeSWITCH refuses: nothing saved, and the agent can try again 53ms
+     ✓ the result must be one of the company's Not reached results, set by its admins 66ms
+     ✓ a recording the phone system can't open is refused, never played as silence (D5) 32ms
+     ✓ refused while the customer is keying a card, and the drop is still possible afterwards (D4) 51ms
+     × no beep on record: refused, nothing sent, nothing saved; once the beep is heard the drop goes (AMD strategy) 43ms
+     ✓ the steps only take a plain https link 1ms
+     ✓ FreeSWITCH took it but the save fails: retried; if it still fails, the agent is told to pick the result, never a 500  490ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  13 failed | 12 passed (25)

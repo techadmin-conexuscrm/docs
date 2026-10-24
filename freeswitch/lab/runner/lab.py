@@ -23,6 +23,9 @@ CTL = "http://10.88.231.30:8080"
 RES = "/results"
 AUDIO = "/lab/audio/far"
 FACTS = json.load(open(AUDIO + "/facts.json"))
+# the AMD research corpus (research/corpus.py, run by audio/make-audio.sh):
+# every clip's class, what the strategy must do with it, and its timing
+CLIPS = json.load(open(AUDIO + "/clips.json")) if os.path.exists(AUDIO + "/clips.json") else {}
 DROP_FILE = "/etc/freeswitch/default_voicemail.wav"   # runbook F3's drop file
 DROP_SECONDS = 6.93
 LAB_URL = "https://api.lab.test:8443/api/v1/telephony/secure-payment/tokenize"
@@ -136,54 +139,109 @@ def wait_gone(rec, u, timeout):
 
 
 # ── 3. answering-machine detection ─────────────────────────────────────────
+#
+# Judged on the AMD STRATEGY (docs freeswitch/lab/research/AMD-STRATEGY.md,
+# sections 3 and 8.4), not on mod_amd's raw verdict:
+#   - mod_amd only decides WHO GETS AN AGENT: HUMAN and NOTSURE go to an
+#     agent at once, only MACHINE takes the voicemail path;
+#   - the mod_avmd BEEP alone decides whether a recording plays: no beep, no
+#     drop; a beep heard before the agent is joined means a mailbox.
+# Some people and some mailboxes make the same sound (a 1.5 s "Please leave a
+# message" and "Hello, yeah?"), so a row that demanded MACHINE for every
+# mailbox demanded the impossible. Each clip says what the strategy must do
+# with it (research/corpus.py -> clips.json):
+#   agent          a person or a dead/noisy line: an agent within 2 s of their
+#                  last word; never MACHINE, never a beep, never a drop
+#   drop           a mailbox with a beep: the voicemail path on the beep, the
+#                  message after the last beep has ended (within 3 s)
+#   agent_or_drop  a mailbox whose shape the detector cannot see in time: an
+#                  agent, or a correctly timed message
+#   nodrop         a mailbox with no beep: anything but a recording
+# mod_avmd hears no beep at all over a modest noise floor (research section
+# 6: 0/108 runs at any streak, and the lab's real calls 0/5); on those lines
+# a mailbox with a beep goes to an agent, which is the strategy's safe miss.
 AMD_STEPS = "avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING"   # runbook F1 amdtest, at answer
-# (verdict a dialer needs, beep present). NOT_MACHINE = HUMAN or NOTSURE: a
-# dialer sends both to an agent. A person who answers and says nothing, or
-# answers from a noisy street, must never be called a MACHINE (that verdict
-# is what holds them for a beep or plays them a recording).
-AMD_EXPECT = {
-    "human_hello": ("HUMAN", False), "human_long": ("HUMAN", False),
-    # D1: a person who answers in three phrases with ordinary 0.3-0.6 s gaps.
-    # Every gap is longer than between_words_silence (250 ms), so mod_amd
-    # counts a word at each one, and none reaches after_greeting_silence
-    # (800 ms), so nothing ends the analysis as a HUMAN first. With
-    # maximum_number_of_words at 3 this person was MACHINE/MAXWORDS a few
-    # seconds in; the three human cases the lab had (one word, one sentence,
-    # silence then one word) never produced a second word group, so none of
-    # them could see it.
-    "human_phrases": ("HUMAN", False),
-    "silent_then_hello": ("NOT_MACHINE", False),
-    "vm_beep_short": ("MACHINE", True), "vm_beep_long": ("MACHINE", True),
-    "vm_beep_1200ms": ("MACHINE", True),
-    # D2: the same greeting and beep on a line with a carrier noise floor
-    # (measured in facts.json: mean ~490, max ~560 per 20 ms frame) instead
-    # of digital silence.
-    "vm_beep_noisy": ("MACHINE", True),
-    "vm_nobeep": ("MACHINE", False),
-    # D6: a mailbox that answers with nothing but a beep. mod_amd really
-    # does call this HUMAN - `greet` is set after 100 ms of voice and the
-    # silence that follows is longer than after_greeting_silence - so the
-    # row records that verdict instead of accepting any verdict at all, and
-    # section 4 requires the FLOW to get the outcome right from the avmd
-    # beep. Raising after_greeting_silence far enough to catch it would
-    # delay the verdict on every real person, which is the wrong trade.
-    "beep_only": ("HUMAN", True),
-    "silence": ("NOT_MACHINE", False), "noise": ("NOT_MACHINE", False),
-}
+BRIDGE_LAT = 0.3        # the CRM's verdict -> agent bridged (research: same figure)
+TCPA_LIMIT = 2.0        # an agent within 2 s of the person's completed greeting
+BEEP_HOLD_S = 30.0      # MACHINE: hold for a beep until this long after answer
+DROP_LATE = 3.0         # the message must start within this of the last beep's end
+NOISY_LINE = {"vm_beep_noisy", "vm_carrier_noisy"}    # a beep under a noise floor: avmd cannot hear it
+STRESS = {"h_tv_loud", "h_real_two"}                  # research: reported, not required
 
 
-def verdict_ok(want, got):
-    if want is None:
-        return True
-    if want == "NOT_MACHINE":
-        return got in ("HUMAN", "NOTSURE")
-    return got == want
+def clip(case):
+    """Timing facts and the strategy's expectation for a far-end clip:
+    clips.json (research corpus, every clip it knows) over facts.json."""
+    f = dict(FACTS.get(case, {}))
+    f.update(CLIPS.get(case, {}))
+    if "beeps" not in f:
+        f["beeps"] = [[f["beep_start"], f["beep_end"]]] if "beep_start" in f else []
+    if f["beeps"]:
+        f["beep_start"], f["beep_end"] = f["beeps"][0][0], f["beeps"][-1][1]
+    if "expect" not in f:   # a lab-only clip the corpus does not carry (vm_beep_late)
+        f["expect"] = "drop" if f["beeps"] else ("nodrop" if case.startswith("vm_") else "agent")
+    if case in NOISY_LINE:
+        f["noisy_line"] = True
+    f["stress"] = case in STRESS
+    return f
+
+
+def last_word(f):
+    return f.get("speech_end")
+
+
+def strategy_outcome(verdict, t_verdict, t_beep):
+    """What the strategy does with these detector results (section 3.2), with
+    the CRM's bridge BRIDGE_LAT after the verdict: ('agent'|'agent_late'|
+    'drop', when)."""
+    if verdict == "MACHINE":
+        if t_beep is not None and t_beep <= BEEP_HOLD_S:
+            return "drop", t_beep
+        return "agent_late", max(t_verdict or 0, BEEP_HOLD_S)
+    if t_verdict is None:
+        return None, None
+    bridge = t_verdict + BRIDGE_LAT
+    if t_beep is not None and t_beep <= bridge:
+        return "drop", t_beep
+    return "agent", bridge
+
+
+def judge_amd(case, verdict, t_verdict, t_beep):
+    """(ok, wanted, why) for a section 3 row."""
+    f = clip(case)
+    exp = f["expect"]
+    act, t = strategy_outcome(verdict, t_verdict, t_beep)
+    if act is None:
+        return False, exp, "no verdict"
+    if exp == "agent":
+        if verdict == "MACHINE":
+            return False, exp, "MACHINE on a person or a line"
+        if t_beep is not None:
+            return False, exp, "a beep heard on a person (%.2f s): a recording could play to them" % t_beep
+        if act != "agent":
+            return False, exp, act
+        se = last_word(f)
+        if se is not None and t_verdict >= se and t - se > TCPA_LIMIT:
+            return False, exp, "agent %.2f s after they stopped" % (t - se)
+        return True, exp, "agent at %.2f s" % t
+    if exp in ("drop", "agent_or_drop"):
+        if act == "drop":
+            if t_beep < f["beep_start"] - 0.1:
+                return False, exp, "beep heard at %.2f s, before the mailbox's beep (%.2f s)" % (t_beep, f["beep_start"])
+            return True, exp, "voicemail path on the beep at %.2f s" % t_beep
+        if exp == "agent_or_drop" or (f.get("noisy_line") and t_beep is None):
+            return True, exp, "%s (no beep before the bridge)" % act
+        return False, exp, "%s: the beep was %s" % (act, "never heard" if t_beep is None else "heard only at %.2f s" % t_beep)
+    if exp == "nodrop":
+        if t_beep is not None:
+            return False, exp, "a beep heard on a mailbox with none (%.2f s)" % t_beep
+        return act != "drop", exp, act
+    return False, exp, "unknown expectation"
 
 
 def amd_one(rec, case, run):
     u = str(uuid.uuid4())
     c = ESL(*FS)
-    t_cmd = time.time()
     reply = c.api(
         "originate {origination_uuid=%s,ignore_early_media=true,absolute_codec_string=PCMU\\,PCMA,"
         "origination_caller_id_number=15550001111}sofia/gateway/kamailio/play_%s__amd%d@%s '%s' inline"
@@ -195,6 +253,7 @@ def amd_one(rec, case, run):
     amd_ev = next((e for e in evs if e.get("Event-Subclass") == "amd::info"), None)
     beep = next((e for e in evs if e.get("Event-Subclass") == "avmd::beep"), None)
     t0 = ts(ans) if ans else None
+    f = clip(case)
     r = {"case": case, "run": run, "uuid": u, "originate": reply.strip()[:60],
          "amd_event_name": amd_ev.get("Event-Name") if amd_ev else None,
          "verdict": (hup or {}).get("variable_amd_result"), "cause": (hup or {}).get("variable_amd_cause"),
@@ -207,19 +266,22 @@ def amd_one(rec, case, run):
          "avmd_detect": (hup or {}).get("variable_avmd_detect"),
          "t_beep": round(ts(beep) - t0, 3) if beep and t0 else None,
          "beep_event_freq": beep.get("Frequency") if beep else None,
-         "facts": FACTS[case], "hangup_cause": (hup or {}).get("Hangup-Cause"),
+         "facts": f, "expect": f["expect"], "stress": f["stress"], "hangup_cause": (hup or {}).get("Hangup-Cause"),
          "events_for_leg": sorted({e.get("Event-Subclass") or e.get("Event-Name") for e in evs}),
          "amd_vars": {k: v for k, v in (hup or {}).items() if k.startswith(("variable_amd", "variable_avmd"))}}
-    want, beep_present = AMD_EXPECT[case]
-    r["verdict_ok"] = verdict_ok(want, r["verdict"])
-    r["beep_ok"] = bool(r["t_beep"]) == beep_present
-    if beep_present and r["t_beep"]:
-        r["beep_ok"] = r["t_beep"] >= FACTS[case]["beep_start"] - 0.1
-    r["pass"] = r["verdict_ok"] and r["beep_ok"] and r["hangup_cause"] == "NORMAL_CLEARING"
+    r["outcome"], r["t_outcome"] = strategy_outcome(r["verdict"], r["t_verdict"], r["t_beep"])
+    ok, r["wanted"], r["why"] = judge_amd(case, r["verdict"], r["t_verdict"], r["t_beep"])
+    r["pass"] = ok and r["hangup_cause"] == "NORMAL_CLEARING"
     return r
 
 
 SUBS = {}
+
+
+def amd_cases():
+    """Every far-end clip the strategy has an expectation for (the lab's 12
+    and the research corpus's 23), in a stable order."""
+    return [c for c in CLIPS] or [c for c in FACTS if c not in ("cust_voice", "agent_voice")]
 
 
 def suite_amd(runs=3, parallel=4):
@@ -231,7 +293,7 @@ def suite_amd(runs=3, parallel=4):
     for r in SUBS.values():
         r.start()
     only = os.environ.get("LAB_AMD_CASES")
-    jobs = [(c, r) for r in range(1, runs + 1) for c in AMD_EXPECT if not only or c in only.split(",")]
+    jobs = [(c, r) for r in range(1, runs + 1) for c in amd_cases() if not only or c in only.split(",")]
     results, lock = [], threading.Lock()
 
     def worker():
@@ -246,7 +308,7 @@ def suite_amd(runs=3, parallel=4):
                 r = {"case": case, "run": run, "error": repr(e), "pass": False}
             with lock:
                 results.append(r)
-            print(json.dumps({k: r.get(k) for k in ("case", "run", "verdict", "cause", "t_verdict", "t_beep", "pass")}), flush=True)
+            print(json.dumps({k: r.get(k) for k in ("case", "run", "verdict", "cause", "t_verdict", "t_beep", "outcome", "why", "pass")}), flush=True)
 
     ts_ = [threading.Thread(target=worker) for _ in range(parallel)]
     for t in ts_:
@@ -308,28 +370,20 @@ def http_cache_leftovers(link):
             except OSError:
                 pass
     return sorted(set(left))
-# The amdbeep flow (what BE-12's automatic drop would send) once the avmd beep
-# event has arrived. The beep event fires a quarter of a second into the beep,
-# so playing at once plays over the rest of it (and a mailbox that starts
-# recording at the end of the beep loses the first words): wait for the line
-# to go quiet first (10 quiet 20 ms frames, then wait_for_silence's own
-# 0.5 s countdown; 5 s at most).
-# The threshold is 400, the same as BE-17's steps, on wait_for_silence's
-# own scale: it reads every other sample of a mono frame and divides by
-# all 160, so a frame scores about half its true mean |sample| (mod_amd's
-# scale). 640 here was about 1280 on mod_amd's scale, louder than many
-# beeps; 200 is below the comfort noise a carrier sends, so on a real line
-# no frame counted as silence and the wait ran its whole timeout (D2).
-AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:400 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
-BEEP_WAIT_S = 25
-ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
-# D6: a beep this early in the call contradicts a HUMAN/NOTSURE verdict. A
-# person does not emit a 1000 Hz tone a second after answering; a mailbox
-# whose greeting is only a beep, or whose first word is followed by a long
-# gap, comes out HUMAN from mod_amd alone (see AMD_EXPECT["beep_only"]) and
-# would be handed to an agent as a live customer. avmd detects the beep 5/5
-# at about 1.0 s, so the flow asks it before trusting HUMAN.
-BEEP_CONTRADICTS_HUMAN_S = 2.0
+
+
+# amdbeep: the strategy's own call flow, PR1's scripts/campaign_amd.lua, on
+# the customer leg from answer. The lab plays the CRM's part around it: on
+# "connect" it waits the bridge time, reads avmd_detect once more (a beep that
+# landed in those few hundred ms still means a mailbox: the same drop steps
+# the script uses) and otherwise "bridges an agent". The script's own drop
+# wait is wait_for_silence:400 50 0 3500 from the beep event; a wait that
+# reaches its 3.5 s timeout is fine as long as the message still starts after
+# the beep and within DROP_LATE of it (the old 30 s timeout was the problem,
+# not timing out).
+AMD_SCRIPT = "campaign_amd.lua"
+LATE_BEEP_DROP = "wait_for_silence:400 50 0 3500,playback:%s,hangup:NORMAL_CLEARING"
+ROUTE_WITHIN_S = 0.5    # the script hands a person on within a frame of the verdict (+ ESL delivery)
 
 
 # ConexusCRM-BE campaign-be17/pr13/pr14 voicemail-drop.ts dropSteps() and
@@ -337,6 +391,15 @@ BEEP_CONTRADICTS_HUMAN_S = 2.0
 # runbook ("%s" = the recording); the defaults are the ones first measured.
 BE17_STEPS = os.environ.get("LAB_BE17_STEPS") or "wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING"
 RUNBOOK_STEPS = os.environ.get("LAB_RUNBOOK_STEPS") or "avmd_start,wait_for_silence:200 15 10 8000,playback:%s,hangup:NORMAL_CLEARING"
+# BE-17's guard, as run-matrix.sh reads it from the branch: the channel
+# variable dropVoicemail() requires to be "TRUE" before it sends anything
+# (empty = the branch has no such guard and the button always plays).
+BE17_GUARD = os.environ.get("LAB_BE17_GUARD", "")
+# RUNBOOK F3: the command droptest starts the beep detector with ("%s" =
+# the leg) when it waits for a beep before it transfers; empty = it does not
+RUNBOOK_BEEP_FIRST = os.environ.get("LAB_RUNBOOK_BEEP_FIRST", "")
+PRESS_1_S = 1.5         # the agent hears the greeting start and presses
+PRESS_AGAIN_AFTER = 0.5  # refused: they press again once the greeting (and beep) has ended
 
 
 def drop_steps_be17(target):
@@ -366,70 +429,120 @@ def lead_in(path):
     return _LEADIN[path]
 
 
+def getvar(u, name):
+    c = ESL(*FS)
+    try:
+        v = c.api("uuid_getvar %s %s" % (u, name)).strip()
+    finally:
+        c.close()
+    return None if v in ("", "_undef_") or v.startswith("-ERR") else v
+
+
+def second_press_at(f):
+    """When an agent who was refused presses again: once what they hear has
+    ended (the greeting, its beep, or the person's words), or 8 s in."""
+    ends = [x for x in (f.get("beep_end"), f.get("greeting_end"), f.get("speech_end")) if x is not None]
+    return (max(ends) if ends else 7.5) + PRESS_AGAIN_AFTER
+
+
 def drop_one(rec, flow, case, run):
     u = str(uuid.uuid4())
     tag = "%s__drop_%s%d" % (case, flow, run)
+    f = clip(case)
     c = ESL(*FS)
-    inline = "avmd_start,amd,park" if flow == "amdbeep" else "park"
-    reply = c.api("originate {origination_uuid=%s,ignore_early_media=true,absolute_codec_string=PCMU\\,PCMA}"
-                  "sofia/gateway/kamailio/play_%s@%s '%s' inline" % (u, tag, DOMAIN, inline))
+    if flow == "amdbeep":
+        vars_ = "conexus_drop_ok=true,conexus_drop_target=%s," % DROP_NOLEAD
+        inline = "lua:%s" % AMD_SCRIPT
+    elif flow in ("be17", "be17https"):
+        # BE-17's guard reads what the beep detector has heard on this call,
+        # so the dialer starts it at answer (AMD-STRATEGY.md 8.2:
+        # execute_on_answer avmd_start); without a guard on the branch the
+        # listener changes nothing
+        vars_, inline = "", "avmd_start,park"
+    else:
+        vars_, inline = "", "park"
+    reply = c.api("originate {%sorigination_uuid=%s,ignore_early_media=true,absolute_codec_string=PCMU\\,PCMA}"
+                  "sofia/gateway/kamailio/play_%s@%s '%s' inline" % (vars_, u, tag, DOMAIN, inline))
     ans = rec.wait_for(lambda e: e.get("Event-Name") == "CHANNEL_ANSWER" and uid(e) == u, 10)
     t0 = ts(ans) if ans else time.time()
     action, sent_at, verdict, t_verdict, t_route, drop_file = None, None, None, None, None, DROP_NOLEAD
-    link = None
-    beep_override = False
-    steps = None
+    link, steps, decision, presses, det_start = None, None, None, [], None
+    late_beep = False
     if flow in ("be17", "runbook", "be17https"):
-        # the agent hears the greeting start and presses the button ~1.5 s in
-        time.sleep(max(0, t0 + 1.5 - time.time()))
         # D5: a link shaped like the one BE-17 really builds - an
         # extensionless S3 key (telephony/<org>/<uuid>) and a SigV4 query
         # string, so there is no "." anywhere for mod_httapi's find_ext()
-        # to land on. The old row played /vm/drop.wav, whose last path
-        # segment ends in .wav, so find_ext() always succeeded and the
-        # missing-format fault could not show. The mock serves this shape
-        # GET-only and answers HEAD with 403, exactly as S3 does for a
-        # link signed for GET.
+        # to land on. The mock serves this shape GET-only and answers HEAD
+        # with 403, exactly as S3 does for a link signed for GET.
         target = PRESIGNED_SHAPED_LINK() if flow == "be17https" else DROP_NOLEAD
         link = target
         if flow == "be17https":
             drop_file = DROP_FILE
         steps = RUNBOOK_STEPS % target if flow == "runbook" else drop_steps_be17(target)
-        action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
-        sent_at = time.time() - t0
-    else:
-        # what BE-12 would need: AMD verdict; a person goes to an agent at
-        # once; a machine waits for the beep, then the drop
-        amd = rec.wait_for(lambda e: e.get("Event-Subclass") == "amd::info" and uid(e) == u, 10)
-        verdict = amd.get("variable_amd_result") if amd else None
-        t_verdict = round(amd["_rx"] - t0, 3) if amd else None
-        # D6: avmd heard a beep in the first couple of seconds - this is a
-        # machine whatever mod_amd said.
-        early = [e for e in rec.find(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u)]
-        t_early = round(ts(early[0]) - t0, 3) if early else None
-        beep_override = (verdict != "MACHINE" and t_early is not None
-                         and t_early <= BEEP_CONTRADICTS_HUMAN_S)
-        if verdict == "MACHINE" or beep_override:
-            beep = rec.wait_for(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u, BEEP_WAIT_S)
-            if beep:
-                action = c.api("uuid_transfer %s '%s' inline" % (u, AMDBEEP_PLAY % DROP_NOLEAD)).strip()
-                sent_at = time.time() - t0
+        if flow == "runbook":
+            time.sleep(max(0, t0 + PRESS_1_S - time.time()))
+            if RUNBOOK_BEEP_FIRST:
+                # droptest: start the beep detector, poll avmd_detect every
+                # 0.5 s for 30 s, transfer only once it is TRUE
+                det_start = c.api(RUNBOOK_BEEP_FIRST % u).strip()[:40]
+                presses.append(round(time.time() - t0, 2))
+                end = time.time() + 30
+                while time.time() < end and getvar(u, "avmd_detect") != "TRUE":
+                    time.sleep(0.5)
+                if getvar(u, "avmd_detect") == "TRUE":
+                    action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
+                    sent_at = time.time() - t0
+                else:
+                    action = "no beep in 30 s: no drop"
             else:
-                # No beep: nothing in the audio tells this greeting from a
-                # long-talking person who has stopped to listen, so the drop
-                # must not play. The defined human-safe end is an agent (who
-                # can still press BE-17), never a recording and never a
-                # hang-up: hanging up here would abandon anyone judged
-                # MACHINE by mistake.
-                action = "no beep within %d s: no drop; to an agent" % BEEP_WAIT_S
-                t_route = round(time.time() - t0, 3)
-                time.sleep(3)
-                c.api("uuid_kill %s NORMAL_CLEARING" % u)
+                presses.append(round(time.time() - t0, 2))
+                action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
+                sent_at = time.time() - t0
         else:
-            action = "verdict %s: to an agent at once, no drop" % verdict
-            t_route = t_verdict
-            time.sleep(3)
+            # The agent presses ~1.5 s in; refused, they press again once the
+            # greeting (and its beep) is over. BE-17 checks BE17_GUARD first.
+            for at in (PRESS_1_S, second_press_at(f)):
+                time.sleep(max(0, t0 + at - time.time()))
+                presses.append(round(time.time() - t0, 2))
+                if BE17_GUARD and getvar(u, BE17_GUARD) != "TRUE":
+                    action = "refused: no beep on record"
+                    continue
+                action = c.api("uuid_transfer %s '%s' inline" % (u, steps)).strip()
+                sent_at = time.time() - t0
+                break
+        if sent_at is None:
+            # nothing played: the agent carries on with the call
+            t_route = round(time.time() - t0, 3)
+            time.sleep(2)
             c.api("uuid_kill %s NORMAL_CLEARING" % u)
+    else:
+        # amdbeep: the script decides; the lab is the CRM around it
+        ev = rec.wait_for(lambda e: e.get("Event-Subclass") == "conexus::amd" and uid(e) == u
+                          and e.get("decision") != "drop_done", 45)
+        decision = ev.get("decision") if ev else None
+        if ev:
+            t_dec = ts(ev) - t0
+            if decision in ("connect", "connect_late"):
+                t_route = round(t_dec, 3)
+                # the CRM's bridge: avmd_detect read once more just before it
+                time.sleep(max(0, t0 + t_dec + BRIDGE_LAT - time.time()))
+                if getvar(u, "avmd_detect") == "TRUE":
+                    late_beep = True
+                    action = c.api("uuid_transfer %s '%s' inline" % (u, LATE_BEEP_DROP % DROP_NOLEAD)).strip()
+                    sent_at = time.time() - t0
+                else:
+                    action = "%s: agent bridged" % decision
+                    time.sleep(3)
+                    c.api("uuid_kill %s NORMAL_CLEARING" % u)
+            elif decision == "drop":
+                action = "drop (the script)"
+                sent_at = t_dec
+        else:
+            action = "no conexus::amd event in 45 s"
+            c.api("uuid_kill %s NORMAL_CLEARING" % u)
+        amd = rec.find(lambda e: e.get("Event-Subclass") == "amd::info" and uid(e) == u)
+        verdict = amd[0].get("variable_amd_result") if amd else None
+        t_verdict = round(amd[0]["_rx"] - t0, 3) if amd else None
     hup = wait_gone(rec, u, 60)
     c.close()
     evs = rec.find(lambda e: uid(e) == u)
@@ -437,21 +550,24 @@ def drop_one(rec, flow, case, run):
     pbs = [e for e in evs if e.get("Event-Name") == "PLAYBACK_START"]
     wfs = [e for e in evs if e.get("Event-Name") == "CHANNEL_EXECUTE_COMPLETE" and e.get("Application") == "wait_for_silence"]
     beep = next((e for e in evs if e.get("Event-Subclass") == "avmd::beep"), None)
+    amdev = [e for e in evs if e.get("Event-Subclass") == "conexus::amd"]
     t_hup = ts(hup) - t0 if hup else None
     time.sleep(1.0)
     # newest file for this tag (a partial re-run reuses tags)
     cands = [p for p in os.listdir(RES + "/far-rec") if p.startswith("play-%s-" % tag)]
     path = max(cands, key=lambda p: os.path.getmtime(RES + "/far-rec/" + p)) if cands else None
     r = {"flow": flow, "case": case, "run": run, "uuid": u, "originate": reply.strip()[:40], "verdict": verdict,
-         "beep_override": beep_override,
+         "decision": decision, "late_beep_at_bridge": late_beep, "presses": presses, "detector_start": det_start,
+         "conexus_amd_events": [{k: e.get(k) for k in ("decision", "amd_result", "amd_cause", "verdict_ms", "beep_ms", "playback")}
+                                for e in amdev],
          "t_verdict": t_verdict, "t_route": t_route, "action": action, "sent_at": round(sent_at, 3) if sent_at else None,
          "wait_for_silence_done": round(ts(wfs[0]) - t0, 3) if wfs else None,
          "playback_start": round(ts(pbs[0]) - t0, 3) if pbs else None,
          "playback_response": pb[0].get("Application-Response") if pb else None,
          "t_beep_detected": round(ts(beep) - t0, 3) if beep else None, "t_hangup": round(t_hup, 3) if t_hup else None,
          "drop_file": drop_file, "drop_file_lead_in": lead_in(drop_file),
-         "hangup_cause": (hup or {}).get("Hangup-Cause"), "facts": FACTS[case], "far_recording": path}
-    f = FACTS[case]
+         "hangup_cause": (hup or {}).get("Hangup-Cause"), "facts": f, "expect": f["expect"], "stress": f["stress"],
+         "far_recording": path}
     if path:
         rate, ch = load_wav(RES + "/far-rec/" + path)
         heard = frames(ch[0], rate)           # left = what the far end received from FreeSWITCH
@@ -478,83 +594,116 @@ def drop_one(rec, flow, case, run):
         r["http_cache_left"] = http_cache_leftovers(link)
         played_ok = played_ok and not r["http_cache_left"]
     # D2: wait_for_silence has no failure branch - on timeout it returns and
-    # playback runs anyway, into a mailbox that has usually stopped
-    # recording. Measure whether it ended because the line really went
-    # quiet or because it gave up.
-    used = steps if flow in ("be17", "runbook", "be17https") else (AMDBEEP_PLAY if sent_at is not None else None)
+    # playback runs anyway. With BE-17's 30 s timeout that is 30 s of nothing
+    # recorded in a mailbox that has usually stopped recording, so a timed-out
+    # wait fails the row. The strategy's wait from the beep (3.5 s) may time
+    # out, as long as the message still lands within DROP_LATE of the beep.
+    if flow == "amdbeep":
+        used = LATE_BEEP_DROP if sent_at is not None else None
+    else:
+        used = steps if sent_at is not None else None
     wait_ms = re.search(r"wait_for_silence:\d+ \d+ \d+ (\d+)", used or "")
     if r["wait_for_silence_done"] is not None and sent_at is not None:
         r["wait_ran_s"] = round(r["wait_for_silence_done"] - sent_at, 2)
         limit = int(wait_ms.group(1)) / 1000.0 if wait_ms else 30.0
         r["wait_timed_out"] = r["wait_ran_s"] >= limit - 0.5
+        r["wait_timeout_s"] = limit
     else:
-        r["wait_ran_s"], r["wait_timed_out"] = None, False
-    human = case.startswith("human") or case == "silent_then_hello"
-    if human and flow == "amdbeep":
-        # a person must get no recording AND be on the way to an agent within
-        # ROUTE_WITHIN_S of the verdict, not held for a beep that never comes
-        r["held_s"] = round((t_route if t_route is not None else (t_hup or 99)) - (t_verdict or 0), 2)
-        r["pass"] = not pb and r.get("drop_heard_onset") is None and t_route is not None \
-            and r["held_s"] <= ROUTE_WITHIN_S
-    elif human:
-        r["pass"] = not pb and r.get("drop_heard_onset") is None
-    elif "beep_end" in f:
-        r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_before_beep_end"] \
-            and r.get("drop_heard_onset") is not None and r["drop_heard_onset"] >= f["beep_end"] \
-            and not r["wait_timed_out"] \
-            and r["hangup_cause"] == "NORMAL_CLEARING"
-    elif flow == "amdbeep":
-        # A MACHINE verdict on a greeting with no beep. The drop must NOT
-        # play: with these settings nothing tells this from a long-talking
-        # person who has stopped to listen, and playing it would read the
-        # message to that person. The call goes to an agent instead (who can
-        # still press BE-17 on a real mailbox), so what is required here is
-        # no playback and a route, not a hang-up. Holding a machine for the
-        # beep first is fine; a person wrongly judged MACHINE is caught by
-        # held_s on the human rows above.
-        r["held_s"] = round((t_route if t_route is not None else (t_hup or 99)) - (t_verdict or 0), 2)
-        r["pass"] = not pb and r.get("drop_heard_onset") is None and t_route is not None
-    else:  # be17/runbook on a greeting with no beep: at least not over the greeting
-        r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_over_greeting"] \
-            and not r["wait_timed_out"] \
-            and r["hangup_cause"] == "NORMAL_CLEARING"
+        r["wait_ran_s"], r["wait_timed_out"], r["wait_timeout_s"] = None, False, None
+    r["pass"], r["why"] = judge_drop(flow, f, r, played_ok)
     return r
+
+
+def judge_drop(flow, f, r, played_ok):
+    """(pass, why) for a section 4 row, on the strategy's outcome."""
+    exp = f["expect"]
+    nothing_played = not r["playback_response"] and r.get("drop_heard_onset") is None
+
+    def good_drop():
+        if not played_ok or r["drop_onset"] is None:
+            return False, "no drop played (%s)" % (r["playback_response"] or r["action"])
+        if not f.get("beeps"):
+            return False, "a drop on a clip with no beep"
+        if r["drop_before_beep_end"]:
+            return False, "drop at %.2f s, before the beep ended (%.2f s)" % (r["drop_onset"], f["beep_end"])
+        if r.get("drop_heard_onset") is None or r["drop_heard_onset"] < f["beep_end"]:
+            return False, "the far end heard the drop before the beep ended"
+        if r["hangup_cause"] != "NORMAL_CLEARING":
+            return False, "hangup %s" % r["hangup_cause"]
+        if r["wait_timed_out"] and (r["wait_timeout_s"] or 0) > 5:
+            return False, "the wait gave up after %.1f s (D2)" % r["wait_ran_s"]
+        late = r["drop_onset"] - f["beep_end"]
+        if flow in ("amdbeep", "runbook") and late > DROP_LATE:
+            return False, "drop %.2f s after the beep ended (more than %.1f s)" % (late, DROP_LATE)
+        return True, "drop %.2f s after the beep ended" % late
+
+    if flow == "amdbeep":
+        dec = r["decision"]
+        if exp == "agent":
+            if not nothing_played:
+                return False, "a recording played to a person"
+            if r["verdict"] == "MACHINE" or dec != "connect":
+                return False, "%s / %s, not an agent at once" % (r["verdict"], dec)
+            if r["t_beep_detected"] is not None:
+                return False, "a beep heard on a person (%.2f s)" % r["t_beep_detected"]
+            if r["t_verdict"] is not None and r["t_route"] - r["t_verdict"] > ROUTE_WITHIN_S:
+                return False, "connect %.2f s after the verdict" % (r["t_route"] - r["t_verdict"])
+            se = last_word(f)
+            bridge = r["t_route"] + BRIDGE_LAT
+            if se is not None and r["t_route"] >= se and bridge - se > TCPA_LIMIT:
+                return False, "agent %.2f s after they stopped" % (bridge - se)
+            return True, "agent at %.2f s" % bridge
+        if exp in ("drop", "agent_or_drop"):
+            if r["playback_response"] or r["drop_onset"] is not None:
+                return good_drop()
+            if dec in ("connect", "connect_late") and nothing_played and \
+                    (exp == "agent_or_drop" or (f.get("noisy_line") and r["t_beep_detected"] is None)):
+                return True, "%s, no beep heard: an agent" % dec
+            return False, "%s, nothing played (beep %s)" % (dec, r["t_beep_detected"])
+        if exp == "nodrop":
+            ok = nothing_played and dec in ("connect", "connect_late") and r["t_beep_detected"] is None
+            return ok, "%s, nothing played" % dec if ok else "%s / played %s" % (dec, r["playback_response"])
+        return False, "unknown expectation"
+    # be17 / be17https / runbook: a button an agent presses (or the runbook's
+    # stand-in for it). Nothing may play without a beep on record.
+    if exp == "agent":
+        return nothing_played, "refused, nothing played" if nothing_played else "a recording played to a person"
+    if exp == "nodrop":
+        return nothing_played, "refused, nothing played" if nothing_played else "a drop on a mailbox with no beep"
+    if exp in ("drop", "agent_or_drop"):
+        if r["playback_response"] or r["drop_onset"] is not None:
+            return good_drop()
+        if nothing_played and (exp == "agent_or_drop" or (f.get("noisy_line") and r["t_beep_detected"] is None)):
+            return True, "refused: no beep heard (the agent carries on)"
+        return False, "nothing played (%s)" % r["action"]
+    return False, "unknown expectation"
+
+
+# The research named these for real calls (AMD-STRATEGY.md 8.4); on top of
+# the amdbeep flow, which runs every clip, they also go through the button.
+BUTTON_NEW = ("h_anyone_there", "h_hello_x3", "h_street", "vm_2s_beep", "vm_real_med", "vm_double_beep", "vm_carrier_noisy")
 
 
 def suite_drop(runs=2):
     rec = recorder("drop")
     rec.start()
     plan = []
-    # vm_beep_noisy (D2) is a mailbox on a line with a real noise floor: it
-    # is the only case that exercises wait_for_silence's threshold and its
-    # 30 s fall-through, so it runs through every drop flow.
-    for case in ("vm_beep_short", "vm_beep_long", "vm_beep_1200ms", "vm_beep_noisy", "vm_nobeep",
-                 "human_hello", "human_long", "silent_then_hello"):
+    # amdbeep: every clip the strategy has an expectation for
+    for case in amd_cases():
         for run in range(1, runs + 2):
             plan.append(("amdbeep", case, run))
+    # the button (BE-17) and the runbook's droptest. vm_beep_noisy (D2) is a
+    # mailbox on a line with a real noise floor; vm_beep_late (-20 dBm0 beep
+    # ending 2.2 s after the greeting) is about when wait_for_silence lets
+    # the drop START, so it runs through both.
+    for case in ("vm_beep_short", "vm_beep_long", "vm_beep_1200ms", "vm_beep_noisy", "vm_nobeep",
+                 "human_hello", "human_long", "silent_then_hello", "vm_beep_late") + BUTTON_NEW:
         for run in range(1, runs + 1):
             plan.append(("be17", case, run))
         plan.append(("runbook", case, 1))
-    # vm_beep_late: a -20 dBm0 beep (a carrier level) that ends 2.2 s after
-    # the greeting. The quiet count alone ends the wait about 2 s after the
-    # greeting's last word, so only the beep itself, scored on
-    # wait_for_silence's own scale, can hold the message until it has ended.
-    # It is about when the drop STARTS, so it runs through the two flows
-    # that start it on wait_for_silence (amdbeep starts on the beep event).
-    for run in range(1, runs + 1):
-        plan.append(("be17", "vm_beep_late", run))
-    plan.append(("runbook", "vm_beep_late", 1))
-    # beep_only (D6) and human_phrases (D1) are about the VERDICT the flow
-    # acts on, so they run through amdbeep, which is the flow that reads it.
-    # BE-17 is an unconditional button with no verdict to get wrong: putting
-    # them through it would only restate the known BE-17-on-a-person fault
-    # the human rows already measure.
-    for case in ("beep_only", "human_phrases"):
-        for run in range(1, runs + 2):
-            plan.append(("amdbeep", case, run))
-    # D5: the one row that plays a real https link plays one shaped like a
+    # D5: the rows that play a real https link play one shaped like a
     # presigned S3 url (extensionless key + SigV4 query string).
-    for case in ("vm_beep_short", "vm_beep_noisy"):
+    for case in ("vm_beep_short", "vm_beep_noisy", "vm_beep_1200ms"):
         plan.append(("be17https", case, 1))
     # quick re-runs of part of the suite (the full matrix sets neither)
     fl, cs = os.environ.get("LAB_DROP_FLOWS"), os.environ.get("LAB_DROP_CASES")
@@ -569,11 +718,11 @@ def suite_drop(runs=2):
                 job = plan.pop(0)
             try:
                 r = drop_one(rec, *job)
-            except Exception as e:
+            except Exception:
                 r = {"flow": job[0], "case": job[1], "run": job[2], "error": traceback.format_exc()[-400:], "pass": False}
             with lock:
                 results.append(r)
-            print(json.dumps({k: r.get(k) for k in ("flow", "case", "run", "verdict", "t_verdict", "held_s", "sent_at", "drop_onset", "drop_heard_onset", "playback_response", "pass")}), flush=True)
+            print(json.dumps({k: r.get(k) for k in ("flow", "case", "run", "verdict", "decision", "t_verdict", "t_route", "sent_at", "drop_onset", "drop_heard_onset", "playback_response", "why", "pass")}), flush=True)
 
     ts_ = [threading.Thread(target=worker) for _ in range(3)]
     for t in ts_:
