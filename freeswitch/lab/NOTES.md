@@ -778,3 +778,15 @@ Found on the way, on real calls:
     hung up on after its beep counts too) and never under-counts. Nothing
     writes `amd_result` today, so no live number changes; BE-12 should add
     the evidence columns (AMD-STRATEGY.md 8.3 item 1, one migration).
+
+### The matrix after the sixth pass: 149 of 149
+
+One full run, 06:58-08:09 UTC, drafts at docs `2ad9564`, BE-17's steps and
+guard read from campaign-pr14 `b45b8a53`. The image was not rebuilt: PR1's
+changes are config and a script (mounted at `/etc/freeswitch`); the image's
+inputs (Dockerfile, modules.conf, requirements.txt) are unchanged, so its
+`lab.src` label still matched. 153 rows: the 90 of the fifth pass (none
+deleted) and 63 new; the research's 4 stress rows are reported, not counted
+(`h_real_two` passes, `h_tv_loud` does not: NOTSURE/TOOLONG at 12.0 s, an
+agent 11.2 s after the person stopped, never MACHINE, nothing played). Every
+expectation that changed: `EXPECTATIONS-CHANGE.md`.

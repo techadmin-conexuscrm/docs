@@ -15,7 +15,7 @@ So every AMD and drop row is now judged on **what happens to the caller**,
 not on the verdict. Nothing was deleted: every earlier row is still there,
 and 63 rows were added (4 of them the research's stress rows, reported and not counted). This page lists every existing row whose expected
 outcome changed, old -> new, and why, so the change can be approved as a
-whole or row by row. `RESULT` is this pass's real-call run (`results.md`).
+whole or row by row. The real-call run of this pass is in `results.md` (summary at the end of this page).
 
 ## The rules every row is judged by now
 
@@ -96,3 +96,21 @@ for every mailbox. What it gives up is visible in the rows marked "an agent
 if no beep is heard": on noisy lines and on mailboxes with no beep, agents
 will hear the greeting and decide themselves. How often that happens on our
 real numbers is what the shadow-mode pilot measures (research section 7).
+
+## Result of this pass (real calls, `results.md`, 2026-10-24 08:09 UTC)
+
+**149 of 149 counted rows pass.** The four stress rows are reported, not
+counted: `h_real_two` passes in sections 3 and 4; `h_tv_loud` (a TV 12 dB
+below the voice) fails in both, as the research predicted: NOTSURE/TOOLONG at
+12.0 s, an agent 11.2 s after the person stopped. Nobody is played anything
+and nobody is MACHINE, but the 2-second rule is missed: an energy detector
+cannot tell a loud TV from talk.
+
+The changed rows, measured: `vm_beep_short` HUMAN at 9.20 s but the beep at
+7.70 s sends it to the voicemail path and the message starts 1.5 s after the
+beep (amdbeep 9.47 s); `vm_beep_noisy` no beep heard in any run (section 3
+5/5, amdbeep 3/3: an agent; every button row refused, nothing played);
+`vm_nobeep` HUMAN at 7.75 s, an agent, every button row refused;
+`beep_only` HUMAN at 2.72 s, beep at 1.04 s, the message after it. The six
+`be17`/`runbook` rows on a person that were red for two passes now pass:
+the button is refused (no beep on record) and nothing plays.
