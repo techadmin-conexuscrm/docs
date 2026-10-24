@@ -8,6 +8,7 @@ mod_lua would run it. Each scenario is one call: the keys the customer presses
 (with how long they take), what the CRM's tokenize endpoint answers, and what
 else happens on the channel. Lab-only test data (test card numbers).
 """
+import re
 import sys
 import lupa.lua52 as L
 
@@ -163,6 +164,10 @@ function make_session()
     S.t = S.t + k.delay
     if k.key == "X" then          -- someone else's uuid_transfer of this leg
       S.gone = true; rec("transferred"); fire_hook("transfer"); return ""
+    elseif k.key == "B" then      -- the CRM's own uuid_bridge (agent Cancel, error, watchdog)
+      -- uuid_bridge from outside sets CF_TRANSFER/CF_REDIRECT: the channel
+      -- is no longer ready, and mod_lua's hook does not run (no CS_ROUTING)
+      S.gone = true; rec("bridged_away"); return ""
     elseif k.key == "H" then      -- the customer hangs up
       S.gone = true; rec("hung_up"); fire_hook("hangup"); return ""
     end
@@ -202,7 +207,7 @@ function run(cfg, src)
   local ok, e = pcall(chunk)
   return { error = (not ok) and tostring(e) or nil, log = S.log, t = S.t,
            read_after_error = S.read_after_error, closed = S.closed, conns = S.conns,
-           sent = S.sent, digits_dialed = S.digits_dialed }
+           sent = S.sent, digits_dialed = S.digits_dialed, cust = S.cust }
 end
 """
 
@@ -261,6 +266,10 @@ SCENARIOS = {
         ["HTTP/1.1 200 OK", "Content-Length: 31", "", EOF]]),
     "customer_hangup_mid_card": dict(keys=keys("4111") + [("H", 1, False)], replies=[]),
     "transferred_mid_card": dict(keys=keys("4111") + [("X", 1, False)], replies=[]),
+    # The agent presses Cancel (or the CRM errors or its watchdog fires) while
+    # the customer is 4 digits into the card: the CRM uuid_bridges the legs
+    # straight away, with no prompt telling the customer to stop.
+    "crm_bridged_mid_card": dict(keys=keys("4111") + [("B", 1, False)], replies=[]),
     "two_declines_human_pace": dict(keys=GOOD_HUMAN * 3, replies=[DECLINE, DECLINE, DECLINE]),
     "slow_typist_one_decline": dict(
         keys=(keys(VISA, 5, 1.2) + keys("1230", 5, 1.2) + keys("123", 5, 1.2) + keys("78704", 5, 1.2)) * 3,
@@ -418,7 +427,7 @@ def run_all(script_path, secret_path):
                 log.append({"t": e["t"], "kind": e["kind"], "a": a, "b": e["b"]})
         sent = [out["sent"][i] for i in range(1, len(out["sent"]) + 1)] if out["sent"] else []
         results[name] = {"error": out["error"], "log": log, "t": out["t"], "sent": sent,
-                         "digits_dialed": out["digits_dialed"], "want": sc.get("want"),
+                         "digits_dialed": out["digits_dialed"], "want": sc.get("want"), "cust": out["cust"],
                          "read_after_error": out["read_after_error"], "conns": out["conns"],
                          "closed": dict(out["closed"].items()) if out["closed"] else {}}
     return results
@@ -465,11 +474,14 @@ def check(results):
         # becomes a "RECV DTMF" log line, a DTMF event and part of
         # digits_dialed (json CDR and CHANNEL_HANGUP, which
         # scripts/event/esl_listener.py POSTs to the CRM in full).
-        if name != "customer_hangup_mid_card":
-            def idx(kind, pred):
-                return [i for i, e in enumerate(r["log"])
-                        if e["kind"] == kind and pred(e["a"])]
-            unset = idx("api", lambda c: c.startswith("uuid_setvar ") and c.strip().endswith(" sensitive_dtmf"))
+        moved_away = name in ("transferred_mid_card", "crm_bridged_mid_card")
+        def idx(kind, pred):
+            return [i for i, e in enumerate(r["log"])
+                    if e["kind"] == kind and pred(e["a"])]
+        unset = idx("api", lambda c: c.startswith("uuid_setvar ") and c.strip().endswith(" sensitive_dtmf"))
+        held = [(i, r["log"][i]["a"]) for i in idx("api", lambda c: c.startswith("sched_api ")
+                                                    and c.strip().endswith(" sensitive_dtmf"))]
+        if name != "customer_hangup_mid_card" and not moved_away:
             bridge = idx("api", lambda c: c.startswith("uuid_bridge"))
             played = idx("play", lambda _a: True)
             expect(name, unset, "sensitive_dtmf never unset at the end of the entry")
@@ -479,6 +491,25 @@ def check(results):
             expect(name, not (unset and bridge) or unset[0] > bridge[-1],
                    "sensitive_dtmf was unset before the customer was bridged back, so the whole "
                    "reconnect is an unprotected window")
+        if moved_away:
+            # Someone else moved the leg mid-card with no prompt to stop the
+            # customer: the keys still coming are card digits. Protection
+            # must stay on now and be lifted later, by the scheduler.
+            expect(name, not unset, "sensitive_dtmf unset the moment the leg was moved away, while the "
+                   "customer may still be keying the card: the rest reaches the log, the CDR and the agent")
+            expect(name, len(held) == 1 and int(re.match(r"sched_api \+(\d+) ", held[0][1]).group(1)) >= 30,
+                   "no delayed unset of sensitive_dtmf (sched_api +N, N >= 30): %r" % (held,))
+            expect(name, held and r["cust"] in held[0][1], "the delayed unset is not for this customer leg")
+        # A delayed unset left by an earlier entry on the same call must be
+        # cancelled before this entry reads a key, or it lifts protection
+        # in the middle of this card.
+        dels = idx("api", lambda c: c.startswith("sched_del ") and r["cust"] in c)
+        reads0 = idx("getDigits", lambda _a: True)
+        expect(name, dels and (not reads0 or dels[0] < reads0[0]),
+               "an earlier entry's delayed unset is not cancelled before the first key is read")
+        if held and dels:
+            expect(name, held[0][1].split()[2] == r["log"][dels[0]]["a"].split()[1],
+                   "sched_del and sched_api name different groups")
         expect(name, not any(e["kind"] == "flushDigits" for e in r["log"]),
                "session:flushDigits() called: FreeSWITCH copies the dropped keys into digits_dialed "
                "(switch_channel_flush_dtmf ignores sensitive_dtmf); %d key(s) would reach the CDR" % r["digits_dialed"])

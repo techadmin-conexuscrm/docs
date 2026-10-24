@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..c475f3d
+index 0000000..960109e
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,843 @@
+@@ -0,0 +1,863 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -210,6 +210,7 @@ index 0000000..c475f3d
 +local finished = false         -- a final event has been sent
 +local hung_up = false
 +local transferred = false      -- moved out of secure_payment by someone else
++local reconnected = false      -- this script put the customer back with the agent
 +
 +-- ── logging: never a digit ──────────────────────────────────────────────────
 +local function log(level, message)
@@ -839,7 +840,8 @@ index 0000000..c475f3d
 +  local agent_up = api:executeString("uuid_exists " .. AGENT_UUID)
 +  if agent_up and agent_up:match("^true") then
 +    play("returning_to_agent.wav")
-+    api:executeString("uuid_bridge " .. CUSTOMER_UUID .. " " .. AGENT_UUID)
++    local r = api:executeString("uuid_bridge " .. CUSTOMER_UUID .. " " .. AGENT_UUID)
++    reconnected = r ~= nil and r:match("^%+OK") ~= nil
 +  else
 +    log("warning", "agent leg gone; ending the call")
 +    play("agent_unavailable.wav")
@@ -949,6 +951,11 @@ index 0000000..c475f3d
 +-- of this file). The dialplan sets this before the script runs; set it again
 +-- in case the channel got here another way. (A session_loglevel would not
 +-- help: it can only make a channel more verbose than the global level.)
++-- A hold left by an earlier entry on this call (see the end of this file)
++-- must not lift protection in the middle of this one: cancel it first.
++local UNPROTECT_GROUP = "secure_payment_unprotect_" .. CUSTOMER_UUID
++local UNPROTECT_AFTER_S = 60
++api:executeString("sched_del " .. UNPROTECT_GROUP)
 +session:setVariable("sensitive_dtmf", "true")
 +
 +local ok, result, reason = pcall(main)
@@ -960,23 +967,36 @@ index 0000000..c475f3d
 +  final(result or "failed", reason)
 +  reconnect()
 +end
-+-- Only now: the entry is over, the last prompt has finished and the customer
-+-- is back with their agent, so their keys are theirs again. sensitive_dtmf
-+-- left on would stay for the rest of the call, and FreeSWITCH drops every
-+-- sensitive key it would pass across a bridge (switch_core_session_send_dtmf),
-+-- so "press 1 to confirm" on an outside line the agent transfers them to
-+-- would never be heard.
-+-- It is unset here and not before reconnect(), which plays
-+-- returning_to_agent.wav for 3-4 s before its uuid_bridge: in an unprotected
-+-- window every key becomes a "RECV DTMF" log line, a DTMF event and part of
-+-- digits_dialed, which reaches the json CDR and CHANNEL_HANGUP - and
-+-- scripts/event/esl_listener.py POSTs that to the CRM in full. A customer
-+-- who was still keying their card when the field gave up would finish it
-+-- into that window. (uuid_setvar with no value unsets; it works in any
-+-- channel state, also after a transfer away, which is why this still runs
-+-- for a leg someone else moved out of secure_payment.)
++-- The keys are the customer's again only once nothing of the card can
++-- still be coming. sensitive_dtmf left on for the rest of the call would
++-- make FreeSWITCH drop every key it passes across a bridge
++-- (switch_core_session_send_dtmf), so "press 1 to confirm" on an outside
++-- line the agent transfers them to would never be heard; turned off while
++-- the customer is still keying, every key becomes a "RECV DTMF" log line,
++-- a DTMF event and part of digits_dialed, which reaches the json CDR and
++-- CHANNEL_HANGUP - and scripts/event/esl_listener.py POSTs that to the CRM
++-- in full - and crosses the bridge to the agent's phone.
++-- 1. This script put the customer back itself: the last prompt has
++--    finished (returning_to_agent.wav plays for 3-4 s before the
++--    uuid_bridge, so a customer who was still keying when a field gave up
++--    has finished into that protected window). Unset now.
++-- 2. Anything else moved the leg away while the customer may have been in
++--    the middle of the card, with no prompt to stop them: the CRM's own
++--    uuid_bridge on an agent Cancel, an error or its watchdog, or a
++--    uuid_transfer. The keys still coming are card digits. Keep the
++--    protection and lift it UNPROTECT_AFTER_S later from the scheduler
++--    (uuid_setvar with no value unsets, in any channel state); a new entry
++--    on this call cancels that first (above). While it is held, keys the
++--    customer presses reach no one, which is the point.
 +if not hung_up then
-+  api:executeString("uuid_setvar " .. CUSTOMER_UUID .. " sensitive_dtmf")
++  if reconnected then
++    api:executeString("uuid_setvar " .. CUSTOMER_UUID .. " sensitive_dtmf")
++  else
++    log("info", "left secure entry without the closing prompt; keypad protection held "
++      .. UNPROTECT_AFTER_S .. " s")
++    api:executeString(string.format("sched_api +%d %s uuid_setvar %s sensitive_dtmf",
++      UNPROTECT_AFTER_S, UNPROTECT_GROUP, CUSTOMER_UUID))
++  end
 +end
 +collectgarbage("collect")
 diff --git a/vars.xml b/vars.xml
