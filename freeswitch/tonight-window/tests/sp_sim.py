@@ -29,8 +29,26 @@ local function dn(cn)
   return { { name = "CN", oid = "2.5.4.3", value = cn } }
 end
 
+-- Signatures: spec.key names a certificate's own key, spec.signed_by the key
+-- that signed it (a root signs itself). issued() is LuaSec's
+-- x509:issued(cert, untrusted...): OpenSSL's X509_verify_cert with self as
+-- the ONLY trusted certificate, so it fails unless self is a self-signed root
+-- (no partial chains, as the real LuaSec 1.2.0 does), and it is true only
+-- when every signature on the way up really is by the next key.
 local function mkcert(spec)
-  local c = {}
+  local c = { _spec = spec }
+  function c:issued(sub, ...)
+    if spec.signed_by ~= spec.key then return nil, "unable to get issuer certificate" end
+    local pool, cur = { ... }, sub._spec
+    for _ = 1, 8 do
+      if cur.signed_by == spec.key then return true end
+      local nxt
+      for _, p in ipairs(pool) do if p._spec.key == cur.signed_by then nxt = p._spec end end
+      if not nxt then return nil, "unable to get local issuer certificate" end
+      cur = nxt
+    end
+    return nil, "chain too long"
+  end
   function c:extensions()
     if spec.host == false then return {} end
     return { ["2.5.29.17"] = { dNSName = { spec.host or "api.test" } } }
@@ -92,6 +110,17 @@ package.preload["socket"] = function()
   return { tcp = function()
     return { settimeout = function() end, close = function() end,
              connect = function() if S.cfg.connect_fail then return nil, "refused" end return 1 end }
+  end }
+end
+-- ssl.x509.load: the CA bundle (CA_FILE) holds "-----BEGIN CERTIFICATE-----"
+-- blocks whose body here is "key|subject" of a self-signed root.
+package.loaded["ssl.x509"] = nil
+package.preload["ssl.x509"] = function()
+  return { load = function(pem)
+    local key, subject = pem:match("%-\n([^|\n]+)|([^\n]+)\n%-")
+    if not key then error("not a certificate") end
+    return mkcert({ key = key, signed_by = key, subject = subject, issuer = subject,
+                    digest = string.rep("00", 32), host = false })
   end }
 end
 package.preload["ssl"] = function()
@@ -345,8 +374,15 @@ SCENARIOS = {
     # The real deployment: the pins are the issuing intermediates, so the leaf
     # itself is not pinned and is renewed without touching the pin list.
     "pin_on_the_issuing_intermediate": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
-        leaf=dict(digest="cd" * 32, subject="api.test", issuer="Pinned Intermediate"),
-        chain=[dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root")])),
+        leaf=dict(digest="cd" * 32, subject="api.test", issuer="Pinned Intermediate", signed_by="pinned"),
+        chain=[dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root", key="pinned", signed_by="root")])),
+    # Let's Encrypt's current chain for api.tryconexus.com: leaf -> YE2 ->
+    # Root YE, which is not in Debian's bundle, so the server also sends Root
+    # YE cross-signed by ISRG Root X2 (in the bundle). YE2 is pinned.
+    "pin_through_a_cross_signed_root": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
+        leaf=dict(digest="cd" * 32, subject="api.test", issuer="YE2", signed_by="ye2"),
+        chain=[dict(digest="ab" * 32, subject="YE2", issuer="Root YE", key="ye2", signed_by="rootye"),
+               dict(digest="44" * 32, subject="Root YE", issuer="Root", key="rootye", signed_by="root")])),
     # A certificate for this host mis-issued by any of the ~140 CAs in
     # CA_FILE, with a copy of one of the pinned intermediates appended to the
     # handshake chain. That certificate is public and signs nothing here:
@@ -354,9 +390,18 @@ SCENARIOS = {
     # pin matched anywhere in the PRESENTED chain constrains nothing. Mis-
     # issuance by a trusted CA is the only thing the pin is there to stop.
     "mis_issued_cert_with_surplus_pin": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
-        leaf=dict(digest="11" * 32, subject="api.test", issuer="Mis-issuing CA R1"),
-        chain=[dict(digest="22" * 32, subject="Mis-issuing CA R1", issuer="Other Root"),
-               dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root")])),
+        leaf=dict(digest="11" * 32, subject="api.test", issuer="Mis-issuing CA R1", signed_by="mis"),
+        chain=[dict(digest="22" * 32, subject="Mis-issuing CA R1", issuer="Other Root", key="mis", signed_by="other"),
+               dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root", key="pinned", signed_by="root")])),
+    # The same CA goes one step further: it names its intermediate exactly
+    # like the pinned one (a subject is just text it writes), issues the leaf
+    # under it, and appends the genuine pinned certificate. The leaf's issuer
+    # then equals the pinned certificate's subject, but the pinned
+    # certificate did not sign the leaf. Only a signature check tells.
+    "forged_intermediate_same_subject": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
+        leaf=dict(digest="11" * 32, subject="api.test", issuer="Pinned Intermediate", signed_by="forged"),
+        chain=[dict(digest="33" * 32, subject="Pinned Intermediate", issuer="Other Root", key="forged", signed_by="other"),
+               dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root", key="pinned", signed_by="root")])),
 }
 
 # What the CRM does with each final state, as of ConexusCRM-BE main:
@@ -389,7 +434,7 @@ def lua_table(rt, value):
     return value
 
 
-def run_all(script_path, secret_path):
+def run_all(script_path, secret_path, ca_path):
     src = open(script_path, encoding="utf-8").read()
     rt = L.LuaRuntime(unpack_returned_tuples=True)
     rt.execute(MOCKS)
@@ -401,6 +446,7 @@ def run_all(script_path, secret_path):
             "crm_secure_payment_secret_file": secret_path if sc.get("secret", True) else secret_path + ".missing",
             "crm_secure_payment_tls_pins": "ab" * 32,
             "crm_secure_payment_prompt_dir": "/p",
+            "crm_secure_payment_ca_file": ca_path,
         }
         cfg = lua_table(rt, {"keys": [list(k) for k in sc["keys"]],
                              "replies": [[r for r in rep] for rep in sc["replies"]],
@@ -577,6 +623,15 @@ def check(results):
            "a pin on the certificate that issued the leaf was not accepted: %r (the live pin list is "
            "the issuing intermediates, so this is the normal case): %r"
            % (state("pin_on_the_issuing_intermediate"), plays(r)))
+    for n in ("mis_issued_cert_with_surplus_pin", "forged_intermediate_same_subject"):
+        r = results[n]
+        expect(n, state(n)[1:] == ("failed", "transport"),
+               "a mis-issued certificate was accepted because a pinned intermediate was in the handshake "
+               "chain; the card would be sent to whoever holds it. got %r" % (state(n),))
+        expect(n, not r["sent"], "%d request(s) were sent over a connection the pin should have refused" % len(r["sent"]))
+    expect("pin_through_a_cross_signed_root", state("pin_through_a_cross_signed_root")[1] == "completed",
+           "the live chain (pinned YE2 under a cross-signed Root YE) was refused: tokenize would fail "
+           "closed for every card: %r" % (state("pin_through_a_cross_signed_root"),))
     r = results["mis_issued_cert_with_surplus_pin"]
     expect("mis_issued_cert_with_surplus_pin", state("mis_issued_cert_with_surplus_pin")[1:] == ("failed", "transport"),
            "a mis-issued certificate was accepted because a pinned intermediate was appended to the "
@@ -603,7 +658,11 @@ def main():
     secret = os.path.join(d, "secure_payment.secret")
     with open(secret, "w") as fh:
         fh.write("x" * 40 + "\n")
-    results = run_all(sys.argv[1], secret)
+    ca = os.path.join(d, "ca-certificates.crt")
+    with open(ca, "w") as fh:   # the trusted roots, the one that mis-issues included
+        for key, subject in (("root", "Root"), ("other", "Other Root")):
+            fh.write("-----BEGIN CERTIFICATE-----\n%s|%s\n-----END CERTIFICATE-----\n" % (key, subject))
+    results = run_all(sys.argv[1], secret, ca)
     for name, r in results.items():
         f = finals(r)
         print("%-26s final=%s end=%.1fs reads_after_error=%d" % (

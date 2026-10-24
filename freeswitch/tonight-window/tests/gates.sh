@@ -114,6 +114,12 @@ gate "4e amd_test.py" $rc
 "$PY" "$TW/tests/queue_binding_test.py" "$R/scripts/api/app.py" > "$OUT/queue.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/queue.out"
 gate "4f queue_binding_test.py" $rc
 
+# 4g. the TLS pin check on real certificates with real LuaSec (needs docker and
+# the lab image; skipped, not failed, without them)
+if docker image inspect conexus-fs:lab > /dev/null 2>&1; then
+  sh "$TW/tests/pin_luasec/run.sh" "$SP" > "$OUT/pin_luasec.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/pin_luasec.out"
+  gate "4g pin_luasec (real LuaSec 1.2.0, real and forged certificates)" $rc
+else echo "SKIP 4g pin_luasec: no docker / conexus-fs:lab here"; fi
 
 # 5. the runbook matches the final drafts
 rc=0
