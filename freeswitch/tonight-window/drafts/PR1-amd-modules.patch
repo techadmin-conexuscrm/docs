@@ -1,41 +1,63 @@
 diff --git a/autoload_configs/amd.conf.xml b/autoload_configs/amd.conf.xml
 new file mode 100644
-index 0000000..f078198
+index 0000000..4e661f8
 --- /dev/null
 +++ b/autoload_configs/amd.conf.xml
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,58 @@
 +
 +<configuration name="amd.conf" description="mod_amd Configuration">
 +  <!--
-+    Tuned in the FreeSWITCH lab (docs: freeswitch/lab/, section 3) on real
-+    calls with synthetic audio. mod_amd's stock values call a person who
-+    answers with a sentence ("Hello, this is John speaking, who's calling
-+    please?") a MACHINE after three words, and call a person who answers and
-+    waits, or answers from a noisy line, a MACHINE too. A MACHINE verdict is
-+    what holds a call for a beep or plays a recording, so every doubt must
-+    land on HUMAN or NOTSURE (a dialer sends both to an agent):
-+      - silence_notsure=1: 2.5 s of initial silence is NOTSURE, not MACHINE;
-+      - silence_threshold=640 (average sample level of a 20 ms frame): steady
-+        line or street noise below it is silence, not a "greeting";
-+      - between_words_silence=250: a word boundary is a real pause, so a
-+        person's sentence is not counted as many short "words";
-+      - greeting=2500: one unbroken stretch of voice longer than 2.5 s is a
-+        recorded greeting;
-+      - total_analysis_time=6000: room for that before giving up (NOTSURE).
-+    Lab result: "Hello?", the long sentence, a silent caller and pink noise
-+    -> HUMAN/NOTSURE; 7 s and 19 s greetings, with or without a beep ->
-+    MACHINE, 3.5-4.8 s after answer. Synthetic voices only: check the real
-+    hit rate on recorded calls before trusting a verdict to drop messages.
++    A MACHINE verdict is what lets a campaign play a recorded message at
++    whoever answered and drop the call, so a wrong MACHINE reaches a live
++    customer; a missed machine only costs an agent the twenty seconds they
++    already spend today. Every doubt therefore lands on HUMAN or NOTSURE
++    (a dialer sends both to an agent), and these numbers are set from
++    mod_amd's own arithmetic rather than from a lab recording:
++
++      - voice_duration in mod_amd accumulates across a whole utterance and
++        is reset only by a silence of between_words_silence or more. A
++        person saying "Hello, this is John speaking, who's calling please?"
++        in one breath is 2.6-3 s of voice with 80-200 ms gaps, so it is one
++        unbroken stretch. greeting=5000 keeps that below the line; the old
++        2500 called that person a MACHINE.
++      - a "word" is counted only when voice returns after a
++        between_words_silence gap, so N spoken phrases give N-1 words. A
++        person answering in phrases easily makes four or five, and someone
++        answering in short bursts ("Yeah. Hi. Speaking. Uh-huh.") makes ten
++        inside the analysis window. maximum_number_of_words=12 is above
++        anything reachable in 7 s at a human rate, so in practice the word
++        count no longer decides anything; the old 3 called a person with
++        four phrases a MACHINE. LONGGREETING below is what actually fires.
++      - maximum_word_length=6000 stays above greeting, so an unbroken
++        stretch is reported as LONGGREETING rather than MAXWORDLENGTH.
++      - total_analysis_time=7000: room for a 5 s stretch to be seen. A
++        person who is still talking at 7 s is NOTSURE/TOOLONG -> an agent.
++      - silence_notsure=1: 2.5 s of initial silence is NOTSURE, not MACHINE.
++      - silence_threshold=640 (average sample level of a 20 ms frame):
++        steady line or street noise below it is silence, not a "greeting".
++
++    What this does and does not catch (tests/amd_test.py checks both against
++    a port of webitel/mod_amd at the pinned SHA):
++      - caught: a greeting with no real pause in it - MACHINE/LONGGREETING
++        about 5.7 s after answer. This is the only trigger that fires;
++      - MISSED: a greeting read as separate sentences with pauses between
++        them. voice_duration resets at each pause and eight words are never
++        reached, so it comes back HUMAN. That is the safe direction.
++
++    So MACHINE here is ADVISORY. Do not let it drive a voicemail drop or any
++    other automatic action until the hit rate has been measured on recorded
++    real calls (not on synthetic speech, which is shorter and more even than
++    a person and was what the earlier numbers were set from).
 +  -->
 +  <settings>
 +    <param name="silence_threshold" value="640"/>
-+    <param name="maximum_word_length" value="5000"/>
-+    <param name="maximum_number_of_words" value="3"/>
++    <param name="maximum_word_length" value="6000"/>
++    <param name="maximum_number_of_words" value="12"/>
 +    <param name="between_words_silence" value="250"/>
 +    <param name="min_word_length" value="100"/>
-+    <param name="total_analysis_time" value="6000"/>
++    <param name="total_analysis_time" value="7000"/>
 +    <param name="after_greeting_silence" value="800"/>
-+    <param name="greeting" value="2500"/>
++    <param name="greeting" value="5000"/>
 +    <param name="initial_silence" value="2500"/>
 +    <param name="silence_notsure" value="1"/>
 +  </settings>

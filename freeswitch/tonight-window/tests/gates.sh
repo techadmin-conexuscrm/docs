@@ -109,6 +109,9 @@ gate "4b sp_sim.py (whole script, mocked FreeSWITCH)" $rc
 gate "4c dialplan_test.py" $rc
 bash "$TW/tests/runbook_test.sh" "$TW/RUNBOOK.md" > "$OUT/runbook_test.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/runbook_test.out"
 gate "4d runbook_test.sh" $rc
+"$PY" "$TW/tests/amd_test.py" "$R/autoload_configs/amd.conf.xml" > "$OUT/amd.out" 2>&1; rc=$?; sed 's/^/  /' "$OUT/amd.out"
+gate "4e amd_test.py" $rc
+
 
 # 5. the runbook matches the final drafts
 rc=0

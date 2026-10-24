@@ -39,7 +39,7 @@ All drafts are in
 
 | PR | Branch | What it does | Applied by |
 |---|---|---|---|
-| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml` | the swap |
+| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`. The AMD numbers are set so a person who answers with a sentence is never called a MACHINE; see section F, **AMD is advisory**. | the swap |
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
 | PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. | the swap (would also work live with `reloadxml`) |
@@ -628,7 +628,7 @@ M=5551234567     # your mobile, digits only
 leg() { fsx 'show channels' | awk -F, -v m="$M@" 'index($5, m) && $5 ~ /^sofia\/external\// { print $1; exit }'; }
 amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   fsx "uuid_transfer $U 'avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING' inline"
-  sleep 7;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
+  sleep 9;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
   sleep 12; fsx "uuid_getvar $U avmd_detect"; }
 droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   fsx "uuid_transfer $U 'avmd_start,wait_for_silence:200 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
@@ -637,8 +637,20 @@ droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
 | # | Do | Good | Paste back |
 |---|---|---|---|
 | F1 **machine** | click-to-call your mobile; **decline** it, so your voicemail greeting plays; type `amdtest` | `amd_result` = `MACHINE` (or `NOTSURE`); `avmd_detect` = `TRUE` after the beep | the `amdtest` output |
-| F2 **person** | call again; **answer**, say "Hello?", stay quiet; type `amdtest` | `amd_result` = `HUMAN` | the output |
+| F2 **person, one word** | call again; **answer**, say "Hello?", stay quiet; type `amdtest` | `amd_result` = `HUMAN` | the output |
+| F2b **person, a sentence** | call again; **answer** with a full sentence and keep talking for about five seconds ("Hello, this is <name> speaking, who's calling please?"), then stop; type `amdtest` | `amd_result` = `HUMAN` or `NOTSURE`. **`MACHINE` is a NO-GO for the drop**: with BE-17 live that customer would get a recording played at them and the call dropped. Tell me and we leave the drop off. | the output |
 | F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | the agent's line ends at once; the message plays after the greeting; your mailbox has it | OK + whether it started before or after the beep |
+
+**AMD is advisory tonight.** `amd.conf.xml` is set so that doubt lands on
+HUMAN or NOTSURE, because a wrong MACHINE plays a recording at a live
+customer while a missed machine only costs an agent the twenty seconds they
+already spend today. The cost of that setting: only a greeting read *without
+a real pause in it* is caught (MACHINE/LONGGREETING, about 5.7 s after
+answer); a greeting read as separate sentences comes back NOTSURE or HUMAN.
+So F1 may legitimately say `NOTSURE` — that is not a failure. Nothing may be
+wired to drop a call on `amd_result` until the hit rate has been measured on
+recorded real calls; `tests/amd_test.py` only checks the arithmetic of
+webitel/mod_amd against these numbers, not real audio.
 
 ### G. Record (CLAUDE.md)
 
