@@ -1,0 +1,72 @@
+
+ RUN  v4.0.16 /tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/campaign/be17
+
+stdout | src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts
+
+[2026-10-24 04:16:59] [info]: db_pool_configured 
+{
+  "max": 12,
+  "processes": 1,
+  "projectedTotalConnections": 12,
+  "budget": 60,
+  "rdsMaxConnections": 79
+}
+
+ ❯  unit  src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts (24 tests | 2 failed) 233ms
+     ✓ after a 0.25 s beep at the end of a 7 s greeting, never during it 2ms
+     ✓ after a 0.5 s beep at the end of a 7 s greeting, never during it 0ms
+     ✓ after a 1.2 s beep at the end of a 7 s greeting, never during it 0ms
+     ✓ after the beep of a 19 s greeting (no timeout mid-greeting) 0ms
+     ✓ after a greeting with no beep, once it has ended 0ms
+     ✓ pressed after the beep (the mailbox is already recording): soon 0ms
+     ✓ asks mod_httapi for GET only: a presigned S3 link refuses the HEAD it sends first 0ms
+     ✓ the presigned link really has no extension to find (why this is needed) 0ms
+     ✓ the inline dialplan still sees exactly three steps, and the link survives whole 1ms
+     ✓ mod_httapi gets BOTH nohead and the file format from the playback argument 1ms
+     ✓ an mp3 recording is announced as mp3 0ms
+     ✓ refuses an extension it cannot put in the brackets 1ms
+     ✓ the company's recording decides the format 0ms
+     ✓ scores a frame at about half its true level (why the threshold is not mod_amd's 640) 2ms
+     × a 1000 Hz beep at -20 dBm0 holds the message until it has ended, at any phase 19ms
+     ✓ a 1000 Hz beep at -13 dBm0 holds the message until it has ended, at any phase 86ms
+     ✓ a 1400 Hz beep at -20 dBm0 holds the message until it has ended, at any phase 6ms
+     ✓ a 850 Hz beep at -20 dBm0 holds the message until it has ended, at any phase 6ms
+     × a beep that ends more than 2 s after the greeting (a long gap before it) still holds the message 7ms
+     ✓ on a quiet digital line it starts soon after the greeting and the beep, never at its timeout 7ms
+     ✓ on carrier comfort noise it starts soon after the greeting and the beep, never at its timeout 23ms
+     ✓ on a mobile in a car it starts soon after the greeting and the beep, never at its timeout 23ms
+     ✓ on an office in the background (just under mod_amd's 640) it starts soon after the greeting and the beep, never at its timeout 21ms
+     ✓ does not play over the greeting on a line with a noise floor 21ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL   unit  src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts > voicemail drop: the wait, scored the way FreeSWITCH scores it > a 1000 Hz beep at -20 dBm0 holds the message until it has ended, at any phase
+AssertionError: expected 8.9 to be greater than or equal to 9.1
+ ❯ src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts:353:33
+    351|         const { after, timedOut } = waitEnds(audio, pressAt, steps);
+    352|         expect(timedOut).toBe(false);
+    353|         expect(pressAt + after).toBeGreaterThanOrEqual(beepEnd);
+       |                                 ^
+    354|         expect(pressAt + after).toBeLessThan(beepEnd + 3);
+    355|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL   unit  src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts > voicemail drop: the wait, scored the way FreeSWITCH scores it > a beep that ends more than 2 s after the greeting (a long gap before it) still holds the message
+AssertionError: expected 8.9 to be greater than or equal to 9.1
+ ❯ src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts:364:31
+    362|       const beepEnd = greetingEnd + 1.0 + 1.2;
+    363|       const { after } = waitEnds(audio, pressAt, steps);
+    364|       expect(pressAt + after).toBeGreaterThanOrEqual(beepEnd);
+       |                               ^
+    365|     }
+    366|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 22 passed (24)
+   Start at  04:16:57
+   Duration  3.25s (transform 1.44s, setup 66ms, import 2.81s, tests 233ms, environment 0ms)
+

@@ -7,7 +7,8 @@ set -u
 WT=$1; LABRUN=$2; CAP=${3:-pci}
 OUT="$LABRUN/results/pci-grep.txt"; : > "$OUT"
 # test values the matrix keys (lab/runner/lab.py): PANs, then runs that contain a CVV
-PATS='4111111111111111|378282246310005|4111111111111112|1230947|94778704|04298264|826410001'
+# (111111111111947: P30's card tail + CVV, keyed after the agent's Cancel)
+PATS='4111111111111111|378282246310005|4111111111111112|1230947|94778704|04298264|826410001|111111111111947'
 T=$(mktemp -d)
 docker logs fslab-fs > "$T/console.txt" 2>&1
 docker logs fslab-event-listener > "$T/event-listener.txt" 2>&1

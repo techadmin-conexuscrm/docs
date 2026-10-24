@@ -1,0 +1,21 @@
+
+ RUN  v4.0.16 /tmp/claude-0/-home-user/d407f174-c6b7-51dd-a4de-3e3c8d8f9c22/scratchpad/campaign/be17
+
+stdout | src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts
+
+[2026-10-24 04:17:07] [info]: db_pool_configured 
+{
+  "max": 12,
+  "processes": 1,
+  "projectedTotalConnections": 12,
+  "budget": 60,
+  "rdsMaxConnections": 79
+}
+
+ ✓  unit  src/components/dialer-campaigns/services/voicemail-drop-steps.test.ts (24 tests) 371ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  04:17:05
+   Duration  3.02s (transform 1.21s, setup 60ms, import 2.43s, tests 371ms, environment 0ms)
+

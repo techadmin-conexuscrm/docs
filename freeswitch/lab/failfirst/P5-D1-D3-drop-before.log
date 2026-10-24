@@ -1,0 +1,41 @@
+# pass 5 fail-first, BEFORE the fixes: docs 1396a43 drafts, BE c3fa3ab0 (wait_for_silence:640, no response-cache-control)
+# run: fix/ff.sh old (real SIP calls in the lab), 2026-10-24T04:30:49Z
+mode old BE c3fa3ab0
+BE17: wait_for_silence:640 75 0 30000,playback:https://(^^;nohead=true;ext=wav)%(host_and_path)s,hangup:NORMAL_CLEARING
+CC: (none)
+RUNBOOK: avmd_start,wait_for_silence:640 75 0 30000,playback:%s,hangup:NORMAL_CLEARING
+
+## wfs-sim.py (switch_ivr_wait_for_silence scoring, offline on the lab audio)
+case                 greeting beep end  drop@640  drop@400
+vm_beep_short            6.87    7.971    8.52 ok    9.96 ok
+vm_beep_long            18.83   19.682   21.68 ok   21.68 ok
+vm_beep_1200ms           6.87    8.671    8.52 EARLY   10.66 ok
+vm_beep_late             6.87    9.071    8.52 EARLY   11.06 ok
+vm_beep_noisy            6.87    7.971    9.94 ok    9.98 ok
+vm_nobeep                6.87        -    8.52 ok    8.52 ok
+vm_beep_short quiet16     6.87    7.971    3.50 EARLY    8.28 ok
+
+## drop rows
+{"flow": "be17", "case": "vm_beep_short", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.501, "drop_onset": 8.52, "drop_heard_onset": 8.78, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "be17", "case": "vm_beep_short", "run": 2, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.503, "drop_onset": 8.52, "drop_heard_onset": 8.8, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "runbook", "case": "vm_beep_short", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.501, "drop_onset": 8.54, "drop_heard_onset": 8.8, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "runbook", "case": "vm_beep_1200ms", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.506, "drop_onset": 8.519, "drop_heard_onset": 8.78, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "be17", "case": "vm_beep_1200ms", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 8.519, "drop_heard_onset": 8.78, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "be17", "case": "vm_beep_1200ms", "run": 2, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 8.519, "drop_heard_onset": 8.78, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "runbook", "case": "vm_beep_noisy", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 9.959, "drop_heard_onset": 10.2, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "be17", "case": "vm_beep_noisy", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.501, "drop_onset": 9.979, "drop_heard_onset": 10.2, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "be17", "case": "vm_beep_noisy", "run": 2, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 10.0, "drop_heard_onset": 10.22, "playback_response": "FILE PLAYED", "pass": true}
+{"flow": "be17", "case": "vm_beep_late", "run": 2, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.501, "drop_onset": 8.54, "drop_heard_onset": 8.8, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "be17", "case": "vm_beep_late", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 8.52, "drop_heard_onset": 8.98, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "runbook", "case": "vm_beep_late", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.502, "drop_onset": 8.56, "drop_heard_onset": 9.02, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "be17https", "case": "vm_beep_short", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.504, "drop_onset": 8.54, "drop_heard_onset": 8.8, "playback_response": "FILE PLAYED", "pass": false}
+{"flow": "be17https", "case": "vm_beep_noisy", "run": 1, "verdict": null, "t_verdict": null, "held_s": null, "sent_at": 1.503, "drop_onset": 10.002, "drop_heard_onset": 10.24, "playback_response": "FILE PLAYED", "pass": false}
+
+## http_file_cache after the run
+total 672
+drwxr-x--- 2 root root   4096 Oct 24 04:30 .
+drwxr-x--- 3 root root   4096 Oct 24 04:27 ..
+-rw------- 1 root root    359 Oct 24 04:30 <md5>.meta
+-rw------- 1 root root 332730 Oct 24 04:30 <md5>.wav
+-rw------- 1 root root    359 Oct 24 04:30 <md5>.meta
+-rw------- 1 root root 332730 Oct 24 04:30 <md5>.wav

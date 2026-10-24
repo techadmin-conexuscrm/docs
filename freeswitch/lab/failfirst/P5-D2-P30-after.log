@@ -1,0 +1,20 @@
+# pass 5, AFTER: PR4 holds sensitive_dtmf when the leg is moved away, lifts it 60 s later (sched_api)
+# P30_agent_cancel_mid_card on a real call: Cancel after 4 of 16 card digits; the customer keys 12 more + CVV 947
+keys_after_cancel = 17.0
+crm_end = {"reason": "agent_cancelled", "effective": "agent_cancelled", "customer_alive": true, "agent_alive": true, "steps": [["bridge", "+OK 357f62b8-72cd-4957-b865-464c3c2571f5"], ["release_agent", "+OK\n+OK"]], "unmask": [{"leg": "B", "reply": "+OK Success", "ok": true}]}
+sensitive_dtmf_after_card = "true"
+agent_got_card_keys = false
+recv_dtmf_log_digits_B = "1"
+digits_dialed_B = "1"
+dtmf_events_on_B = "1"
+sensitive_dtmf_later = "_undef_"
+agent_got_dtmf_later = true
+cancel_keyed_on = true
+no_card_key_logged = true
+no_card_key_in_cdr = true
+no_card_key_evented = true
+agent_got_no_card_key = true
+protected_while_keying = true
+keys_theirs_again_later = true
+stored_recording = {"uploads": 1, "wall_s": 95.1, "uploaded_after_hangup_s": 10.64, "stored_s": 94.92}
+pass = true

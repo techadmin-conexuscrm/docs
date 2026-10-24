@@ -1,0 +1,20 @@
+# pass 5 fail-first, BEFORE: docs 1396a43 PR4 (sensitive_dtmf unset at once when the CRM bridges away)
+# P30_agent_cancel_mid_card on a real call: Cancel after 4 of 16 card digits; the customer keys 12 more + CVV 947
+# (test card 4111111111111111 - the digits below are the lab's public test PAN tail, not a real card)
+keys_after_cancel = 17.1
+crm_end = {"reason": "agent_cancelled", "effective": "agent_cancelled", "customer_alive": true, "agent_alive": true, "steps": [["bridge", "+OK 35711f40-ed86-4ee4-818a-8eadacf17214"], ["release_agent", "+OK\n+OK"]], "unmask": [{"leg": "B", "reply": "+OK Success", "ok": true}]}
+sensitive_dtmf_after_card = "_undef_"
+agent_got_card_keys = true
+recv_dtmf_log_digits_B = "1111111111119471"
+digits_dialed_B = "1111111111119471"
+dtmf_events_on_B = "1111111111119471"
+sensitive_dtmf_later = "_undef_"
+agent_got_dtmf_later = true
+cancel_keyed_on = true
+no_card_key_logged = false
+no_card_key_in_cdr = false
+no_card_key_evented = false
+agent_got_no_card_key = false
+protected_while_keying = false
+keys_theirs_again_later = true
+pass = false

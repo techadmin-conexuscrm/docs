@@ -1,0 +1,41 @@
+FAIL happy_path: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL decline_then_ok: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL eof_before_status_line: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL eof_in_headers: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL eof_in_chunked_body: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL eof_after_chunk_data: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL eof_in_length_body: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL customer_hangup_mid_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL transferred_mid_card: sensitive_dtmf unset the moment the leg was moved away, while the customer may still be keying the card: the rest reaches the log, the CDR and the agent
+FAIL transferred_mid_card: no delayed unset of sensitive_dtmf (sched_api +N, N >= 30): []
+FAIL transferred_mid_card: the delayed unset is not for this customer leg
+FAIL transferred_mid_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL crm_bridged_mid_card: sensitive_dtmf unset the moment the leg was moved away, while the customer may still be keying the card: the rest reaches the log, the CDR and the agent
+FAIL crm_bridged_mid_card: no delayed unset of sensitive_dtmf (sched_api +N, N >= 30): []
+FAIL crm_bridged_mid_card: the delayed unset is not for this customer leg
+FAIL crm_bridged_mid_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL two_declines_human_pace: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL slow_typist_one_decline: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL human_pace_ok: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL dribbling_invalid_cards: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL secret_file_missing: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL probe_app_down_502: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL probe_secret_refused_401: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL extra_expiry_keys_fast: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL extra_expiry_keys_human: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL cvv_extra_key_human: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL cvv_extra_key_fast: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL expiry_typed_in_card_wait: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL expiry_typed_ahead_after_amex_pound: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL cvv_typed_ahead_after_expiry: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL everything_typed_ahead_after_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL star_during_prompt: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL pause_before_cvv: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL pause_mid_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL pauses_everywhere: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL silent_customer: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL typed_ahead_over_card_prompt: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL short_entry_then_card: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL pin_on_the_issuing_intermediate: an earlier entry's delayed unset is not cancelled before the first key is read
+FAIL mis_issued_cert_with_surplus_pin: an earlier entry's delayed unset is not cancelled before the first key is read
+sp_sim: 34 scenarios, 40 failed checks
