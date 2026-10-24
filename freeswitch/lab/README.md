@@ -60,6 +60,27 @@ the two real-voice recordings are downloaded once, or taken from
 `OSR_DIR`). The `amdbeep` flow runs PR1's `scripts/campaign_amd.lua` itself.
 Every expectation that changed, old -> new and why: `EXPECTATIONS-CHANGE.md`.
 
+## Pilot mode and BE-12 in the lab
+
+Pilot mode (approved 2026-10-24) is the default: the agent joins at answer,
+mod_amd only logs its verdict, a message plays only from the agent's button
+after a beep. Section 3 judges every clip in pilot mode (counted) and in gate
+mode (the per-company switch for later, counted as before). Section 4 runs
+`amdbeep` (the script in pilot mode), `amdgate` (gate mode, the old
+expectations), `be12` (today's real agent-first campaign call, with BE-12's
+customer-leg variables read from the campaign branch by `run-matrix.sh` as
+`LAB_BE12_VARS`) and `be12nofs` (BE-12 on a FreeSWITCH without the script).
+What changed and why: `EXPECTATIONS-CHANGE.md`, "Pilot mode".
+
+## Load test
+
+`load/run-load.sh <labrun> [10,25,50,100] [hold_s] [cps]` places that many
+concurrent campaign calls the way BE-12 does (detectors and recording on
+every customer leg), samples FreeSWITCH's CPU and memory from the host and
+writes `load/results.md` (per-call CPU, memory, RTP quality, whether the
+detectors' verdicts and beep times degrade under load, and the extrapolation
+to 100 and 225 calls). A measurement, not a matrix row.
+
 ## What is different from production (all of it about the network)
 
 - `network_mode: host` → the private network `labnet` (10.88.231.0/24).

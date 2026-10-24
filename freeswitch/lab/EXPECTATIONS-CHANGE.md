@@ -99,6 +99,41 @@ if no beep is heard": on noisy lines and on mailboxes with no beep, agents
 will hear the greeting and decide themselves. How often that happens on our
 real numbers is what the shadow-mode pilot measures (research section 7).
 
+## Pilot mode (APPROVED by Eric, 2026-10-24): what it changes in the lab
+
+Eric approved **pilot mode** as how campaign calls run: the agent joins as
+soon as the call is answered; mod_amd runs only to log its verdict, and no
+call is held back on it; a voicemail drop plays only from the agent's button
+and only after the mod_avmd beep. "AMD gates the agent" (the strategy above)
+stays as a per-company switch for later (`conexus_amd_mode=gate`, CRM
+`dialer_automations.amd_enabled`, default off). The expectations below
+follow directly from that approval; nothing was deleted, every case still
+runs, and every expectation approved above is still checked, now as gate
+mode.
+
+| rows | before | now | why |
+|---|---|---|---|
+| section 3, every clip | judged on the strategy (gate) | judged twice on the same call: **pilot** (counted, every clip, stress clips included): a verdict is logged; no beep on a person, a dead line or a mailbox with no beep; a quiet-line mailbox's own beep heard so the button can leave the message. **gate**: exactly as approved above, counted as before (stress clips reported, not counted, as before) | pilot is what runs; gate is what the switch would do |
+| `h_tv_loud` (sections 3 and 4) | stress, reported, not counted: in gate mode an agent 11.2 s after the person stopped (fails) | **an agent joins at answer, no recording** (pilot, counted). Its gate-mode result is still measured and reported, not counted, as before | covered by the pilot-mode approval: the agent is on the line from the answer, so the 2-second rule is met whatever mod_amd does with a loud TV |
+| `h_real_two` | stress, reported | pilot, counted (an agent at answer, no recording); gate reported as before | same |
+| section 4 `amdbeep`, every clip | the script deciding (gate) | the script in **pilot** mode (no `conexus_amd_mode`, a drop allowed and a target set): the call handed to an agent within 0.5 s of answer, nothing played by the script, the verdict logged (`conexus::amd` `verdict` event = `amd_result`), then BE-17's button: a person or a no-beep mailbox: refused, nothing played; a mailbox with a beep: the message after the beep; a noisy line with no beep heard: refused | pilot is the default |
+| section 4 `amdgate` (new name) | - | the old `amdbeep` rows, unchanged expectations, with `conexus_amd_mode=gate` | gate mode keeps its real-call proof |
+
+New rows (no earlier expectation):
+
+- `be12` x 13 clips (people, a person over street noise, quiet-line and
+  noisy-line mailboxes, a mailbox with no beep): **today's real campaign
+  path**. The agent's leg first, the customer bridged to it exactly as
+  ConexusCRM-BE `originate.ts` builds it, with the recording and BE-12's
+  customer-leg variables read from the campaign branch. Must: the customer
+  bridged to the agent and the detectors started within 1 s of answer (both
+  `started`), the call left bridged, the verdict logged, and the agent's
+  button refused on people and no-beep mailboxes and playing the message
+  after the beep on quiet-line mailboxes.
+- `be12nofs` x 2: BE-12's variables on a FreeSWITCH that does not have the
+  script yet (BE-12 merged before PR1 is deployed): the call must go on
+  bridged, nothing played.
+
 ## Result of this pass (real calls, `results.md`, 2026-10-24 08:09 UTC)
 
 **149 of 149 counted rows pass.** The four stress rows are reported, not
