@@ -64,7 +64,7 @@ if amd:
     for r in amd:
         by.setdefault(r["case"], []).append(r)
     want = {"human_hello": "HUMAN, no beep", "human_long": "HUMAN, no beep", "vm_beep_short": "MACHINE + beep",
-            "vm_beep_long": "MACHINE + beep", "vm_beep_1200ms": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep",
+            "vm_beep_long": "MACHINE + beep", "vm_beep_1200ms": "MACHINE + beep", "vm_beep_late": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep",
             "beep_only": "HUMAN + beep (mod_amd alone is wrong here; section 4 requires the flow to use the beep)",
             "vm_beep_noisy": "MACHINE + beep (on a line with a noise floor)",
             "human_phrases": "HUMAN, no beep (three phrases, 0.4 s gaps)",
@@ -93,7 +93,7 @@ if drop:
     p("")
     steps = open(R + "/drop-steps.txt").read().strip().replace("\n", "; ") if os.path.exists(R + "/drop-steps.txt") else "-"
     p("Flows: **amdbeep** = what BE-12's automatic drop would do: AMD verdict; HUMAN/NOTSURE go to an agent at once; "
-      "MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:200 10 0 5000`), then plays. "
+      "MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:400 10 0 5000`), then plays. "
       "**be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if "
       "the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with "
       "an https link shaped like a real presigned S3 url - extensionless key plus a SigV4 query string, served GET-only "
@@ -103,7 +103,9 @@ if drop:
       "if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict. "
       "amdbeep also treats an avmd beep inside the first 2 s as a machine whatever mod_amd said (D6). "
       "`wait ran s` is how long `wait_for_silence` actually ran: reaching its timeout means it gave up and played "
-      "anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2)." % steps)
+      "anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2). "
+      "be17https also fails if anything of its link is left in mod_httapi's `http_file_cache` after the call "
+      "(the recording copy or the .meta file holding the link)." % steps)
     p("")
     p("| flow | case | runs | verdict (at s) | held s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
     p("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")

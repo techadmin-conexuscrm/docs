@@ -633,8 +633,13 @@ amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   sleep 9;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
   sleep 12; fsx "uuid_getvar $U avmd_detect"; }
 droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
-  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:640 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
+  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:400 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
 ```
+
+(`400` is the same number BE-17 sends. It is on `wait_for_silence`'s own
+scale, which reads half the samples and so scores a sound at about half the
+level mod_amd's `640` means: at 640 a quiet mailbox beep did not count as
+sound, and the message could start over it.)
 
 | # | Do | Good | Paste back |
 |---|---|---|---|

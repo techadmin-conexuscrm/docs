@@ -6,7 +6,7 @@
 #   out-dir/far/*.wav     what the far end (the "phone") plays
 #   <worktree>/sounds/secure_payment/*.wav   the 13 prompts (git-ignored)
 set -eu
-OUT=$1; WT=$2; D=${3:-/home/user/docs/freeswitch/tonight-window/drafts}
+OUT=$1; WT=$2; D=${3:-$(cd "$(dirname "$0")/../../tonight-window/drafts" && pwd)}
 F="$OUT/far"; T="$OUT/tmp"; mkdir -p "$F" "$T" "$WT/sounds/secure_payment"
 ff() { ffmpeg -nostdin -loglevel error -y "$@"; }
 # speech -> 8 kHz mono s16, peak-normalised to about -3 dBFS (phone-loud)
@@ -25,6 +25,10 @@ sil s03 0.3; sil s04 0.4; sil s06 0.6; sil s1 1; sil s3 3; sil s15 15; sil s30 3
 # 0.5 s and 0.25 s test beeps, and a 1.2 s one (real carrier beeps run up to
 # about a second: a drop that starts on the beep detection plays over it)
 beep b1000 1000 0.5; beep b1400 1400 0.25; beep b1000l 1000 1.2
+# a beep at a stated carrier level: a 1000 Hz sine at -20 dBm0 (u-law: 0 dBm0
+# is 3.17 dB below full scale, so its peak is 32767 * 10^(-23.17/20) = 2274)
+ff -f lavfi -i "aevalsrc=0.0694*sin(2*PI*1000*t):s=8000:d=1.2" -ar 8000 -ac 1 -sample_fmt s16 "$T/b1000m20.wav"
+sil s10 1.0
 
 say hello en-us 160 "Hello?"
 say john en-us 165 "Hello, this is John speaking, who's calling please?"
@@ -45,6 +49,9 @@ cat_wav vm_beep_short s03 g_short s06 b1000 s30
 cat_wav vm_beep_long  s03 g_long s06 b1400 s30
 cat_wav vm_nobeep     s03 g_short s30
 cat_wav vm_beep_1200ms s03 g_short s06 b1000l s30
+# the beep ends 2.2 s after the greeting (1.0 s gap + 1.2 s beep): later than
+# the ~2 s the drop's quiet count takes on its own, so only the beep holds it
+cat_wav vm_beep_late s03 g_short s10 b1000m20 s30
 # a person who answers and says nothing for 3 s, then "Hello?"
 cat_wav human_phrases s03 ph1 s04 ph2 s04 ph3 s15
 cat_wav silent_then_hello s3 hello s15
@@ -55,8 +62,9 @@ ff -f lavfi -i "anoisesrc=r=8000:color=pink:amplitude=0.08:duration=30" -ar 8000
 # silent - the comfort noise a carrier sends, a car, an office. The gaps and
 # the tail sit at a low energy floor instead of zero, which is the only thing
 # that exercises wait_for_silence's threshold and its 30 s fall-through.
-# The floor is checked below: it must be under mod_amd's silence_threshold
-# (640) and above the 200 the drop steps used to ask for.
+# The floor is measured below, both as mod_amd sees it (true mean |sample|,
+# under its silence_threshold of 640) and as wait_for_silence really scores
+# it (about half that: under the drop's threshold of 400, frame by frame).
 ff -f lavfi -i "anoisesrc=r=8000:color=white:amplitude=0.03:duration=45" -ar 8000 -ac 1 -sample_fmt s16 "$T/floor.wav"
 ff -i "$F/vm_beep_short.wav" -i "$T/floor.wav" -filter_complex "[0][1]amix=inputs=2:duration=shortest:normalize=0" \
   -ar 8000 -ac 1 -sample_fmt s16 "$F/vm_beep_noisy.wav"
@@ -92,6 +100,7 @@ facts = {
  "vm_beep_long":  {"greeting_end": 0.3 + d("g_long"), "beep_start": 0.3 + d("g_long") + 0.6, "beep_end": 0.3 + d("g_long") + 0.6 + 0.25},
  "vm_nobeep":     {"greeting_end": 0.3 + d("g_short")},
  "vm_beep_1200ms": {"greeting_end": 0.3 + d("g_short"), "beep_start": 0.3 + d("g_short") + 0.6, "beep_end": 0.3 + d("g_short") + 0.6 + 1.2},
+ "vm_beep_late": {"greeting_end": 0.3 + d("g_short"), "beep_start": 0.3 + d("g_short") + 1.0, "beep_end": 0.3 + d("g_short") + 1.0 + 1.2},
  "silent_then_hello": {"speech_start": 3.0, "speech_end": 3.0 + d("hello")},
  "beep_only":     {"beep_start": 1.0, "beep_end": 1.5},
  "human_phrases": {"speech_end": 0.3 + d("ph1") + 0.4 + d("ph2") + 0.4 + d("ph3")},
@@ -107,6 +116,11 @@ a = array.array("h", w.readframes(8000 * 10))
 fr = [sum(abs(x) for x in a[i:i + 160]) / 160 for i in range(0, len(a) - 160, 160)]
 facts["vm_beep_noisy"]["noise_floor_mean"] = round(sum(fr) / len(fr), 1)
 facts["vm_beep_noisy"]["noise_floor_max"] = round(max(fr), 1)
+# ...and as wait_for_silence REALLY scores a frame (1.10.12: every other
+# sample, divided by all 160), which is the scale its threshold is on
+fs = [sum(abs(x) for x in a[i:i + 160:2]) // 160 for i in range(0, len(a) - 160, 160)]
+facts["vm_beep_noisy"]["noise_floor_fs_score_mean"] = round(sum(fs) / len(fs), 1)
+facts["vm_beep_noisy"]["noise_floor_fs_score_max"] = max(fs)
 json.dump({k: {a: round(b, 3) for a, b in v.items()} for k, v in facts.items()}, open(f"{F}/facts.json", "w"), indent=1)
 print(json.dumps(facts, indent=1))
 PY

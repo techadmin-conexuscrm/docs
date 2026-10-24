@@ -49,9 +49,14 @@ m = re.search(r"droptest\(\).*?uuid_transfer \$U '([^']*)' inline", open(sys.arg
 print(re.sub(r"playback:[^,]*", "playback:%s", m.group(1)) if m else "")
 PY
 )
-printf 'BE-17 dropSteps (%s): %s\nRUNBOOK F3 droptest: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "$RBS" | tee "$LABRUN/drop-steps.txt"
+# what the playback link asks S3 to answer as Cache-Control (voicemailPlaybackLink)
+BECC=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/campaign-audio.ts" | python3 -c '
+import re, sys
+m = re.search(r"ResponseCacheControl:\s*\"([^\"]*)\"", sys.stdin.read())
+print(m.group(1) if m else "")')
+printf 'BE-17 dropSteps (%s): %s\nRUNBOOK F3 droptest: %s\nBE-17 link ResponseCacheControl: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "$RBS" "${BECC:-(none)}" | tee "$LABRUN/drop-steps.txt"
 mkdir -p "$LABRUN/results" && cp "$LABRUN/drop-steps.txt" "$LABRUN/results/drop-steps.txt"
-docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
+docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" -e LAB_BE17_RESPONSE_CACHE_CONTROL="$BECC" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
 "$LAB/esl-checks.sh" "$WT" "$LABRUN"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call
 $R pci X01_sensitive_dtmf_experiment X02_global_debug_experiment | tee "$LABRUN/pci-x.log"

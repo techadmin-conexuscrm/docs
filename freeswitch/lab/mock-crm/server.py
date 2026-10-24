@@ -32,7 +32,7 @@ It keeps what it receives in memory and in /results/crm/received.jsonl: the
 test card digits are expected THERE (this is the receiving end). Every other
 place is checked for them by the lab runner.
 """
-import email.policy, hmac, json, os, re, ssl, sys, threading, time
+import email.policy, hmac, json, os, re, ssl, sys, threading, time, urllib.parse
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -118,6 +118,11 @@ class Tokenize(BaseHTTPRequestHandler):
             data = self.vm_body()
             self.send_response(200)
             self.send_header("Content-Type", "audio/wav")
+            # As S3 does: a link signed with response-cache-control=<v> is
+            # answered with Cache-Control: <v> (and without one, none).
+            cc = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("response-cache-control")
+            if cc:
+                self.send_header("Cache-Control", cc[0])
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             return self.wfile.write(data)

@@ -10,7 +10,7 @@
 # is kept from master. .gitignore is the union of PR3 and PR4.
 set -eu
 WT=$1
-D=${2:-/home/user/docs/freeswitch/tonight-window/drafts}
+D=${2:-$(cd "$(dirname "$0")/../tonight-window/drafts" && pwd)}
 REPO=${REPO:-/home/user/freeswitch-conf}
 git -C "$REPO" fetch -q origin
 if [ ! -d "$WT" ]; then git -C "$REPO" worktree add --detach "$WT" origin/master; fi

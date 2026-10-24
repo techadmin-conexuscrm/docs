@@ -144,10 +144,10 @@ index 0000000..cfd710f
 +
 diff --git a/autoload_configs/httapi.conf.xml b/autoload_configs/httapi.conf.xml
 new file mode 100644
-index 0000000..5f0e173
+index 0000000..02e4a5d
 --- /dev/null
 +++ b/autoload_configs/httapi.conf.xml
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,53 @@
 +<configuration name="httapi.conf" description="mod_httapi: only its http(s):// file cache is used">
 +  <!--
 +    modules.conf.xml loads mod_httapi, but without this file it does not load
@@ -166,7 +166,18 @@ index 0000000..5f0e173
 +  -->
 +  <settings>
 +    <param name="debug" value="false"/>
-+    <!-- a drop link is used once: do not keep copies around for long -->
++    <!-- A copy of every file played stays in the storage_dir/http_file_cache
++         (<md5 of the url>.<ext> plus a .meta file holding the whole url),
++         and file-cache-ttl does NOT delete it: it only sets when a copy is
++         fetched again. Every drop link is new, so every drop would leave a
++         new copy, in the container's writable layer (storage_dir is not
++         under a volume). What deletes it is the response's Cache-Control:
++         no-store or no-cache makes mod_httapi unlink both files when
++         playback ends (del_on_close). The CRM signs drop links with
++         response-cache-control=no-store, so S3 sends exactly that.
++         Never set abs-file-cache-ttl: with it mod_httapi ignores the
++         response's Cache-Control, and nothing is ever deleted again.
++         Lab: section 4, be17https, http_file_cache checked after each row. -->
 +    <param name="file-cache-ttl" value="300"/>
 +    <param name="file-not-found-expires" value="0"/>
 +  </settings>

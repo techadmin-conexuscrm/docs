@@ -261,24 +261,66 @@ def suite_amd(runs=3, parallel=4):
 DROP_NOLEAD = "/lab/audio/drop/drop_nolead.wav"   # the same message with its ~0.24 s lead-in cut
 
 
+# What BE-17's voicemailPlaybackLink() asks S3 to answer as Cache-Control
+# (GetObjectCommand ResponseCacheControl), read from the campaign branch by
+# run-matrix.sh; empty = it asks for nothing. The mock answers the link
+# with that header, as S3 does.
+BE17_RESPONSE_CACHE_CONTROL = os.environ.get("LAB_BE17_RESPONSE_CACHE_CONTROL", "")
+
+
 def PRESIGNED_SHAPED_LINK():
     """An https link with the shape of a real presigned S3 GET url."""
-    return ("https://api.lab.test:8443/telephony/%s/%s"
+    link = ("https://api.lab.test:8443/telephony/%s/%s"
             "?X-Amz-Algorithm=AWS4-HMAC-SHA256"
             "&X-Amz-Credential=AKIAEXAMPLE%%2F20261024%%2Fus-east-2%%2Fs3%%2Faws4_request"
             "&X-Amz-Date=20261024T000000Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host"
             "&X-Amz-Signature=%s" % (uuid.uuid4(), uuid.uuid4(), uuid.uuid4().hex))
+    if BE17_RESPONSE_CACHE_CONTROL:
+        link += "&response-cache-control=" + BE17_RESPONSE_CACHE_CONTROL
+    return link
+
+
+def http_file_cache_dir():
+    """mod_httapi's file cache: <storage_dir>/http_file_cache."""
+    c = ESL(*FS)
+    try:
+        return c.api("global_getvar storage_dir").strip() + "/http_file_cache"
+    finally:
+        c.close()
+
+
+def http_cache_leftovers(link):
+    """Files mod_httapi left in its cache for this link: its .meta file
+    (which holds the whole url) and the copy with the same md5 name."""
+    d = http_file_cache_dir()
+    sig = link.rsplit("X-Amz-Signature=", 1)[-1].split("&")[0]
+    left = []
+    try:
+        names = os.listdir(d)
+    except FileNotFoundError:
+        return []
+    for n in names:
+        if n.endswith(".meta"):
+            try:
+                if sig in open(os.path.join(d, n), errors="replace").read():
+                    base = n[:-len(".meta")]
+                    left += [x for x in names if x == n or x.startswith(base + ".")]
+            except OSError:
+                pass
+    return sorted(set(left))
 # The amdbeep flow (what BE-12's automatic drop would send) once the avmd beep
 # event has arrived. The beep event fires a quarter of a second into the beep,
 # so playing at once plays over the rest of it (and a mailbox that starts
 # recording at the end of the beep loses the first words): wait for the line
 # to go quiet first (10 quiet 20 ms frames, then wait_for_silence's own
 # 0.5 s countdown; 5 s at most).
-# The threshold is 640, not 200: 200 is below the comfort noise a carrier
-# sends, so on a real line no frame counts as silence, the wait runs its
-# whole timeout and plays anyway (D2, the same fault BE-17's steps had).
-# 640 is what mod_amd treats as silence on the same signal.
-AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:640 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
+# The threshold is 400, the same as BE-17's steps, on wait_for_silence's
+# own scale: it reads every other sample of a mono frame and divides by
+# all 160, so a frame scores about half its true mean |sample| (mod_amd's
+# scale). 640 here was about 1280 on mod_amd's scale, louder than many
+# beeps; 200 is below the comfort noise a carrier sends, so on a real line
+# no frame counted as silence and the wait ran its whole timeout (D2).
+AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:400 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
 BEEP_WAIT_S = 25
 ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
 # D6: a beep this early in the call contradicts a HUMAN/NOTSURE verdict. A
@@ -334,6 +376,7 @@ def drop_one(rec, flow, case, run):
     ans = rec.wait_for(lambda e: e.get("Event-Name") == "CHANNEL_ANSWER" and uid(e) == u, 10)
     t0 = ts(ans) if ans else time.time()
     action, sent_at, verdict, t_verdict, t_route, drop_file = None, None, None, None, None, DROP_NOLEAD
+    link = None
     beep_override = False
     steps = None
     if flow in ("be17", "runbook", "be17https"):
@@ -348,6 +391,7 @@ def drop_one(rec, flow, case, run):
         # GET-only and answers HEAD with 403, exactly as S3 does for a
         # link signed for GET.
         target = PRESIGNED_SHAPED_LINK() if flow == "be17https" else DROP_NOLEAD
+        link = target
         if flow == "be17https":
             drop_file = DROP_FILE
         steps = RUNBOOK_STEPS % target if flow == "runbook" else drop_steps_be17(target)
@@ -425,6 +469,14 @@ def drop_one(rec, flow, case, run):
         r["drop_over_greeting"] = "greeting_end" in f and r["drop_onset"] < f["greeting_end"]
         r["drop_before_beep_end"] = "beep_end" in f and r["drop_onset"] < f["beep_end"]
     played_ok = (r["playback_response"] or "").startswith("FILE PLAYED")
+    if flow == "be17https":
+        # mod_httapi keeps every file it plays (and a .meta file with the
+        # whole presigned link) in its http_file_cache; file-cache-ttl never
+        # deletes them. Only a Cache-Control: no-store/no-cache answer makes
+        # it delete both when playback ends. Nothing of this drop may stay.
+        r["response_cache_control"] = BE17_RESPONSE_CACHE_CONTROL or None
+        r["http_cache_left"] = http_cache_leftovers(link)
+        played_ok = played_ok and not r["http_cache_left"]
     # D2: wait_for_silence has no failure branch - on timeout it returns and
     # playback runs anyway, into a mailbox that has usually stopped
     # recording. Measure whether it ended because the line really went
@@ -483,6 +535,15 @@ def suite_drop(runs=2):
         for run in range(1, runs + 1):
             plan.append(("be17", case, run))
         plan.append(("runbook", case, 1))
+    # vm_beep_late: a -20 dBm0 beep (a carrier level) that ends 2.2 s after
+    # the greeting. The quiet count alone ends the wait about 2 s after the
+    # greeting's last word, so only the beep itself, scored on
+    # wait_for_silence's own scale, can hold the message until it has ended.
+    # It is about when the drop STARTS, so it runs through the two flows
+    # that start it on wait_for_silence (amdbeep starts on the beep event).
+    for run in range(1, runs + 1):
+        plan.append(("be17", "vm_beep_late", run))
+    plan.append(("runbook", "vm_beep_late", 1))
     # beep_only (D6) and human_phrases (D1) are about the VERDICT the flow
     # acts on, so they run through amdbeep, which is the flow that reads it.
     # BE-17 is an unconditional button with no verdict to get wrong: putting
@@ -595,6 +656,12 @@ PCI_CASES = {
     # after the entry the customer presses a key for the agent (or an outside
     # menu the agent transfers them to): it must cross the bridge
     "P27_dtmf_across_bridge_after_entry": (GOOD, "ok", "completed", 1),
+    # the agent presses Cancel 4 digits into the card (end-secure-entry.ts:
+    # uuid_bridge at once, no prompt to the customer), and the customer
+    # goes on keying the other 12 digits and the CVV. None of it may reach
+    # the log, the CDR, a DTMF event or the agent's phone; later, keys are
+    # the customer's again (one "1" crosses to the agent)
+    "P30_agent_cancel_mid_card": ([("card", 1, VISA, HUMAN_PACE)], "ok", "failed", 0),
     # last: when it fails the way it did in the lab, the customer's channel is
     # left spinning one CPU core (see results.md), so nothing runs after it
     "P11_backend_crash_mid_request": (GOOD, "drop", "failed", 1),
@@ -825,7 +892,23 @@ def run_pci_case(rec, name):
                     step = steps.pop(0)
                     keys = step[2]
                     pace = step[3] if len(step) > 3 else None
-                    if pace:
+                    if name == "P30_agent_cancel_mid_card":
+                        def cancel_mid_card(keys=keys, pace=pace):
+                            time.sleep(pace["first"])
+                            for i, k in enumerate(keys + "*947"):
+                                if i == 4:
+                                    # the agent's Cancel: the CRM's end-secure-entry
+                                    e.t_cancel = time.time()
+                                    e.finish("agent_cancelled")
+                                if k == "*":       # a pause before the CVV, no key
+                                    time.sleep(2.0)
+                                    continue
+                                far_api("uuid_send_dtmf %s %s" % (e.far_cust, k))
+                                time.sleep(pace["each"])
+                            e.t_keys_done = time.time()
+                        e.keyer = threading.Thread(target=cancel_mid_card, daemon=True)
+                        e.keyer.start()
+                    elif pace:
                         # a person: a pause, then one key at a time (in the
                         # background, so the watchdog and hang-ups are still seen)
                         def keyer(keys=keys, pace=pace):
@@ -846,6 +929,12 @@ def run_pci_case(rec, name):
                         who = e.far_cust if steps[0][0] == "HANGUP_CUSTOMER" else e.far_agent
                         far_api("uuid_kill %s NORMAL_CLEARING" % who)
                         sent.append((steps.pop(0)[0], 0, 0, round(time.time() - e.t_transfer, 2)))
+        # P30 ends the entry from the keyer thread: let its end-secure-entry
+        # steps finish before this thread uses the same ESL connection
+        for _ in range(100):
+            if e.end or not e.taken:
+                break
+            time.sleep(0.1)
         out["finished_after_s"] = round(time.time() - e.t_transfer, 2)
         out["keys_sent"] = sent
         # after entry: talk again for 4 s, then the agent hangs up
@@ -854,6 +943,21 @@ def run_pci_case(rec, name):
         out["reconnected"] = bool(reconnected)
         out["bridged_after_entry"] = e.alive(e.A) and e.alive(e.B) and \
             e.c.api("uuid_getvar %s bridge_uuid" % e.B).strip() == e.A
+        if name == "P30_agent_cancel_mid_card":
+            e.keyer.join(60)
+            time.sleep(2.0)
+            # the rest of the card was keyed after the cancel: the far agent
+            # phone binds "1" (far-conf), and the card is full of 1s
+            out["keys_after_cancel"] = round(e.t_keys_done - e.t_cancel, 1)
+            out["agent_got_card_keys"] = far_api("uuid_getvar %s lab_heard_dtmf" % e.far_agent).strip() == "1"
+            out["sensitive_dtmf_after_card"] = e.c.api("uuid_getvar %s sensitive_dtmf" % e.B).strip()
+            # protection is lifted later (the script schedules it): wait for it,
+            # then a key is the customer's again and crosses to the agent
+            time.sleep(max(0, e.t_cancel + 65 - time.time()))
+            out["sensitive_dtmf_later"] = e.c.api("uuid_getvar %s sensitive_dtmf" % e.B).strip()
+            far_api("uuid_send_dtmf %s 1" % e.far_cust)
+            time.sleep(2.0)
+            out["agent_got_dtmf_later"] = far_api("uuid_getvar %s lab_heard_dtmf" % e.far_agent).strip() == "1"
         if name == "P27_dtmf_across_bridge_after_entry":
             # the far agent phone binds "1" (far-conf); the customer presses it
             far_api("uuid_send_dtmf %s 1" % e.far_cust)
@@ -981,6 +1085,16 @@ def judge(name, o, want_state, want_requests):
         j["no_digit_action_vars"] = not o.get("digit_action_vars_B")
     if name == "P27_dtmf_across_bridge_after_entry":
         j["dtmf_crosses_bridge_after_entry"] = bool(o.get("agent_got_dtmf_after_entry"))
+    if name == "P30_agent_cancel_mid_card":
+        # the only key that may show anywhere is the "1" pressed after the hold
+        j["cancel_keyed_on"] = o.get("keys_after_cancel", 0) >= 10
+        j["no_card_key_logged"] = (o.get("recv_dtmf_log_digits_B") or "") in ("", "1")
+        j["no_card_key_in_cdr"] = (o.get("digits_dialed_B") or "none") in ("none", "1")
+        j["no_card_key_evented"] = (o.get("dtmf_events_on_B") or "") in ("", "1")
+        j["agent_got_no_card_key"] = o.get("agent_got_card_keys") is False
+        j["protected_while_keying"] = o.get("sensitive_dtmf_after_card") == "true"
+        j["keys_theirs_again_later"] = o.get("sensitive_dtmf_later") in ("", "_undef_") \
+            and bool(o.get("agent_got_dtmf_later"))
     for q in o.get("mock_probes", []):
         # a probe carries the secret and the ids, never a card field
         if q["answered"] == 502:      # the front end answered; the app never saw it
