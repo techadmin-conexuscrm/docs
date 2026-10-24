@@ -632,7 +632,7 @@ amdtest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
   sleep 9;  fsx "uuid_getvar $U amd_result"; fsx "uuid_getvar $U amd_cause"
   sleep 12; fsx "uuid_getvar $U avmd_detect"; }
 droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
-  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:200 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
+  fsx "uuid_transfer $U 'avmd_start,wait_for_silence:640 75 0 30000,playback:/etc/freeswitch/default_voicemail.wav,hangup:NORMAL_CLEARING' inline"; }
 ```
 
 | # | Do | Good | Paste back |
@@ -640,7 +640,7 @@ droptest() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
 | F1 **machine** | click-to-call your mobile; **decline** it, so your voicemail greeting plays; type `amdtest` | `amd_result` = `MACHINE` (or `NOTSURE`); `avmd_detect` = `TRUE` after the beep | the `amdtest` output |
 | F2 **person, one word** | call again; **answer**, say "Hello?", stay quiet; type `amdtest` | `amd_result` = `HUMAN` | the output |
 | F2b **person, a sentence** | call again; **answer** with a full sentence and keep talking for about five seconds ("Hello, this is <name> speaking, who's calling please?"), then stop; type `amdtest` | `amd_result` = `HUMAN` or `NOTSURE`. **`MACHINE` is a NO-GO for the drop**: with BE-17 live that customer would get a recording played at them and the call dropped. Tell me and we leave the drop off. | the output |
-| F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | the agent's line ends at once; the message plays after the greeting; your mailbox has it | OK + whether it started before or after the beep |
+| F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | the agent's line ends at once; the message plays after the greeting, within a few seconds of it ending; your mailbox has it | OK + whether it started before or after the beep, **and roughly how long after the greeting ended** (if it is about 30 s, `wait_for_silence` gave up instead of hearing the line go quiet, and the mailbox will have stopped recording - tell me) |
 
 **AMD is advisory tonight.** `amd.conf.xml` is set so that doubt lands on
 HUMAN or NOTSURE, because a wrong MACHINE plays a recording at a live
