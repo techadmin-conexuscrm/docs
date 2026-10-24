@@ -1,12 +1,17 @@
 diff --git a/autoload_configs/amd.conf.xml b/autoload_configs/amd.conf.xml
 new file mode 100644
-index 0000000..62ca7f5
+index 0000000..aee7620
 --- /dev/null
 +++ b/autoload_configs/amd.conf.xml
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,77 @@
 +
 +<configuration name="amd.conf" description="mod_amd Configuration">
 +  <!--
++    PILOT MODE (the default, approved 2026-10-24): the agent joins at
++    answer and mod_amd only LOGS its verdict; nothing waits on it. What
++    follows is "AMD gates the agent" (conexus_amd_mode=gate, a per-company
++    switch, off), which these numbers were chosen for.
++
 +    mod_amd ONLY DECIDES WHO GETS AN AGENT. It never decides whether a
 +    recorded message plays: that is the beep's job (mod_avmd, see
 +    avmd.conf.xml and scripts/campaign_amd.lua). Research and the sweep
@@ -306,30 +311,46 @@ index 000fad8..4f05d2f 100644
  applications/mod_dptools
 diff --git a/scripts/campaign_amd.lua b/scripts/campaign_amd.lua
 new file mode 100644
-index 0000000..74aa9c4
+index 0000000..76e9d6a
 --- /dev/null
 +++ b/scripts/campaign_amd.lua
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,225 @@
 +--[[
-+campaign_amd.lua - who gets an agent, and whether a recorded message plays,
-+on a campaign dialer call. Runs on the CUSTOMER leg the moment it answers:
++campaign_amd.lua - the two detectors on a campaign dialer call, and what (if
++anything) they decide. Runs on the CUSTOMER leg the moment it answers.
 +
-+    <originate ...> 'lua:campaign_amd.lua' inline
++TWO MODES. The CRM picks one per company at originate (channel variable
++conexus_amd_mode; ConexusCRM-BE dialer_automations.amd_enabled):
 +
-+Nothing calls it yet: it is the FreeSWITCH half of the campaign dialer's
-+automatic voicemail path (ConexusCRM-BE BE-12), drafted with PR1 so the lab
-+can prove it on real calls. Research behind every rule here: docs
-+freeswitch/lab/research/AMD-STRATEGY.md, sections 3 and 8.2.
++  pilot (the default; anything but "gate")  Eric's approved pilot mode,
++      2026-10-24. The agent joins as soon as the call is answered; mod_amd
++      runs only to LOG its verdict (nothing waits on it); a recorded message
++      plays only from the agent's "drop voicemail" button, which the CRM
++      refuses until mod_avmd has heard a beep (avmd_detect=TRUE), and which
++      then plays after the beep.
++  gate  "AMD gates the agent", for later, once the pilot's numbers allow it
++      (docs freeswitch/lab/research/AMD-STRATEGY.md section 7). Only on a
++      customer-first call (see below); the decision table further down.
++
++How the CRM starts it:
++  - agent-first (today's campaign calls: the agent's phone is called first
++    and the customer is bridged to it, ConexusCRM-BE originate.ts, BE-12):
++        customer leg: execute_on_answer_campaign_amd=lua::campaign_amd.lua
++    The agent is already on the line, so nothing can be held back: this leg
++    always runs as PILOT, whatever conexus_amd_mode says. ("::" queues the
++    script on the leg's own thread, as uuid_broadcast does; it returns at
++    once and the call stays bridged.)
++  - customer-first (not built in the CRM; the lab's flows):
++        originate {...}<customer> 'lua:campaign_amd.lua' inline
++    pilot: an agent at once ("connect", the leg parked for the CRM to
++    bridge); gate: the decision table.
 +
 +Two detectors, each used for what it is good at:
-+  - mod_amd decides WHO GETS AN AGENT. HUMAN and NOTSURE go to an agent at
-+    once. Only MACHINE takes the voicemail path.
++  - mod_amd decides WHO GETS AN AGENT (gate mode only; in pilot it is logged).
 +  - the mod_avmd BEEP alone decides WHETHER A RECORDING PLAYS. No beep, no
-+    recording, ever. A beep heard before an agent is joined means a
-+    mailbox, whatever mod_amd said (that is how a short "please leave a
-+    message" greeting, which mod_amd calls HUMAN, still gets its message).
++    recording, ever, in either mode.
 +
-+The decision table, whatever happens first:
++Gate mode's decision table, whatever happens first:
 +  beep, before an agent is joined  -> drop allowed: wait for the beep to end,
 +                                      play, hang up ("drop"); otherwise hang up
 +                                      as a machine ("machine_hangup")
@@ -351,22 +372,25 @@ index 0000000..74aa9c4
 +
 +Channel variables, set by the CRM at originate (nothing comes from the far
 +end):
-+  conexus_drop_ok      "true" when this call may get a recorded message
-+                       (BE-17's dropAllowed: drops on, a recording, the
-+                       result set, not on do-not-call, written consent or the
-+                       company's attestation). Anything else: never plays.
-+  conexus_drop_target  what to play (BE-17's playback link).
++  conexus_amd_mode     "gate" for gate mode; anything else is pilot.
++  conexus_drop_ok      gate mode: "true" when this call may get a recorded
++                       message (BE-17's dropAllowed). Anything else: never plays.
++  conexus_drop_target  gate mode: what to play (BE-17's playback link).
 +
 +Every decision is reported as a CUSTOM event, subclass conexus::amd, with
-+Unique-ID, decision, amd_result, amd_cause, verdict_ms and beep_ms (from
-+answer). mod_amd's own amd::info event has no Event-Name, and the CRM's ESL
-+router drops events without one (lab NOTES item 5); avmd::beep is a normal
-+CUSTOM event. On "connect" the CRM bridges the parked leg to a free agent
-+and reads avmd_detect once more just before uuid_bridge: a beep that landed
-+in those few hundred ms still sends the call to the voicemail path. Both
-+listeners keep running after "connect", so a beep during the agent's call is
-+on record (avmd_detect) for the agent's "drop voicemail" button, which is
-+refused without one.
++Unique-ID, decision, mode, amd_result, amd_cause, verdict_ms and beep_ms (from
++answer), and which detectors started (avmd, amd: "started" or "missing").
++In pilot mode mod_amd's verdict is reported when it comes, by mod_amd itself
++(its amd_on_human / amd_on_machine / amd_on_notsure hooks fire a conexus::amd
++event, decision "verdict"): its own amd::info event has no Event-Name, and
++the CRM's ESL router drops events without one (lab NOTES item 5). avmd::beep
++is a normal CUSTOM event. The verdict also stays on the channel (amd_result,
++amd_cause), so it is in the CDR.
++
++A missing module never takes the call down: FreeSWITCH hangs up a channel
++that runs an application it does not know, so each detector is started only
++if its module is loaded (a call then just has no beep on record: the drop
++button stays refused, the safe side).
 +]]
 +
 +local HOLD_MS = 30000        -- MACHINE: how long after answer to wait for a beep
@@ -402,21 +426,48 @@ index 0000000..74aa9c4
 +if answered <= 0 then answered = now() end
 +local function since_answer() return math.floor((now() - answered) * 1000 + 0.5) end
 +
++-- Placed from another leg (originator: the agent's leg, agent-first) means
++-- an agent is already on the line: nothing to gate, so pilot.
++local bridged = var("originator") ~= nil
++local requested = var("conexus_amd_mode") == "gate" and "gate" or "pilot"
++local mode = (requested == "gate" and not bridged) and "gate" or "pilot"
++
 +local drop_target = var("conexus_drop_target")
-+local drop_ok = var("conexus_drop_ok") == "true" and drop_target ~= nil
++local drop_ok = mode == "gate" and var("conexus_drop_ok") == "true" and drop_target ~= nil
 +
 +local verdict_ms, beep_ms = nil, nil
++local started = {}
 +
 +local function tell(decision, extra)
 +  local e = freeswitch.Event("CUSTOM", "conexus::amd")
 +  e:addHeader("Unique-ID", uuid)
 +  e:addHeader("decision", decision)
++  e:addHeader("mode", mode)
++  e:addHeader("requested_mode", requested)
++  e:addHeader("avmd", started.avmd or "")
++  e:addHeader("amd", started.amd or "")
 +  e:addHeader("amd_result", var("amd_result") or "")
 +  e:addHeader("amd_cause", var("amd_cause") or "")
 +  e:addHeader("verdict_ms", verdict_ms and tostring(verdict_ms) or "")
 +  e:addHeader("beep_ms", beep_ms and tostring(beep_ms) or "")
 +  for k, v in pairs(extra or {}) do e:addHeader(k, v) end
 +  e:fire()
++end
++
++local function loaded(module)
++  local ok, out = pcall(function() return freeswitch.API():execute("module_exists", module) end)
++  return ok and tostring(out or ""):match("^%s*true") ~= nil
++end
++
++-- Start a detector (a media bug: returns at once) if its module is there.
++local function start(name, module, app)
++  if loaded(module) then
++    s:execute(app)
++    started[name] = "started"
++  else
++    started[name] = "missing"
++    freeswitch.consoleLog("WARNING", "campaign_amd: " .. module .. " not loaded; " .. app .. " not started on " .. uuid .. "\n")
++  end
 +end
 +
 +-- An agent now: hand the leg to the CRM, parked, still listening.
@@ -426,7 +477,7 @@ index 0000000..74aa9c4
 +  s:execute("park")
 +end
 +
-+-- A beep is on record: the voicemail path.
++-- A beep is on record: the voicemail path (gate mode only).
 +local function mailbox()
 +  if not drop_ok then
 +    tell("machine_hangup")
@@ -443,8 +494,28 @@ index 0000000..74aa9c4
 +  s:hangup("NORMAL_CLEARING")
 +end
 +
-+s:execute("avmd_start")   -- beep listener (a media bug: returns at once)
-+s:execute("amd")          -- mod_amd (a media bug: returns at once)
++start("avmd", "mod_avmd", "avmd_start")   -- beep listener
++if mode == "pilot" then
++  -- mod_amd reports its own verdict when it comes; nothing waits on it.
++  -- (Set before amd starts. Expanded when the verdict fires.)
++  local hook = "event:Event-Name=CUSTOM,Event-Subclass=conexus::amd,decision=verdict,mode=pilot,"
++    .. "requested_mode=" .. requested .. ",amd_result=${amd_result},amd_cause=${amd_cause}"
++  s:setVariable("amd_on_human", hook)
++  s:setVariable("amd_on_machine", hook)
++  s:setVariable("amd_on_notsure", hook)
++end
++start("amd", "mod_amd", "amd")
++
++if mode == "pilot" then
++  if bridged then
++    -- agent-first: the agent is on the line already. Report and leave the
++    -- call alone (no auto hang-up when the script ends: that would end it).
++    tell("connect", { bridged = "true" })
++    s:setAutoHangup(false)
++    return
++  end
++  return connect("connect")
++end
 +
 +while s:ready() do
 +  local ms = since_answer()

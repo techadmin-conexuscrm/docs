@@ -5,7 +5,16 @@ argv: path/to/campaign_amd.lua   Exit 0 = every scenario passed.
 The script runs unmodified; the session, the clock and freeswitch.Event are
 mocks (the clock is LuaSocket's gettime, as on the box). Each scenario is one answered call: when (ms after answer) mod_amd's
 verdict and mod_avmd's beep appear on the channel, whether a drop is allowed,
-and when the far end hangs up. What is checked is the decision table in
+and when the far end hangs up. Two modes (conexus_amd_mode). PILOT, the default (Eric, 2026-10-24):
+  - the agent joins at answer: "connect" at once (parked for the CRM to
+    bridge), or, on a leg placed from the agent's (originator set: today's
+    agent-first campaign calls), left bridged and alone;
+  - mod_amd only logs its verdict (its amd_on_* hooks fire a conexus::amd
+    "verdict" event); nothing waits on it, nothing is played, whatever it or
+    the beep detector says;
+  - a missing module never runs an unknown application (FreeSWITCH would
+    hang the call up).
+GATE ("gate", customer-first calls only): the decision table in
 docs freeswitch/lab/research/AMD-STRATEGY.md section 3.2:
 
   - a recording plays ONLY after a beep, and only when the drop is allowed;
@@ -34,6 +43,7 @@ function sess:ready() apply_plan(); return S.ready end
 function sess:get_uuid() return "11111111-2222-3333-4444-555555555555" end
 function sess:getVariable(k) apply_plan(); return S.vars[k] end
 function sess:setAutoHangup(b) S.autohangup = b end
+function sess:setVariable(k, v) S.vars[k] = v end
 -- a session:sleep(20) takes longer than 20 ms of wall time on a real box
 -- (about 31 ms in the lab): the script must not count sleeps as time
 function sess:sleep(ms) S.t = S.t + math.floor(ms * 1.5); apply_plan() end
@@ -48,7 +58,15 @@ session = sess
 -- LuaSocket's clock (the script measures from answer_uepoch on it)
 package.preload["socket"] = function() return { gettime = function() return S.t / 1000 end } end
 S.vars.answer_uepoch = "0"
+S.modules = { mod_avmd = true, mod_amd = true }
 freeswitch = {
+  API = function()
+    return { execute = function(self, cmd, arg)
+      if cmd == "module_exists" then return S.modules[arg] and "true" or "false" end
+      return "-ERR"
+    end }
+  end,
+  consoleLog = function(level, msg) S.console = (S.console or "") .. msg end,
   Event = function(kind, sub)
     local e = { kind = kind, sub = sub, h = {} }
     function e:addHeader(k, v) self.h[k] = v end
@@ -59,10 +77,16 @@ freeswitch = {
 """
 
 
-def run(lua_src, plan, drop_ok=True, target="/tmp/drop.wav"):
+def run(lua_src, plan, drop_ok=True, target="/tmp/drop.wav", mode="gate", originator=None, missing=()):
     lua = L.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(MOCKS)
     S = lua.globals().S
+    if mode is not None:
+        S.vars["conexus_amd_mode"] = mode
+    if originator:
+        S.vars["originator"] = originator
+    for m in missing:
+        S.modules[m] = False
     if drop_ok:
         S.vars["conexus_drop_ok"] = "true"
     if target:
@@ -157,6 +181,46 @@ def main():
     for verdict in ("HUMAN", "NOTSURE", "MACHINE"):
         apps, ev, S = run(src, [{"at": 3000, "var": "amd_result", "value": verdict}])
         check("no beep, %s -> no recording" % verdict, not played(apps), str(apps))
+
+    # ── PILOT mode (the default) ────────────────────────────────────────────
+    for label, mode in (("no mode set", None), ("conexus_amd_mode=pilot", "pilot"), ("an unknown mode", "GATE")):
+        apps, ev, S = run(src, [{"at": 900, "var": "amd_result", "value": "MACHINE"},
+                                {"at": 1500, "var": "avmd_detect", "value": "TRUE"}], mode=mode)
+        check("pilot (%s): an agent at answer (connect, parked at 0 ms)" % label,
+              decisions(ev) == ["connect"] and S.parked == 0 and ev[0].get("mode") == "pilot", "%s %s" % (decisions(ev), S.parked))
+        check("pilot (%s): nothing played on MACHINE + a beep, nothing waits" % label,
+              not played(apps) and not any(a[1] in ("wait_for_silence", "hangup") for a in apps), str(apps))
+    apps, ev, S = run(src, [], mode=None)
+    order = [a[1] for a in apps]
+    check("pilot: both detectors start at answer (avmd first), then park", order == ["avmd_start", "amd", "park"], str(order))
+    hook = S.vars["amd_on_human"]
+    check("pilot: the verdict is logged by mod_amd's hooks (a conexus::amd verdict event)",
+          all(S.vars[k] == hook for k in ("amd_on_machine", "amd_on_notsure")) and hook
+          and hook.startswith("event:Event-Name=CUSTOM,Event-Subclass=conexus::amd,") and "decision=verdict" in hook
+          and "amd_result=${amd_result}" in hook and "amd_cause=${amd_cause}" in hook, str(hook))
+    check("pilot: the event says both detectors started", ev and ev[0].get("avmd") == "started" and ev[0].get("amd") == "started", str(ev))
+    check("pilot connect leaves the leg up (no auto hangup)", S.autohangup is False, str(S.autohangup))
+
+    # agent-first (today's campaign calls): the leg was placed from the agent's
+    for mode in (None, "gate"):
+        apps, ev, S = run(src, [{"at": 900, "var": "amd_result", "value": "MACHINE"},
+                                {"at": 1500, "var": "avmd_detect", "value": "TRUE"}], mode=mode, originator="aaaa-agent-leg")
+        check("agent-first (mode %s): pilot whatever was asked, the call left bridged" % mode,
+              decisions(ev) == ["connect"] and ev[0].get("mode") == "pilot" and ev[0].get("bridged") == "true"
+              and S.parked is None and [a[1] for a in apps] == ["avmd_start", "amd"], "%s %s %s" % (decisions(ev), S.parked, apps))
+        check("agent-first (mode %s): no auto hang-up when the script ends" % mode, S.autohangup is False and S.ready, str(S.autohangup))
+        check("agent-first (mode %s): the mode asked for is reported" % mode,
+              ev[0].get("requested_mode") == ("gate" if mode == "gate" else "pilot"), str(ev[0].get("requested_mode")))
+
+    # a module not loaded: never run an application FreeSWITCH does not know
+    apps, ev, S = run(src, [], mode=None, originator="aaaa-agent-leg", missing=("mod_avmd",))
+    check("mod_avmd missing: avmd_start not run, the call left alone, reported",
+          [a[1] for a in apps] == ["amd"] and ev[0].get("avmd") == "missing" and S.ready, "%s %s" % (apps, ev))
+    apps, ev, S = run(src, [], mode=None, originator="aaaa-agent-leg", missing=("mod_avmd", "mod_amd"))
+    check("both modules missing: no application run at all", apps == [] and S.ready and ev[0].get("amd") == "missing", str(apps))
+    apps, ev, S = run(src, [{"at": 3000, "var": "amd_result", "value": "HUMAN"}], missing=("mod_avmd",))
+    check("gate, mod_avmd missing: no beep listener, still an agent on HUMAN",
+          "avmd_start" not in [a[1] for a in apps] and decisions(ev) == ["connect"], str(apps))
 
     print("campaign_amd_test: %d failed" % len(fails))
     sys.exit(1 if fails else 0)

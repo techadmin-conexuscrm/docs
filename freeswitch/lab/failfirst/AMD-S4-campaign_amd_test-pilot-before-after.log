@@ -1,0 +1,87 @@
+== BEFORE (PR1 campaign_amd.lua at docs 82cea20: gate logic for every call)
+ok   both listeners start at answer, avmd first
+ok   HUMAN -> connect, parked, nothing played
+ok   HUMAN -> connect within one sleep of the verdict
+ok   connect leaves the leg up (no auto hangup)
+ok   connect event carries the verdict
+ok   NOTSURE -> connect, nothing played
+ok   beep before the verdict -> drop: wait for silence, play, hang up
+ok   the drop waits on the strategy's silence (400 50 0 3500)
+ok   the drop reports what playback said
+ok   the drop plays the CRM's target
+ok   beep_ms recorded (within a sleep of the beep)
+ok   beep, drop not allowed -> machine_hangup, nothing played
+ok   drop allowed but no target -> never plays
+ok   MACHINE, then a beep -> drop after the beep
+ok   MACHINE, no beep -> connect_late at 30 s, nothing played
+ok   MACHINE, drop not allowed -> machine_hangup at once, nothing played
+ok   no verdict at all -> connect by 15 s (fail-safe)
+ok   hang-up before anything -> cancel, nothing played
+ok   no beep, HUMAN -> no recording
+ok   no beep, NOTSURE -> no recording
+ok   no beep, MACHINE -> no recording
+FAIL pilot (no mode set): an agent at answer (connect, parked at 0 ms): ['drop', 'drop_done'] None
+FAIL pilot (no mode set): nothing played on MACHINE + a beep, nothing waits: [(0, 'avmd_start', None), (0, 'amd', None), (1500, 'wait_for_silence', '400 50 0 3500'), (3000, 'playback', '/tmp/drop.wav'), (10000, 'hangup', 'NORMAL_CLEARING')]
+FAIL pilot (conexus_amd_mode=pilot): an agent at answer (connect, parked at 0 ms): ['drop', 'drop_done'] None
+FAIL pilot (conexus_amd_mode=pilot): nothing played on MACHINE + a beep, nothing waits: [(0, 'avmd_start', None), (0, 'amd', None), (1500, 'wait_for_silence', '400 50 0 3500'), (3000, 'playback', '/tmp/drop.wav'), (10000, 'hangup', 'NORMAL_CLEARING')]
+FAIL pilot (an unknown mode): an agent at answer (connect, parked at 0 ms): ['drop', 'drop_done'] None
+FAIL pilot (an unknown mode): nothing played on MACHINE + a beep, nothing waits: [(0, 'avmd_start', None), (0, 'amd', None), (1500, 'wait_for_silence', '400 50 0 3500'), (3000, 'playback', '/tmp/drop.wav'), (10000, 'hangup', 'NORMAL_CLEARING')]
+ok   pilot: both detectors start at answer (avmd first), then park
+FAIL pilot: the verdict is logged by mod_amd's hooks (a conexus::amd verdict event): None
+FAIL pilot: the event says both detectors started: [{'Unique-ID': '11111111-2222-3333-4444-555555555555', 'verdict_ms': '', 'beep_ms': '', 'amd_result': '', 'decision': 'connect', '_t': 15000, 'amd_cause': ''}]
+ok   pilot connect leaves the leg up (no auto hangup)
+FAIL agent-first (mode None): pilot whatever was asked, the call left bridged: ['drop', 'drop_done'] None [(0, 'avmd_start', None), (0, 'amd', None), (1500, 'wait_for_silence', '400 50 0 3500'), (3000, 'playback', '/tmp/drop.wav'), (10000, 'hangup', 'NORMAL_CLEARING')]
+FAIL agent-first (mode None): no auto hang-up when the script ends: None
+FAIL agent-first (mode None): the mode asked for is reported: None
+FAIL agent-first (mode gate): pilot whatever was asked, the call left bridged: ['drop', 'drop_done'] None [(0, 'avmd_start', None), (0, 'amd', None), (1500, 'wait_for_silence', '400 50 0 3500'), (3000, 'playback', '/tmp/drop.wav'), (10000, 'hangup', 'NORMAL_CLEARING')]
+FAIL agent-first (mode gate): no auto hang-up when the script ends: None
+FAIL agent-first (mode gate): the mode asked for is reported: None
+FAIL mod_avmd missing: avmd_start not run, the call left alone, reported: [(0, 'avmd_start', None), (0, 'amd', None), (15000, 'park', None)] [{'_t': 15000, 'amd_cause': '', 'decision': 'connect', 'verdict_ms': '', 'Unique-ID': '11111111-2222-3333-4444-555555555555', 'beep_ms': '', 'amd_result': ''}]
+FAIL both modules missing: no application run at all: [(0, 'avmd_start', None), (0, 'amd', None), (15000, 'park', None)]
+FAIL gate, mod_avmd missing: no beep listener, still an agent on HUMAN: [(0, 'avmd_start', None), (0, 'amd', None), (3000, 'park', None)]
+campaign_amd_test: 17 failed
+exit 1
+
+== AFTER (pilot mode by default, gate behind conexus_amd_mode=gate)
+ok   both listeners start at answer, avmd first
+ok   HUMAN -> connect, parked, nothing played
+ok   HUMAN -> connect within one sleep of the verdict
+ok   connect leaves the leg up (no auto hangup)
+ok   connect event carries the verdict
+ok   NOTSURE -> connect, nothing played
+ok   beep before the verdict -> drop: wait for silence, play, hang up
+ok   the drop waits on the strategy's silence (400 50 0 3500)
+ok   the drop reports what playback said
+ok   the drop plays the CRM's target
+ok   beep_ms recorded (within a sleep of the beep)
+ok   beep, drop not allowed -> machine_hangup, nothing played
+ok   drop allowed but no target -> never plays
+ok   MACHINE, then a beep -> drop after the beep
+ok   MACHINE, no beep -> connect_late at 30 s, nothing played
+ok   MACHINE, drop not allowed -> machine_hangup at once, nothing played
+ok   no verdict at all -> connect by 15 s (fail-safe)
+ok   hang-up before anything -> cancel, nothing played
+ok   no beep, HUMAN -> no recording
+ok   no beep, NOTSURE -> no recording
+ok   no beep, MACHINE -> no recording
+ok   pilot (no mode set): an agent at answer (connect, parked at 0 ms)
+ok   pilot (no mode set): nothing played on MACHINE + a beep, nothing waits
+ok   pilot (conexus_amd_mode=pilot): an agent at answer (connect, parked at 0 ms)
+ok   pilot (conexus_amd_mode=pilot): nothing played on MACHINE + a beep, nothing waits
+ok   pilot (an unknown mode): an agent at answer (connect, parked at 0 ms)
+ok   pilot (an unknown mode): nothing played on MACHINE + a beep, nothing waits
+ok   pilot: both detectors start at answer (avmd first), then park
+ok   pilot: the verdict is logged by mod_amd's hooks (a conexus::amd verdict event)
+ok   pilot: the event says both detectors started
+ok   pilot connect leaves the leg up (no auto hangup)
+ok   agent-first (mode None): pilot whatever was asked, the call left bridged
+ok   agent-first (mode None): no auto hang-up when the script ends
+ok   agent-first (mode None): the mode asked for is reported
+ok   agent-first (mode gate): pilot whatever was asked, the call left bridged
+ok   agent-first (mode gate): no auto hang-up when the script ends
+ok   agent-first (mode gate): the mode asked for is reported
+ok   mod_avmd missing: avmd_start not run, the call left alone, reported
+ok   both modules missing: no application run at all
+ok   gate, mod_avmd missing: no beep listener, still an agent on HUMAN
+campaign_amd_test: 0 failed
+exit 0
