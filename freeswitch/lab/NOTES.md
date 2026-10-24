@@ -790,3 +790,59 @@ deleted) and 63 new; the research's 4 stress rows are reported, not counted
 (`h_real_two` passes, `h_tv_loud` does not: NOTSURE/TOOLONG at 12.0 s, an
 agent 11.2 s after the person stopped, never MACHINE, nothing played). Every
 expectation that changed: `EXPECTATIONS-CHANGE.md`.
+
+### Seventh pass: pilot mode and BE-12, on real calls
+
+Eric approved pilot mode on 2026-10-24 (the agent joins at answer, mod_amd
+only logs, a message only from the agent's button after a beep) and BE-12
+(start the beep detector at answer on campaign calls). Applied:
+
+- **PR1 `scripts/campaign_amd.lua`**: pilot by default; gate mode only with
+  `conexus_amd_mode=gate` on a customer-first leg. On a leg placed from the
+  agent's (`originator` set: every campaign call today) it is always pilot,
+  starts the detectors and returns, leaving the call bridged. In pilot mode
+  mod_amd's own hooks (`amd_on_human`/`_machine`/`_notsure`) fire a
+  `conexus::amd` `verdict` event. Each detector starts only if its module is
+  loaded. `tests/campaign_amd_test.py` has 19 new checks, 17 of them failing
+  on the previous script (`failfirst/AMD-S4-*`).
+- **BE-12** (ConexusCRM-BE `claude/campaign-pr08-pacer-and-caller-id`
+  5104fbf5, merged up to pr14): a campaign call's customer leg gets
+  `execute_on_answer_campaign_amd=lua::campaign_amd.lua` and
+  `conexus_amd_mode` (pilot unless `dialer_automations.amd_enabled`).
+- **Lab**: `amdbeep` is pilot; the old gate rows are `amdgate`; new `be12`
+  (the real agent-first originate, variables read from the branch) and
+  `be12nofs` rows. `EXPECTATIONS-CHANGE.md`, "Pilot mode".
+
+Found on the way:
+
+37. **An unknown application in `execute_on_answer` hangs the call up**
+    (`switch_core_session_execute_application_get_flags`: "Invalid
+    Application", then `DESTINATION_OUT_OF_ORDER`). So BE-12 must never send
+    `avmd_start` or `amd` itself: merged before PR1 is deployed, every
+    campaign call would be cut at answer. It sends the Lua script, which
+    checks `module_exists` first; a missing script only logs an error
+    (`be12nofs`: the call stays bridged).
+38. **`lua::` queued on the customer leg works where the API does not**
+    (item 33): the script runs on the leg's own thread once the bridge runs
+    (0.00-0.04 s after answer on an idle box), `avmd_start` initialises at
+    8000 samples/s and hears every quiet-line beep (`be12` rows), and the
+    verdict hook's `event` application fires from inside the bridge. On a
+    box busy with a test suite the start slipped to 0.36-0.40 s, still
+    ahead of the earliest beep in the corpus (1.04 s).
+39. **mod_avmd is most of a campaign call's CPU** (`load/results.md`):
+    recording alone about 0.9% of a sandbox core per call, plus mod_amd about
+    0.0%, plus mod_avmd about 4.2%: it runs `detectors_n=36` (+1 lagged)
+    detector threads per call. Fewer detectors would cut it a lot, but they
+    are what decide when a beep is seen (research section 6); changing it
+    needs the avmd harness and a full lab pass first.
+
+### The matrix after the seventh pass: 201 of 201 counted
+
+One full run on real calls, BE-17's steps and guard and BE-12's variables
+read from campaign-pr14 `cfaf281d`. Every clip, the stress clips included,
+is counted in pilot mode; the gate-mode rows keep their approved
+expectations. The two gate-mode stress rows are reported, not counted, as
+before: `h_real_two` passes, `h_tv_loud` still connects 11.2 s after the
+person stopped (a loud TV reads as talk), which is why gate mode stays off
+until the pilot has measured it.
+

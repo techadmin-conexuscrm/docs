@@ -67,6 +67,12 @@ is merged. Your job:
 > 4. **New feature:** a 12-second minimum on campaign calls, a VM-drop countdown pop-up, the hold message and a short-call tracker. Spec: `plans/min-call-duration-12s.md`.
 > 5. **Channel capacity** is 10 today (the carrier trunk); sizing questions are open in that spec.
 
+> **Done 2026-10-24 (afternoon UTC), Eric's decisions 2 and 3 built, nothing merged:**
+> - **Pilot mode** is the default in PR1's `scripts/campaign_amd.lua` (docs drafts): agent at answer, AMD logs only, drop only from the button after a beep. Switch for later: `conexus_amd_mode=gate`, set by the CRM from `dialer_automations.amd_enabled` (existing column, default false, not writable from the API until a customer-first mode exists).
+> - **BE-12**: ConexusCRM-BE `claude/campaign-pr08-pacer-and-caller-id` 5104fbf5 (`calls/services/campaign-amd.ts`, `originate.ts`), merged up to pr14 cfaf281d (pr13 73584fd4 also updates the drop guard's comment). Gates green on all seven heads (tsc, full vitest, drizzle "No schema changes").
+> - **FS lab**: 201 of 201 counted rows on real calls (`freeswitch/lab/results.md`); gate-mode `h_tv_loud` still reported, not counted. RUNBOOK F4 = the campaign-call check after BE-12 ships.
+> - **Capacity**: nothing in the pacer caps concurrent calls or calls per second (`plans/min-call-duration-12s.md`). Load test: `freeswitch/lab/load/results.md`.
+
 ---
 
 ## 1. FreeSWITCH window: NOT done yet, reschedule it with Eric
