@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..960109e
+index 0000000..568c4b0
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,863 @@
+@@ -0,0 +1,917 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -487,10 +487,11 @@ index 0000000..960109e
 +--   2. the chain must verify against CA_FILE;
 +--   3. the certificate's subjectAltName DNS names (or CN when it has none)
 +--      must match the URL host;
-+--   4. the leaf, or the certificate that issued it, must match a configured
++--   4. the leaf, or the certificate that signed it, must match a configured
 +--      SHA-256 pin. A pin matched by a surplus certificate the peer merely
-+--      sent along does not count (see pin_matches). No pin configured = no
-+--      tokenize (fail closed).
++--      sent along, or by one that only carries the issuer's name, does not
++--      count: the signature is checked (see pin_matches). No pin configured
++--      = no tokenize (fail closed).
 +-- Pins: crm_secure_payment_tls_pins, a comma-separated list of SHA-256
 +-- certificate fingerprints (hex, colons optional), read from the channel
 +-- first, then the global variables. Pinning the issuing intermediate keeps
@@ -589,21 +590,74 @@ index 0000000..960109e
 +-- pin matched anywhere in the presented chain would then match that surplus
 +-- certificate. Mis-issuance by a trusted CA is the only thing pinning is here
 +-- to stop, so matching that way constrains nothing.
-+-- Accepted instead: the leaf itself is pinned, or a certificate that actually
-+-- issued the leaf is (its subject is the leaf's issuer, which is also how
-+-- OpenSSL built the path it verified). A surplus certificate issued nothing
-+-- here, so it matches nothing. The leaf's issuer field cannot be forged: a CA
-+-- writes its own subject there, and a leaf naming an issuer that did not sign
-+-- it fails chain verification above.
++-- Names prove nothing either: a subject is text the issuing CA writes, so the
++-- same CA can name its own intermediate exactly like a pinned one (and copy
++-- its key identifiers), issue the leaf under that, and append the genuine
++-- pinned certificate. Accepted instead: the leaf itself is pinned, or a
++-- pinned certificate in the chain whose SIGNATURE is on the leaf. That is
++-- checked by OpenSSL, with LuaSec's x509 issued(): root:issued(leaf, pinned,
++-- ...) verifies the path leaf -> pinned -> ... -> root, every signature
++-- included, with only that root trusted (a root from CA_FILE: issued()
++-- accepts no intermediate as the anchor). Only the holder of the pinned
++-- certificate's key can make a leaf that passes.
++-- The path may need one certificate from the handshake above the pinned one:
++-- Let's Encrypt's YE*/YR* intermediates are issued by Root YE/YR, which are
++-- not in Debian's bundle, so the server sends Root YE cross-signed by ISRG
++-- Root X2 (api.tryconexus.com: leaf -> YE2 -> Root YE -> X2). Only
++-- certificates named exactly as the pinned one's issuer are passed along, so
++-- the leaf (whose issuer must be named exactly as the pinned certificate)
++-- has no other certificate OpenSSL could take as its issuer.
++
++-- The trusted roots in CA_FILE (PEM bundle), or nil.
++local function ca_roots()
++  local ok, x509 = pcall(require, "ssl.x509")
++  if not ok or type(x509) ~= "table" or not x509.load then return nil end
++  local f = io.open(CA_FILE, "r")
++  if not f then return nil end
++  local bundle = f:read("*a")
++  f:close()
++  local roots = {}
++  for pem in bundle:gmatch("%-%-%-%-%-BEGIN CERTIFICATE%-%-%-%-%-.-%-%-%-%-%-END CERTIFICATE%-%-%-%-%-") do
++    local okc, cert = pcall(x509.load, pem)
++    if okc and cert then roots[#roots + 1] = cert end
++  end
++  return roots
++end
++
++-- true when `cert`'s key signed `leaf`, on a path to a root in `roots`
++-- (directly, or through one certificate from `chain` named as `cert`'s
++-- issuer, e.g. a cross-signed root).
++local function signed_leaf(cert, leaf, chain, roots)
++  local name, up = dn_string(cert, "subject"), dn_string(cert, "issuer")
++  if not name or not up or name == up or dn_string(leaf, "issuer") ~= name then return false end
++  local above, tops = {}, { [up] = true }
++  for _, c in ipairs(chain) do
++    if c ~= leaf and dn_string(c, "subject") == up then
++      above[#above + 1] = c
++      local top = dn_string(c, "issuer")
++      if top and top ~= name then tops[top] = true end
++    end
++  end
++  for _, root in ipairs(roots) do
++    -- (the names only pick which roots to try; the signatures decide)
++    local rn = dn_string(root, "subject")
++    if rn and rn ~= name and tops[rn] then
++      local ok, yes = pcall(function() return root:issued(leaf, cert, (table.unpack or unpack)(above)) end)
++      if ok and yes == true then return true end
++    end
++  end
++  return false
++end
++
 +local function pin_matches(leaf, chain, pins)
 +  local d = digest_hex(leaf)
 +  if d and pins[d] then return true end
-+  local issuer = dn_string(leaf, "issuer")
-+  if not issuer then return false end
++  local roots
 +  for _, cert in ipairs(chain) do
-+    if dn_string(cert, "subject") == issuer then
-+      local cd = digest_hex(cert)
-+      if cd and pins[cd] then return true end
++    local cd = digest_hex(cert)
++    if cd and pins[cd] then
++      roots = roots or ca_roots() or {}
++      if signed_leaf(cert, leaf, chain, roots) then return true end
 +    end
 +  end
 +  return false
@@ -1000,10 +1054,10 @@ index 0000000..960109e
 +end
 +collectgarbage("collect")
 diff --git a/vars.xml b/vars.xml
-index 977ef71..e133108 100755
+index 977ef71..e943c1e 100755
 --- a/vars.xml
 +++ b/vars.xml
-@@ -116,4 +116,22 @@
+@@ -116,4 +116,23 @@
    <X-PRE-PROCESS cmd="set" data="video_mute_png=$${images_dir}/default-mute.png"/>
    <X-PRE-PROCESS cmd="set" data="video_no_avatar_png=$${images_dir}/default-avatar.png"/>
  
@@ -1015,8 +1069,9 @@ index 977ef71..e133108 100755
 +       then E5-E9 R10-R14 (retired, valid to 2027-03-12). If the API ever
 +       moves off Let's Encrypt, these must change.
 +       A pin counts only when it is the leaf itself or the certificate that
-+       ISSUED the leaf; a pinned certificate merely sent alongside in the
-+       handshake does not (the script's pin_matches says why). So these must
++       SIGNED the leaf (the signature is checked, not the name); a pinned
++       certificate merely sent alongside in the handshake does not (the
++       script's pin_matches says why). So these must
 +       stay the intermediates that actually sign api.tryconexus.com. Putting
 +       the leaf's own fingerprint here instead is stricter, but then tokenize
 +       fails closed the moment the certificate is renewed - card entry stops
