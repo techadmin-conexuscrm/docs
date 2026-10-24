@@ -17,8 +17,8 @@
       <settings>
         <param name="loglevel" value="info"/>
         <param name="rtp-start-port" value="20000"/>
-        <param name="rtp-end-port" value="20999"/>
-        <param name="max-sessions" value="200"/>
+        <param name="rtp-end-port" value="29999"/>
+        <param name="max-sessions" value="1000"/>
         <param name="sessions-per-second" value="50"/>
       </settings>
     </configuration>

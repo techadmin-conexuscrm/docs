@@ -39,7 +39,7 @@ All drafts are in
 
 | PR | Branch | What it does | Applied by |
 |---|---|---|---|
-| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`, and `scripts/campaign_amd.lua` (the dialer's call flow; nothing calls it yet). Set to the AMD strategy (docs `freeswitch/lab/research/AMD-STRATEGY.md`): **mod_amd only decides who gets an agent** (HUMAN and NOTSURE at once, only MACHINE takes the voicemail path) and **the mod_avmd beep alone decides whether a recording plays**. Numbers: `silence_threshold` 1024, `between_words_silence` 800, `after_greeting_silence` 1200, `total_analysis_time` 12000, `greeting` 5000; avmd's `sample_n_continuous_streak` (and `_amp`) 8. See section F, **AMD is advisory**. | the swap |
+| PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`, and `scripts/campaign_amd.lua` (the dialer's call flow; called by BE-12 on campaign calls once that is merged; until then nothing calls it). **Pilot mode is the default** (approved 2026-10-24): the agent joins at answer, mod_amd only logs its verdict, a message plays only from the agent's button after a beep; "AMD gates the agent" is a per-company switch for later (`conexus_amd_mode=gate`, CRM `dialer_automations.amd_enabled`, off). Set to the AMD strategy (docs `freeswitch/lab/research/AMD-STRATEGY.md`): **mod_amd only decides who gets an agent** (HUMAN and NOTSURE at once, only MACHINE takes the voicemail path) and **the mod_avmd beep alone decides whether a recording plays**. Numbers: `silence_threshold` 1024, `between_words_silence` 800, `after_greeting_silence` 1200, `total_analysis_time` 12000, `greeting` 5000; avmd's `sample_n_continuous_streak` (and `_amp`) 8. See section F, **AMD is advisory**. | the swap |
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
 | PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret, and one line in `scripts/api/app.py` so a queue's `0 = callback` binding is dropped when an agent answers, not only on a queue timeout. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. A pin counts only on the leaf itself or on the certificate whose **signature** is on the leaf (checked by OpenSSL, not by name), never on a pinned certificate the server merely sends alongside it, nor on one that only shares its name - otherwise anyone holding a mis-issued certificate for `api.tryconexus.com` could append a (public) Let's Encrypt intermediate, or name their own intermediate like one, and be accepted. | the swap (would also work live with `reloadxml`) |
@@ -666,10 +666,15 @@ beep did not count as sound, and the message could start over it.)
 | F3 **voicemail drop (A8)** | call again and decline; when the greeting starts, type `droptest` | `droptest` waits; after your mailbox's beep the agent's line ends and the message plays, starting a second or two after the beep; your mailbox has it. If it says "no beep in 30 s", nothing played: that is the safe outcome for a beep the detector can't hear (same as F1). | OK + whether it started before or after the beep, **and roughly how long after it** |
 | F3b **no drop on a person** | call again; **answer**, say "Hello?", then keep quiet; type `droptest` | after 30 s: "no beep in 30 s: no drop"; you heard **no** message | OK, or what you heard |
 
-**AMD is advisory tonight.** Nothing on the floor acts on it yet: BE-17's
-button is the only thing that can play a message, and it refuses unless a
-beep is on record for the call (`avmd_detect`), which needs the dialer to
-start the beep detector at answer (BE-12, not tonight). With these numbers
+**AMD is advisory tonight, and stays advisory in pilot mode.** Nothing on
+the floor acts on it: BE-17's button is the only thing that can play a
+message, and it refuses unless a beep is on record for the call
+(`avmd_detect`). On campaign calls the CRM starts the beep detector (and
+mod_amd, which only logs) at answer once BE-12 is merged: the customer leg
+gets `execute_on_answer_campaign_amd=lua::campaign_amd.lua`, the script
+starts each detector only if its module is loaded and returns at once, and
+the call stays bridged to the agent. Click-to-call (these F tests) does not
+start it; `droptest` does that by hand. With these numbers
 mod_amd calls long greetings MACHINE (5 s of talk without a 0.8 s pause, at
 about 8-10 s after answer) and short ones HUMAN; short mailboxes still get
 their message from their beep. The research corpus is synthetic speech and
@@ -678,6 +683,27 @@ calls (AMD-STRATEGY.md section 7) before anything plays by itself.
 `tests/amd_test.py` checks the arithmetic of webitel/mod_amd against these
 numbers and `tests/campaign_amd_test.py` the call flow; the lab
 (`freeswitch/lab`) checks both on real calls.
+
+### F4. After BE-12 is merged (a later day): one campaign call, pilot mode
+
+Only once BE-12 is on `main` and this window's PR1 is live (in either order
+a call is safe: without the script FreeSWITCH logs "cannot open" and the
+call goes on, the button refused). Put your mobile in a test campaign, you
+as the only Ready agent.
+
+```bash
+camp() { U=$(leg); echo "leg=$U"; [ -n "$U" ] || return 1
+  for v in conexus_amd_mode avmd_detect amd_result amd_cause; do printf '%s=' $v; fsx "uuid_getvar $U $v"; done; }
+```
+
+| # | Do | Good | Paste back |
+|---|---|---|---|
+| F4a **person** | the dialer calls your mobile; **answer**, say "Hello?", wait 15 s, type `camp`; then press **Drop voicemail** in the CRM | you hear the agent at once (no delay after answering); `conexus_amd_mode=pilot`, `amd_result` = `HUMAN` or `NOTSURE`, `avmd_detect` not `TRUE`; the button says no beep has been heard and **nothing plays** | the `camp` output, OK |
+| F4b **mailbox** | the dialer calls again; **decline**; after your mailbox's beep press **Drop voicemail** | the message starts a second or two after the beep; your mailbox has it; `camp` (before the drop) shows `avmd_detect=TRUE` | OK + roughly how long after the beep |
+
+If F4a ever shows `avmd_detect=TRUE` on a person, switch drops off for the
+campaign and tell me (a beep heard in speech would play the message to a
+person).
 
 ### G. Record (CLAUDE.md)
 
