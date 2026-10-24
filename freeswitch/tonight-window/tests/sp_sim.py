@@ -207,6 +207,7 @@ end
 """
 
 VISA = "4111111111111111"
+AMEX = "378282246310005"   # a gateway test Amex, 15 digits
 PROMPT_S = {  # rough Polly durations of the 13 prompts, seconds
     "payment_intro.wav": 14, "enter_card_number.wav": 6, "enter_expiry.wav": 6,
     "enter_cvv.wav": 4.5, "enter_cvv_amex.wav": 5, "enter_zip.wav": 4,
@@ -284,6 +285,10 @@ SCENARIOS = {
     # the first digit of the ZIP (a wrong ZIP goes to the gateway)
     "cvv_extra_key_human": dict(keys=human(VISA) + human("1230") + human("1234") + human("78704"),
                                 replies=[OK], want=dict(cvv="123", zip="78704")),
+    # the same at typing speed: the 4th key is still the code's own extra key
+    # (one over a 3-digit code), not the start of a typed-ahead ZIP
+    "cvv_extra_key_fast": dict(keys=keys(VISA + "#") + keys("1230") + keys("1234") + keys("78704"),
+                               replies=[OK], want=dict(cvv="123", zip="78704")),
     # expiry keys typed during the 5 s wait after a 16-digit card: they join
     # the card (19 digits, invalid); the leftover "0" must not start the
     # retry (a leading 0 still passes Luhn, so "0" + card would be accepted)
@@ -291,6 +296,23 @@ SCENARIOS = {
         keys=keys(VISA) + [("1", 1.0, False), ("2", 0.3, False), ("3", 0.3, False), ("0", 0.3, False)]
         + keys(VISA + "#") + keys("1230") + keys("123") + keys("78704"),
         replies=[OK], want=dict(pan=VISA, expiry="1230")),
+    # Keys for the NEXT field, typed straight after a field that filled up,
+    # before the next prompt has started. They are that field's digits: the
+    # customer believes they have answered it. Swallowing them leaves a field
+    # that times out in silence and costs an attempt ("not valid").
+    # An Amex ends on "#" (its prompt says so), then the expiry right away,
+    # as runbook B8 has the tester do it:
+    "expiry_typed_ahead_after_amex_pound": dict(
+        keys=keys(AMEX + "#") + [(c, 0.3, False) for c in "1230"] + keys("1234") + keys("78704"),
+        replies=[OK], want=dict(pan=AMEX, expiry="1230", cvv="1234", zip="78704"), clean=True),
+    # The expiry fills at 4 digits, then the code without waiting for its prompt:
+    "cvv_typed_ahead_after_expiry": dict(
+        keys=keys(VISA + "#") + keys("1230") + [(c, 0.3, False) for c in "123"] + keys("78704"),
+        replies=[OK], want=dict(expiry="1230", cvv="123", zip="78704"), clean=True),
+    # ...and the whole rest of the card in one run, without a single prompt:
+    "everything_typed_ahead_after_card": dict(
+        keys=keys(VISA + "#") + [(c, 0.3, False) for c in "123012378704"],
+        replies=[OK], want=dict(pan=VISA, expiry="1230", cvv="123", zip="78704"), clean=True),
     # "*" pressed while a prompt plays still goes back to the agent
     "star_during_prompt": dict(keys=keys(VISA + "#") + [("*", 2.0, False)], replies=[]),
     # A pause is one failed attempt, not the end of the entry: 12 s to find
@@ -528,6 +550,13 @@ def check(results):
            "%d time(s): %r" % (p.count("enter_card_number.wav"), p))
     expect("typed_ahead_over_card_prompt", state("typed_ahead_over_card_prompt")[1] == "completed",
            "a customer who types ahead never gets the card in: %r" % (state("typed_ahead_over_card_prompt"),))
+    # nothing the customer pressed was thrown away: no field asked again
+    for n, r in results.items():
+        if SCENARIOS[n].get("clean"):
+            p = plays(r)
+            expect(n, "invalid_try_again.wav" not in p,
+                   "keys typed ahead for the next field were thrown away, so it timed out and was "
+                   "asked again: %r" % p)
     p = plays(results["short_entry_then_card"])
     i = [k for k, v in enumerate(p) if v == "enter_card_number.wav"]
     expect("short_entry_then_card", len(i) == 2 and "invalid_try_again.wav" in p[i[0] + 1:i[1]],

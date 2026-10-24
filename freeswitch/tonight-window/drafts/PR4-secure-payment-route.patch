@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..9f21631
+index 0000000..c475f3d
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,788 @@
+@@ -0,0 +1,843 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -340,9 +340,17 @@ index 0000000..9f21631
 +-- They are told apart by WHEN the key arrived, which is all the channel
 +-- knows. drain_keys(DRAIN_MS) runs BEFORE the prompt and empties what is
 +-- already queued: that can only be the previous field's. Anything pressed
-+-- while the prompt plays is kept. A field that fills up then drains its own
-+-- tail (drain_keys(BURST_MS)) while the customer is still in the same
-+-- burst, so an extra key does not become the next field's first digit.
++-- while the prompt plays is kept.
++--
++-- A field that fills up then reads what follows in the same burst
++-- (read_ahead, at most BURST_MS between keys), BEFORE the next prompt, and
++-- tells the two apart by HOW MANY keys come: no more than the field's own
++-- `surplus` (2 after the expiry: a 4-digit year; 1 after a 3-digit code: a
++-- 4-digit code) are its tail and dropped; one more than that and they are
++-- the next field typed ahead (the customer keys on without waiting for its
++-- prompt), so they are kept and become its first digits, and that field
++-- does not ask again for what it has already been given. The keys of a
++-- field that turns out invalid are never carried into its retry.
 +--
 +-- Not session:flushDigits(): FreeSWITCH copies each key it flushes into
 +-- digits_dialed (json CDR, CHANNEL_HANGUP_COMPLETE), even with
@@ -359,10 +367,37 @@ index 0000000..9f21631
 +  end
 +end
 +
-+-- Returns digits, or nil plus "star" | "timeout" | "deadline" | "hangup".
-+local function read_field(field, prompt, min_len, max_len, expected, attempt)
-+  if drain_keys(DRAIN_MS) == "star" then return nil, "star" end
-+  play(prompt)
++-- After a field that filled up: the keys that follow in the same burst.
++-- Returns "star", or the digits when there are more than `surplus` of them
++-- (the next field typed ahead; reading stops at the first one over), or nil
++-- (nothing came, or only this field's own extra keys, which are dropped).
++-- Never past the key deadline.
++local function read_ahead(surplus)
++  local ahead = {}
++  for _ = 1, 64 do
++    if not session:ready() then return nil end
++    local left_ms = seconds_left() * 1000
++    if left_ms <= 0 then return nil end
++    local d = session:getDigits(1, "", math.min(BURST_MS, left_ms))
++    if d == nil or d == "" then return nil end
++    if d == "*" then return "star" end
++    if d:match("^%d$") then
++      ahead[#ahead + 1] = d
++      if #ahead > surplus then return ahead end
++    end
++  end
++  return nil
++end
++
++-- Returns digits and the next field's typed-ahead digits (or nil), or nil
++-- plus "star" | "timeout" | "deadline" | "hangup". `ahead`: this field's
++-- first digits, already typed (no prompt then). `surplus`: how many extra
++-- keys this field can be left with (see above).
++local function read_field(field, prompt, min_len, max_len, expected, attempt, ahead, surplus)
++  if not ahead then
++    if drain_keys(DRAIN_MS) == "star" then return nil, "star" end
++    play(prompt)
++  end
 +  local digits, count = {}, 0
 +  local filled = true
 +  progress("collecting", field, 0, expected, attempt)
@@ -371,7 +406,12 @@ index 0000000..9f21631
 +    local left_ms = seconds_left() * 1000
 +    if left_ms <= 0 then return nil, "deadline" end
 +    local wait_ms = count == 0 and FIRST_DIGIT_MS or INTER_DIGIT_MS
-+    local d = session:getDigits(1, "", math.min(wait_ms, left_ms))
++    local d
++    if ahead and ahead[1] then
++      d = table.remove(ahead, 1)
++    else
++      d = session:getDigits(1, "", math.min(wait_ms, left_ms))
++    end
 +    if d == nil or d == "" then
 +      if count >= min_len then filled = false; break end
 +      if seconds_left() <= 0 then return nil, "deadline" end
@@ -390,17 +430,22 @@ index 0000000..9f21631
 +    end
 +  end
 +  local value = table.concat(digits)
-+  digits = nil
-+  -- The field filled up on a key, so the customer may still be pressing the
-+  -- tail of it (a 4-digit code at the 3-digit prompt). Take those now, while
-+  -- they are plainly this field's, instead of leaving them to become the
-+  -- next field's first digits. A field that ended on its own inter-digit
-+  -- wait has nothing queued and nothing coming, so this returns at once.
-+  if filled and drain_keys(BURST_MS) == "star" then return nil, "star" end
++  digits, ahead = nil, nil
++  -- The field filled up on a key, so the customer may still be pressing:
++  -- the tail of this field (a 4-digit code at the 3-digit prompt), dropped,
++  -- or the next field typed ahead, kept (see above). A field that ended on
++  -- its own inter-digit wait has nothing queued and nothing coming.
++  if filled then
++    local next_ahead = read_ahead(surplus or 0)
++    if next_ahead == "star" then return nil, "star" end
++    return value, next_ahead
++  end
 +  return value
 +end
 +
-+-- Prompts until valid, MAX_ATTEMPTS times. Returns value or nil, reason.
++-- Prompts until valid, MAX_ATTEMPTS times. Returns value, nil, the next
++-- field's typed-ahead digits (or nil) | nil, reason. `ahead` goes to the
++-- first attempt only.
 +-- A wrong entry and a pause ("timeout": no key for 10 s, or 5 s between
 +-- keys, e.g. turning the card over for the code) each cost one attempt and
 +-- the prompt is played again; "*", the deadline and a hang-up end the entry.
@@ -409,15 +454,17 @@ index 0000000..9f21631
 +-- they would hear ten seconds of silence and then the same question.
 +-- After the last attempt the reason is that attempt's: "invalid" or
 +-- "timeout".
-+local function collect(field, prompt, min_len, max_len, expected, validator)
++local function collect(field, prompt, min_len, max_len, expected, validator, ahead, surplus)
 +  local last = "invalid"
 +  for attempt = 1, MAX_ATTEMPTS do
-+    local value, why = read_field(field, prompt, min_len, max_len, expected, attempt)
++    local value, why = read_field(field, prompt, min_len, max_len, expected, attempt, ahead, surplus)
++    ahead = nil
 +    if value and validator(value) then
 +      progress("field_ok", field, #value, expected, attempt)
-+      return value
++      return value, nil, why
 +    end
 +    if not value and why ~= "timeout" then return nil, why end
++    if value then why = nil end   -- an invalid entry: its typed-ahead keys go too
 +    value = nil
 +    last = why or "invalid"
 +    progress("field_invalid", field, nil, expected, attempt, why)
@@ -849,20 +896,28 @@ index 0000000..9f21631
 +  play("payment_intro.wav")   -- "...press star at any time to go back to your agent"
 +
 +  for card_attempt = 1, MAX_ATTEMPTS do
-+    local pan, r1 = collect("card", "enter_card_number.wav", 13, 19, 16, valid_pan)
++    -- The last argument is how many extra keys each field can be left with
++    -- (a 4-digit year, a 4-digit code at the 3-digit prompt); more than that
++    -- after it fills up and they are the next field, typed ahead. Nothing
++    -- comes after the ZIP, so whatever follows it is dropped.
++    local pan, r1, ahead = collect("card", "enter_card_number.wav", 13, 19, 16, valid_pan, nil, 0)
 +    if not pan then return field_failed(r1) end
 +    local amex = is_amex(pan)
 +
-+    local expiry, r2 = collect("expiry", "enter_expiry.wav", 4, 4, 4, valid_expiry)
++    local expiry, r2
++    expiry, r2, ahead = collect("expiry", "enter_expiry.wav", 4, 4, 4, valid_expiry, ahead, 2)
 +    if not expiry then pan = nil; return field_failed(r2) end
 +
 +    local cvv_len = amex and 4 or 3
-+    local cvv, r3 = collect("cvv", amex and "enter_cvv_amex.wav" or "enter_cvv.wav",
-+      cvv_len, cvv_len, cvv_len, function(d) return #d == cvv_len end)
++    local cvv, r3
++    cvv, r3, ahead = collect("cvv", amex and "enter_cvv_amex.wav" or "enter_cvv.wav",
++      cvv_len, cvv_len, cvv_len, function(d) return #d == cvv_len end, ahead, amex and 0 or 1)
 +    if not cvv then pan, expiry = nil, nil; return field_failed(r3) end
 +
-+    local zip, r4 = collect("zip", "enter_zip.wav", 5, 5, 5,
-+      function(d) return d:match("^%d%d%d%d%d$") ~= nil end)
++    local zip, r4
++    zip, r4, ahead = collect("zip", "enter_zip.wav", 5, 5, 5,
++      function(d) return d:match("^%d%d%d%d%d$") ~= nil end, ahead, math.huge)
++    ahead = nil
 +    if not zip then pan, expiry, cvv = nil, nil, nil; return field_failed(r4) end
 +
 +    play("one_moment.wav")
