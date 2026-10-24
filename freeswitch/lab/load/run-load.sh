@@ -17,7 +17,7 @@ python3 "$LAB/load/sample.py" "$FSPID" "$FARPID" "$OUT/samples.csv" &
 SP=$!
 trap 'kill $SP 2>/dev/null || true' EXIT
 sleep 3
-docker exec -i -e LAB_BE12_VARS="${LAB_BE12_VARS:-}" fslab-fs python3 - "$STEPS" "$HOLD" "$CPS" < "$LAB/load/load.py" | tee "$OUT/steps.jsonl"
+docker exec -i -e LAB_BE12_VARS="${LAB_BE12_VARS:-}" -e LAB_LOAD_VARIANT="${LAB_LOAD_VARIANT:-full}" fslab-fs python3 - "$STEPS" "$HOLD" "$CPS" < "$LAB/load/load.py" | tee -a "$OUT/steps.jsonl"
 sleep 2
 kill $SP 2>/dev/null || true
 docker exec fslab-fs nproc > "$OUT/nproc.txt"

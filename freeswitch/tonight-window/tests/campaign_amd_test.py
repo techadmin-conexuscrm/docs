@@ -39,7 +39,11 @@ local function apply_plan()
   end
 end
 local sess = {}
-function sess:ready() apply_plan(); return S.ready end
+-- ready() is also false for a moment while the leg's state changes (a leg
+-- being bridged): S.notready_until (ms) models that; getState says the leg
+-- is still there
+function sess:ready() apply_plan(); return S.ready and S.t >= (S.notready_until or 0) end
+function sess:getState() apply_plan(); return S.ready and "CS_EXCHANGE_MEDIA" or "CS_HANGUP" end
 function sess:get_uuid() return "11111111-2222-3333-4444-555555555555" end
 function sess:getVariable(k) apply_plan(); return S.vars[k] end
 function sess:setAutoHangup(b) S.autohangup = b end
@@ -67,6 +71,7 @@ freeswitch = {
     end }
   end,
   consoleLog = function(level, msg) S.console = (S.console or "") .. msg end,
+  msleep = function(ms) S.t = S.t + ms; apply_plan() end,
   Event = function(kind, sub)
     local e = { kind = kind, sub = sub, h = {} }
     function e:addHeader(k, v) self.h[k] = v end
@@ -77,10 +82,11 @@ freeswitch = {
 """
 
 
-def run(lua_src, plan, drop_ok=True, target="/tmp/drop.wav", mode="gate", originator=None, missing=()):
+def run(lua_src, plan, drop_ok=True, target="/tmp/drop.wav", mode="gate", originator=None, missing=(), notready_until=0):
     lua = L.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(MOCKS)
     S = lua.globals().S
+    S.notready_until = notready_until
     if mode is not None:
         S.vars["conexus_amd_mode"] = mode
     if originator:
@@ -221,6 +227,19 @@ def main():
     apps, ev, S = run(src, [{"at": 3000, "var": "amd_result", "value": "HUMAN"}], missing=("mod_avmd",))
     check("gate, mod_avmd missing: no beep listener, still an agent on HUMAN",
           "avmd_start" not in [a[1] for a in apps] and decisions(ev) == ["connect"], str(apps))
+
+    # ready() false for a moment at answer (the leg's state is changing as it
+    # is bridged): seen on real calls under load (lab NOTES item 40). Not
+    # ready is not gone: the detectors must still start.
+    apps, ev, S = run(src, [], mode=None, originator="aaaa-agent-leg", notready_until=60)
+    check("agent-first, ready() false for 60 ms at answer: the detectors still start, the call left alone",
+          [a[1] for a in apps] == ["avmd_start", "amd"] and decisions(ev) == ["connect"] and S.ready and S.autohangup is False,
+          "%s %s" % (apps, decisions(ev)))
+    apps, ev, S = run(src, [{"at": 3000, "var": "amd_result", "value": "HUMAN"}], notready_until=60)
+    check("gate, ready() false for 60 ms at answer: not taken for a hang-up, an agent on HUMAN",
+          decisions(ev) == ["connect"] and S.parked is not None, "%s %s" % (decisions(ev), apps))
+    apps, ev, S = run(src, [{"at": 0, "hangup": True}], mode=None, originator="aaaa-agent-leg")
+    check("a leg already hung up: nothing runs", apps == [] and ev == [], "%s %s" % (apps, ev))
 
     print("campaign_amd_test: %d failed" % len(fails))
     sys.exit(1 if fails else 0)

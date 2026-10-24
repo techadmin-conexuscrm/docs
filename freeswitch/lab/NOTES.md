@@ -836,6 +836,18 @@ Found on the way:
     are what decide when a beep is seen (research section 6); changing it
     needs the avmd harness and a full lab pass first.
 
+40. **Under load the script sometimes never started a detector** (found by
+    the load test, fixed in PR1). Queued at answer on a leg that is being
+    bridged, it can run while the leg's state is changing; `session:ready()`
+    is false in that moment, and the script's first line returned on "not
+    ready". 1 of 50 and 2 of 100 calls had no beep detector and no verdict
+    (the drop button would have been refused all call). Now it gives up only
+    on a leg that has really hung up (`getState()`), logs "not ready at start
+    (CS_EXCHANGE_MEDIA), going on", and its gate-mode loop no longer takes a
+    not-ready moment for a hang-up. After: 300 of 300 started (8 of them hit
+    the moment). `failfirst/AMD-S5-*`; two new checks in
+    `campaign_amd_test.py` fail on the old script.
+
 ### The matrix after the seventh pass: 201 of 201 counted
 
 One full run on real calls, BE-17's steps and guard and BE-12's variables

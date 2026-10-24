@@ -7,6 +7,9 @@
        cust[_tag]           answer, loop the customer's voice (keypad digits are
                             sent from the lab runner with uuid_send_dtmf)
        agent[_tag]          answer, loop the agent's voice (key "1" sets lab_heard_dtmf)
+       lagent[_tag]         load test: answer, loop the agent's voice, no recording
+       lplay_<file>[__tag]  load test: answer, play the clip, then send silence
+                            (RTP never stops, so RTP counters measure FreeSWITCH)
        agentq[_tag]         answer, stay quiet (an agent on a campaign call who
                             listens: anything the customer hears is FreeSWITCH's)
      and records everything it hears under /results/far-rec/. -->
@@ -77,6 +80,19 @@
   </section>
   <section name="dialplan" description="far end">
     <context name="far">
+      <extension name="lagent">
+        <condition field="destination_number" expression="^lagent(_.*)?$">
+          <action application="answer"/>
+          <action application="endless_playback" data="/lab/audio/far/agent_voice.wav"/>
+        </condition>
+      </extension>
+      <extension name="lplay">
+        <condition field="destination_number" expression="^lplay_([a-z0-9_]+?)(__[A-Za-z0-9_]+)?$">
+          <action application="answer"/>
+          <action application="playback" data="/lab/audio/far/$1.wav"/>
+          <action application="playback" data="silence_stream://-1"/>
+        </condition>
+      </extension>
       <extension name="agentq">
         <condition field="destination_number" expression="^agentq(_.*)?$">
           <action application="answer"/>

@@ -27,8 +27,10 @@ def host():
     return sum(v) / HZ, (v[3] + v[4]) / HZ
 
 
-with open(out, "w") as o:
-    o.write("t,fs_cpu_s,fs_rss,fs_threads,far_cpu_s,far_rss,host_total_s,host_idle_s\n")
+new = not os.path.exists(out)
+with open(out, "a") as o:
+    if new:
+        o.write("t,fs_cpu_s,fs_rss,fs_threads,far_cpu_s,far_rss,host_total_s,host_idle_s\n")
     while True:
         try:
             a, b = proc(fs), proc(far)

@@ -25,6 +25,11 @@ FS = ("127.0.0.1", 8021, PW)
 FAR = ("10.88.231.20", 8021, "lab-far-only")
 DOMAIN = "10.88.231.20"
 BE12 = os.environ.get("LAB_BE12_VARS") or "execute_on_answer_campaign_amd=lua::campaign_amd.lua,conexus_amd_mode=pilot"
+# what runs on the customer leg besides the recording: "full" (BE-12 as
+# shipped), or a part of it to see where the CPU goes (lab only)
+VARIANT = os.environ.get("LAB_LOAD_VARIANT", "full")
+BE12 = {"full": BE12, "none": "lab_load_variant=none",
+        "avmd": "execute_on_answer_lab_avmd=avmd_start::", "amd": "execute_on_answer_lab_amd=amd::"}[VARIANT]
 # a mix of what answers a campaign call: people and mailboxes
 MIX = ["human_hello", "human_long", "vm_beep_short", "vm_beep_long", "beep_only", "vm_nobeep",
        "human_phrases", "vm_2s_beep", "h_fast", "vm_carrier"]
@@ -57,11 +62,11 @@ def place(n, cps, step):
         tag = "load%d_%d" % (step, i)
         cmd = ("originate {hangup_after_bridge=true,sip_h_X-Call-Id=%s,API_ID=%s,originate_timeout=30}"
                "[origination_uuid=%s,ignore_early_media=true,origination_caller_id_number=15550004444]"
-               "sofia/gateway/kamailio/agentq_%s@%s "
+               "sofia/gateway/kamailio/lagent_%s@%s "
                "&bridge([origination_uuid=%s,API_ID=%s,execute_on_answer=record_session::/etc/freeswitch/recording/%s.wav,"
                "%s,origination_caller_id_number=15550003333,media_webrtc=false,rtp_secure_media=false,"
                "proxy_media=false,bypass_media=false,absolute_codec_string=PCMU\\,PCMA]"
-               "sofia/gateway/kamailio/play_%s__%s@%s)") % (cid, cid, A, tag, DOMAIN, B, cid, cid, BE12, clip, tag, DOMAIN)
+               "sofia/gateway/kamailio/lplay_%s__%s@%s)") % (cid, cid, A, tag, DOMAIN, B, cid, cid, BE12, clip, tag, DOMAIN)
         t = threading.Thread(target=api, args=(cmd,), daemon=True)
         t.start()
         threads.append(t)
@@ -126,9 +131,9 @@ def main():
         far_rtp = []
         for e in fevs:
             dest = e.get("Caller-Destination-Number") or ""
-            if "load%d_" % step in dest:
+            if "load%d_" % step in dest and dest.startswith("lplay_"):
                 far_rtp.append({"dest": dest, **{k: e.get("variable_" + k) for k in RTP_KEYS}})
-        print(json.dumps({"step": step, "cps": cps, "hold": hold, "t_start": t_start, "t_all_up": t_all_up,
+        print(json.dumps({"step": step, "variant": VARIANT, "cps": cps, "hold": hold, "t_start": t_start, "t_all_up": t_all_up,
                           "t_hold_end": t_hold_end, "calls": out, "far_rtp": far_rtp}), flush=True)
         # let FreeSWITCH settle (and recordings close) before the next step
         time.sleep(10)

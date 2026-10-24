@@ -5,7 +5,9 @@ import csv, json, statistics as st, sys, time
 from collections import Counter, defaultdict
 
 D = sys.argv[1]
-steps = [json.loads(l) for l in open(D + "/steps.jsonl") if l.strip().startswith("{")]
+allsteps = [json.loads(l) for l in open(D + "/steps.jsonl") if l.strip().startswith("{")]
+steps = sorted([x for x in allsteps if x.get("variant", "full") == "full"], key=lambda x: x["step"])
+parts = [x for x in allsteps if x.get("variant", "full") != "full"]
 S = [{k: float(v) for k, v in r.items()} for r in csv.DictReader(open(D + "/samples.csv"))]
 try:
     NPROC = int(open(D + "/nproc.txt").read().strip())
@@ -70,10 +72,11 @@ for s in steps:
     n = len(s["calls"])
     ans = sum(1 for c in s["calls"] if c["answered"])
     w = window(s["t_all_up"] + 3, s["t_hold_end"] - 1)
-    if not w or not idle:
+    i0 = window(s["t_start"] - 6, s["t_start"] - 0.5) or idle
+    if not w or not i0:
         continue
-    pc = (w["fs_cores"] - idle["fs_cores"]) / max(ans, 1)
-    pm = (w["fs_rss"] - idle["fs_rss"]) / max(ans, 1) / 2**20
+    pc = (w["fs_cores"] - i0["fs_cores"]) / max(ans, 1)
+    pm = (w["fs_rss"] - i0["fs_rss"]) / max(ans, 1) / 2**20
     per_call_cpu.append((ans, pc))
     per_call_mem.append((ans, pm))
     rows.append((s, w))
@@ -82,6 +85,24 @@ for s in steps:
 p("")
 if idle:
     p("Idle (no calls): FreeSWITCH %.3f cores, RSS %.0f MB." % (idle["fs_cores"], idle["fs_rss"] / 2**20))
+    p("")
+
+# ── where the CPU goes ──
+if parts:
+    p("### Where the CPU goes (the same calls with only part of BE-12 on the customer leg)")
+    p("")
+    p("| what runs on each customer leg (recording always) | calls | FreeSWITCH CPU (cores) | per call (% of a core) |")
+    p("|---|---|---|---|")
+    label = {"none": "recording only (no detectors)", "avmd": "recording + mod_avmd", "amd": "recording + mod_amd"}
+    full_by_n = {x["step"]: x for x in steps}
+    for x in sorted(parts, key=lambda x: (x["step"], x["variant"])) + [full_by_n[n] for n in sorted({y["step"] for y in parts}) if n in full_by_n]:
+        w = window(x["t_all_up"] + 3, x["t_hold_end"] - 1)
+        i0 = window(x["t_start"] - 6, x["t_start"] - 0.5)
+        if not w or not i0:
+            continue
+        ans = sum(1 for c in x["calls"] if c["answered"])
+        p("| %s | %d | %.2f | %.2f%% |" % (label.get(x.get("variant", "full"), "BE-12 as shipped: recording + campaign_amd.lua (mod_avmd + mod_amd)"),
+          ans, w["fs_cores"], (w["fs_cores"] - i0["fs_cores"]) / max(ans, 1) * 100))
     p("")
 
 # ── detectors under load ────────────────────────────────────────────────────

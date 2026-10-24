@@ -311,10 +311,10 @@ index 000fad8..4f05d2f 100644
  applications/mod_dptools
 diff --git a/scripts/campaign_amd.lua b/scripts/campaign_amd.lua
 new file mode 100644
-index 0000000..76e9d6a
+index 0000000..76ea47b
 --- /dev/null
 +++ b/scripts/campaign_amd.lua
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,247 @@
 +--[[
 +campaign_amd.lua - the two detectors on a campaign dialer call, and what (if
 +anything) they decide. Runs on the CUSTOMER leg the moment it answers.
@@ -407,8 +407,30 @@ index 0000000..76e9d6a
 +local DROP_WAIT = "400 50 0 3500"
 +
 +local s = session
-+if not s or not s:ready() then return end
++if not s then return end
++
++-- "Ready" is not the same as "still there". session:ready() is also false
++-- for a moment while the leg's state is changing, and when this script is
++-- queued at answer on a leg that is being bridged (BE-12) it can run in
++-- exactly that moment: under load (50 calls on the lab's 4 CPUs) 1 call in
++-- 50 found ready() false, returned at once and never started a detector
++-- (lab load test, NOTES item 40). So: give up only on a leg that has really
++-- hung up, and never treat "not ready" as "gone".
++local ENDED = { CS_HANGUP = true, CS_REPORTING = true, CS_DESTROY = true }
++local function gone()
++  if s:ready() then return false end
++  local ok, st = pcall(function() return s:getState() end)
++  return not ok or st == nil or ENDED[st] == true
++end
++-- one frame of waiting; session:sleep() returns at once on a leg that is not ready
++local function pause(ms)
++  if s:ready() then s:sleep(ms) else freeswitch.msleep(ms) end
++end
++if gone() then return end
 +local uuid = s:get_uuid()
++if not s:ready() then
++  freeswitch.consoleLog("NOTICE", "campaign_amd: " .. uuid .. " not ready at start (" .. tostring(s:getState()) .. "), going on\n")
++end
 +
 +local function var(name)
 +  local v = s:getVariable(name)
@@ -486,7 +508,7 @@ index 0000000..76e9d6a
 +  end
 +  tell("drop")
 +  s:execute("wait_for_silence", DROP_WAIT)
-+  if not s:ready() then return end
++  if gone() then return end
 +  s:execute("playback", drop_target)
 +  -- what playback said ("FILE PLAYED" or why not): the CRM settles the
 +  -- drop on this, not on the transfer having been accepted
@@ -517,7 +539,7 @@ index 0000000..76e9d6a
 +  return connect("connect")
 +end
 +
-+while s:ready() do
++while not gone() do
 +  local ms = since_answer()
 +  if var("avmd_detect") == "TRUE" then
 +    beep_ms = beep_ms or ms
@@ -536,7 +558,7 @@ index 0000000..76e9d6a
 +  elseif not v and ms >= NO_VERDICT_MS then
 +    return connect("connect")
 +  end
-+  s:sleep(STEP_MS)
++  pause(STEP_MS)
 +end
 +-- they hung up before anything was decided
 +tell("cancel")
