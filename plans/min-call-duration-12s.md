@@ -58,3 +58,36 @@ measured). The settings below must be adjustable once we have it.
 - Message wording: two variants? "please hold" while an agent is coming, and
   "thank you, goodbye" plus the company name and callback number after the agent leaves.
 - Agents dialling at once, whether inbound shares the trunk, and the channel carrier.
+
+## Does the dialer cap concurrent calls today? (read-only check, 2026-10-24)
+
+Read on `claude/campaign-pr14-company-pool-monitor-tiles` (cfaf281d), which holds the
+whole campaign stack. **No. Nothing in the pacer or originate caps concurrent calls, per
+company or platform-wide, and nothing caps new calls per second.** What bounds it today:
+
+| where | what it does | setting |
+|---|---|---|
+| `dialer-campaigns/jobs/pacer.ts` `startCampaignPacer` | one pass every second (`PACER_INTERVAL_MS = 1_000`), cluster leader only, passes never overlap | none (constant) |
+| `dialer-campaigns/services/pacer.ts` `pacerTick` | for each running campaign: `freeAgentsFor()` then `planLines()`, then one `originate()` per free agent, `free.slice(0, plan.lines)` | none |
+| `dialer-campaigns/services/pacing.ts` `planLines` | lines = free agents x ratio, minus `ringing`. The pacer passes `ratio: 1` and `ringing: 0` (agent-first, until BE-11); the abandon-rate tiers can only lower it | campaign `mode` / `predictiveEnabled` via `effectiveMaxLinesPerAgent` (1-3), not used yet |
+| `dialer-campaigns/services/free-agents.ts` | an agent is free only with no call initiated or ongoing and no lead reserved for them | none |
+| `lib/esl.ts` | `ORIGINATE_RING_SECONDS = 25` (agent's phone), `CUSTOMER_RING_SECONDS = 60` | constants |
+| FreeSWITCH `autoload_configs/switch.conf.xml` | `max-sessions` 1000, `sessions-per-second` 30. A campaign call is **two** FreeSWITCH sessions (the agent's leg and the customer's), so 1000 sessions is about 500 calls | freeswitch-conf |
+
+So with Auto dial 1, the number of campaign calls up at once equals the number of free,
+Ready agents: 75 agents means up to 75 carrier channels for campaign calls, on top of
+manual and inbound calls, and the pacer would place all 75 within one pass (one second).
+With a 10-channel trunk the carrier refuses calls 11 and up.
+
+**Where a channel limit belongs** (not built; for its own PR):
+- In `pacerTick`, before `free.slice(0, plan.lines)`: count the calls holding a carrier
+  channel right now (every company on the same trunk: the `calls` rows initiated or
+  ongoing, campaign, manual and inbound; plus the 12 s holds once they exist) and place at
+  most `limit - in use`. Two settings: a platform env value, e.g.
+  `CARRIER_MAX_CONCURRENT_CALLS` (the trunk's channels), and an optional per-company share
+  in `dialer_automations`. `planLines` already takes `ringing`; the same count can feed it.
+- A calls-per-second cap in the same loop (e.g. `CARRIER_MAX_CALLS_PER_SECOND`), since the
+  pacer otherwise fires every free agent's call in the same second.
+- The count must come from the database (or FreeSWITCH's `show calls count`), never a
+  browser, and the cap must hold across the cluster (only the leader places calls today,
+  which makes a single count enough).
