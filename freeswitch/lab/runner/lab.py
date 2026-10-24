@@ -143,10 +143,31 @@ AMD_STEPS = "avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING"   # runbook F1 a
 # is what holds them for a beep or plays them a recording).
 AMD_EXPECT = {
     "human_hello": ("HUMAN", False), "human_long": ("HUMAN", False),
+    # D1: a person who answers in three phrases with ordinary 0.3-0.6 s gaps.
+    # Every gap is longer than between_words_silence (250 ms), so mod_amd
+    # counts a word at each one, and none reaches after_greeting_silence
+    # (800 ms), so nothing ends the analysis as a HUMAN first. With
+    # maximum_number_of_words at 3 this person was MACHINE/MAXWORDS a few
+    # seconds in; the three human cases the lab had (one word, one sentence,
+    # silence then one word) never produced a second word group, so none of
+    # them could see it.
+    "human_phrases": ("HUMAN", False),
     "silent_then_hello": ("NOT_MACHINE", False),
     "vm_beep_short": ("MACHINE", True), "vm_beep_long": ("MACHINE", True),
     "vm_beep_1200ms": ("MACHINE", True),
-    "vm_nobeep": ("MACHINE", False), "beep_only": (None, True),
+    # D2: the same greeting and beep on a line with a carrier noise floor
+    # (measured in facts.json: mean ~490, max ~560 per 20 ms frame) instead
+    # of digital silence.
+    "vm_beep_noisy": ("MACHINE", True),
+    "vm_nobeep": ("MACHINE", False),
+    # D6: a mailbox that answers with nothing but a beep. mod_amd really
+    # does call this HUMAN - `greet` is set after 100 ms of voice and the
+    # silence that follows is longer than after_greeting_silence - so the
+    # row records that verdict instead of accepting any verdict at all, and
+    # section 4 requires the FLOW to get the outcome right from the avmd
+    # beep. Raising after_greeting_silence far enough to catch it would
+    # delay the verdict on every real person, which is the wrong trade.
+    "beep_only": ("HUMAN", True),
     "silence": ("NOT_MACHINE", False), "noise": ("NOT_MACHINE", False),
 }
 
@@ -238,6 +259,15 @@ def suite_amd(runs=3, parallel=4):
 
 # ── 4. voicemail drop ───────────────────────────────────────────────────────
 DROP_NOLEAD = "/lab/audio/drop/drop_nolead.wav"   # the same message with its ~0.24 s lead-in cut
+
+
+def PRESIGNED_SHAPED_LINK():
+    """An https link with the shape of a real presigned S3 GET url."""
+    return ("https://api.lab.test:8443/telephony/%s/%s"
+            "?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+            "&X-Amz-Credential=AKIAEXAMPLE%%2F20261024%%2Fus-east-2%%2Fs3%%2Faws4_request"
+            "&X-Amz-Date=20261024T000000Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host"
+            "&X-Amz-Signature=%s" % (uuid.uuid4(), uuid.uuid4(), uuid.uuid4().hex))
 # The amdbeep flow (what BE-12's automatic drop would send) once the avmd beep
 # event has arrived. The beep event fires a quarter of a second into the beep,
 # so playing at once plays over the rest of it (and a mailbox that starts
@@ -247,6 +277,13 @@ DROP_NOLEAD = "/lab/audio/drop/drop_nolead.wav"   # the same message with its ~0
 AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:200 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
 BEEP_WAIT_S = 25
 ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
+# D6: a beep this early in the call contradicts a HUMAN/NOTSURE verdict. A
+# person does not emit a 1000 Hz tone a second after answering; a mailbox
+# whose greeting is only a beep, or whose first word is followed by a long
+# gap, comes out HUMAN from mod_amd alone (see AMD_EXPECT["beep_only"]) and
+# would be handed to an agent as a live customer. avmd detects the beep 5/5
+# at about 1.0 s, so the flow asks it before trusting HUMAN.
+BEEP_CONTRADICTS_HUMAN_S = 2.0
 
 
 # ConexusCRM-BE campaign-be17/pr13/pr14 voicemail-drop.ts dropSteps() and
@@ -293,10 +330,20 @@ def drop_one(rec, flow, case, run):
     ans = rec.wait_for(lambda e: e.get("Event-Name") == "CHANNEL_ANSWER" and uid(e) == u, 10)
     t0 = ts(ans) if ans else time.time()
     action, sent_at, verdict, t_verdict, t_route, drop_file = None, None, None, None, None, DROP_NOLEAD
+    beep_override = False
+    steps = None
     if flow in ("be17", "runbook", "be17https"):
         # the agent hears the greeting start and presses the button ~1.5 s in
         time.sleep(max(0, t0 + 1.5 - time.time()))
-        target = "https://api.lab.test:8443/vm/drop.wav" if flow == "be17https" else DROP_NOLEAD
+        # D5: a link shaped like the one BE-17 really builds - an
+        # extensionless S3 key (telephony/<org>/<uuid>) and a SigV4 query
+        # string, so there is no "." anywhere for mod_httapi's find_ext()
+        # to land on. The old row played /vm/drop.wav, whose last path
+        # segment ends in .wav, so find_ext() always succeeded and the
+        # missing-format fault could not show. The mock serves this shape
+        # GET-only and answers HEAD with 403, exactly as S3 does for a
+        # link signed for GET.
+        target = PRESIGNED_SHAPED_LINK() if flow == "be17https" else DROP_NOLEAD
         if flow == "be17https":
             drop_file = DROP_FILE
         steps = RUNBOOK_STEPS % target if flow == "runbook" else drop_steps_be17(target)
@@ -308,7 +355,13 @@ def drop_one(rec, flow, case, run):
         amd = rec.wait_for(lambda e: e.get("Event-Subclass") == "amd::info" and uid(e) == u, 10)
         verdict = amd.get("variable_amd_result") if amd else None
         t_verdict = round(amd["_rx"] - t0, 3) if amd else None
-        if verdict == "MACHINE":
+        # D6: avmd heard a beep in the first couple of seconds - this is a
+        # machine whatever mod_amd said.
+        early = [e for e in rec.find(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u)]
+        t_early = round(ts(early[0]) - t0, 3) if early else None
+        beep_override = (verdict != "MACHINE" and t_early is not None
+                         and t_early <= BEEP_CONTRADICTS_HUMAN_S)
+        if verdict == "MACHINE" or beep_override:
             beep = rec.wait_for(lambda e: e.get("Event-Subclass") == "avmd::beep" and uid(e) == u, BEEP_WAIT_S)
             if beep:
                 action = c.api("uuid_transfer %s '%s' inline" % (u, AMDBEEP_PLAY % DROP_NOLEAD)).strip()
@@ -342,6 +395,7 @@ def drop_one(rec, flow, case, run):
     cands = [p for p in os.listdir(RES + "/far-rec") if p.startswith("play-%s-" % tag)]
     path = max(cands, key=lambda p: os.path.getmtime(RES + "/far-rec/" + p)) if cands else None
     r = {"flow": flow, "case": case, "run": run, "uuid": u, "originate": reply.strip()[:40], "verdict": verdict,
+         "beep_override": beep_override,
          "t_verdict": t_verdict, "t_route": t_route, "action": action, "sent_at": round(sent_at, 3) if sent_at else None,
          "wait_for_silence_done": round(ts(wfs[0]) - t0, 3) if wfs else None,
          "playback_start": round(ts(pbs[0]) - t0, 3) if pbs else None,
@@ -367,6 +421,17 @@ def drop_one(rec, flow, case, run):
         r["drop_over_greeting"] = "greeting_end" in f and r["drop_onset"] < f["greeting_end"]
         r["drop_before_beep_end"] = "beep_end" in f and r["drop_onset"] < f["beep_end"]
     played_ok = (r["playback_response"] or "").startswith("FILE PLAYED")
+    # D2: wait_for_silence has no failure branch - on timeout it returns and
+    # playback runs anyway, into a mailbox that has usually stopped
+    # recording. Measure whether it ended because the line really went
+    # quiet or because it gave up.
+    wait_ms = re.search(r"wait_for_silence:\d+ \d+ \d+ (\d+)", steps or "") if flow in ("be17", "runbook", "be17https") else None
+    if r["wait_for_silence_done"] is not None and sent_at is not None:
+        r["wait_ran_s"] = round(r["wait_for_silence_done"] - sent_at, 2)
+        limit = int(wait_ms.group(1)) / 1000.0 if wait_ms else 30.0
+        r["wait_timed_out"] = r["wait_ran_s"] >= limit - 0.5
+    else:
+        r["wait_ran_s"], r["wait_timed_out"] = None, False
     human = case.startswith("human") or case == "silent_then_hello"
     if human and flow == "amdbeep":
         # a person must get no recording AND be on the way to an agent within
@@ -379,6 +444,7 @@ def drop_one(rec, flow, case, run):
     elif "beep_end" in f:
         r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_before_beep_end"] \
             and r.get("drop_heard_onset") is not None and r["drop_heard_onset"] >= f["beep_end"] \
+            and not r["wait_timed_out"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
     elif flow == "amdbeep":
         # A MACHINE verdict on a greeting with no beep. The drop must NOT
@@ -393,6 +459,7 @@ def drop_one(rec, flow, case, run):
         r["pass"] = not pb and r.get("drop_heard_onset") is None and t_route is not None
     else:  # be17/runbook on a greeting with no beep: at least not over the greeting
         r["pass"] = played_ok and r["drop_onset"] is not None and not r["drop_over_greeting"] \
+            and not r["wait_timed_out"] \
             and r["hangup_cause"] == "NORMAL_CLEARING"
     return r
 
@@ -401,13 +468,28 @@ def suite_drop(runs=2):
     rec = recorder("drop")
     rec.start()
     plan = []
-    for case in ("vm_beep_short", "vm_beep_long", "vm_beep_1200ms", "vm_nobeep", "human_hello", "human_long", "silent_then_hello"):
+    # vm_beep_noisy (D2) is a mailbox on a line with a real noise floor: it
+    # is the only case that exercises wait_for_silence's threshold and its
+    # 30 s fall-through, so it runs through every drop flow.
+    for case in ("vm_beep_short", "vm_beep_long", "vm_beep_1200ms", "vm_beep_noisy", "vm_nobeep",
+                 "human_hello", "human_long", "silent_then_hello"):
         for run in range(1, runs + 2):
             plan.append(("amdbeep", case, run))
         for run in range(1, runs + 1):
             plan.append(("be17", case, run))
         plan.append(("runbook", case, 1))
-    plan.append(("be17https", "vm_beep_short", 1))
+    # beep_only (D6) and human_phrases (D1) are about the VERDICT the flow
+    # acts on, so they run through amdbeep, which is the flow that reads it.
+    # BE-17 is an unconditional button with no verdict to get wrong: putting
+    # them through it would only restate the known BE-17-on-a-person fault
+    # the human rows already measure.
+    for case in ("beep_only", "human_phrases"):
+        for run in range(1, runs + 2):
+            plan.append(("amdbeep", case, run))
+    # D5: the one row that plays a real https link plays one shaped like a
+    # presigned S3 url (extensionless key + SigV4 query string).
+    for case in ("vm_beep_short", "vm_beep_noisy"):
+        plan.append(("be17https", case, 1))
     # quick re-runs of part of the suite (the full matrix sets neither)
     fl, cs = os.environ.get("LAB_DROP_FLOWS"), os.environ.get("LAB_DROP_CASES")
     plan = [j for j in plan if (not fl or j[0] in fl.split(",")) and (not cs or j[1] in cs.split(","))]
@@ -470,6 +552,23 @@ PCI_CASES = {
     # logged, not in digits_dialed: no session:flushDigits); then the card
     # is asked for as usual
     "P20_typeahead_during_intro": ([("EARLY", 0, VISA + "#1230947" + "78704")] + GOOD, "ok", "completed", 1),
+    # D7: the card keyed over its OWN prompt, starting 0.5 s in, and nothing
+    # re-keyed afterwards. This is the case P20 never covered: P20 sends an
+    # early burst AND THEN the whole card again, so it only shows the
+    # dropped keys do not corrupt the entry. Here the keys typed over the
+    # prompt are the only ones there are, so the entry can only complete if
+    # they are kept.
+    "P28_typeahead_over_card_prompt": ([("OVER_PROMPT", 0, VISA + "#", {"prompt": "enter_card_number", "after": 0.5})]
+                                       + GOOD[1:], "ok", "completed", 1),
+    # D7: keyed over the INTRO instead - before the card prompt has begun.
+    # Those keys are dropped on purpose and cannot be kept: at that point
+    # nothing tells them from keys pressed before the entry started, and a
+    # remainder that happens to pass Luhn would be posted to the gateway as
+    # a PAN that is not the caller's. What must be true is that the
+    # customer is told rather than left in silence: the card prompt is
+    # played again, and with nothing re-keyed the entry ends "failed"
+    # without taking a card.
+    "P29_typeahead_intro_only": ([("EARLY", 0, VISA + "#")], "ok", "failed", 0),
     "P21_secret_file_missing": (GOOD, "ok", "failed", 0),
     # the TLS front end (Caddy) is up but the app behind it is down: every
     # request gets a 502. Must be refused before the customer is asked anything.
@@ -670,6 +769,31 @@ def run_pci_case(rec, name):
                 far_api("uuid_send_dtmf %s %s" % (e.far_cust, steps[0][2]))
                 sent.append(("EARLY", 0, len(steps[0][2]), round(time.time() - e.t_transfer, 2)))
                 steps.pop(0)
+            if steps and steps[0][0] == "OVER_PROMPT":
+                # D7: key this field WHILE its own prompt is still playing,
+                # the way someone used to IVR payment lines does. The
+                # prompt is uninterruptible, so there is no progress event
+                # to key off: wait for the PLAYBACK_START of that prompt on
+                # the customer leg and send the digits <after> seconds in.
+                # Nothing is re-keyed afterwards - the point is whether the
+                # keys typed over the prompt are the ones that are used.
+                step = steps.pop(0)
+                opts = step[3] if len(step) > 3 else {}
+                def over_prompt(keys=step[2], opts=opts):
+                    want, after = opts.get("prompt", "enter_card_number"), opts.get("after", 0.5)
+                    pb = rec.wait_for(lambda x: x.get("Event-Name") == "PLAYBACK_START" and uid(x) == e.B
+                                      and os.path.basename(x.get("Playback-File-Path", "")).startswith(want), 30)
+                    if pb is None:
+                        return
+                    time.sleep(after)
+                    for k in keys:
+                        if e.taken:
+                            return
+                        far_api("uuid_send_dtmf %s %s" % (e.far_cust, k))
+                        time.sleep(0.12)
+                t = threading.Thread(target=over_prompt, daemon=True)
+                t.start()
+                sent.append(("OVER_PROMPT", 0, len(step[2]), round(time.time() - e.t_transfer, 2)))
             ev = rec.wait_for(lambda x: progress_pred(x, e.call_id)
                               or (x.get("Event-Name") == "CHANNEL_HANGUP" and uid(x) in (e.A, e.B)), 1.0, idx)
             if time.time() > t_watchdog:

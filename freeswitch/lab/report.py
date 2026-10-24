@@ -65,7 +65,10 @@ if amd:
         by.setdefault(r["case"], []).append(r)
     want = {"human_hello": "HUMAN, no beep", "human_long": "HUMAN, no beep", "vm_beep_short": "MACHINE + beep",
             "vm_beep_long": "MACHINE + beep", "vm_beep_1200ms": "MACHINE + beep", "vm_nobeep": "MACHINE, no beep",
-            "beep_only": "(any) + beep", "silence": "not MACHINE, no beep", "noise": "not MACHINE, no beep",
+            "beep_only": "HUMAN + beep (mod_amd alone is wrong here; section 4 requires the flow to use the beep)",
+            "vm_beep_noisy": "MACHINE + beep (on a line with a noise floor)",
+            "human_phrases": "HUMAN, no beep (three phrases, 0.4 s gaps)",
+            "silence": "not MACHINE, no beep", "noise": "not MACHINE, no beep",
             "silent_then_hello": "not MACHINE, no beep"}
     for case, rs in by.items():
         v = Counter("%s (%s)" % (r.get("verdict"), r.get("cause")) for r in rs)
@@ -93,13 +96,17 @@ if drop:
       "MACHINE waits for the avmd beep, then for the line to go quiet (`wait_for_silence:200 10 0 5000`), then plays. "
       "**be17** = the steps BE-17 `dropSteps()` sends, read from the top campaign branch, sent 1.5 s after answer as if "
       "the agent pressed the button; **runbook** = RUNBOOK F3 `droptest`, read from the runbook; **be17https** = be17 with "
-      "an https link (mod_httapi), as BE-17 really plays it. Steps used: %s. Drop = `drop_nolead.wav` "
+      "an https link shaped like a real presigned S3 url - extensionless key plus a SigV4 query string, served GET-only "
+      "with 403 on HEAD - as BE-17 really plays it (D5). Steps used: %s. Drop = `drop_nolead.wav` "
       "(`default_voicemail.wav` with its 0.24 s lead-in cut; be17https plays `default_voicemail.wav`). "
       "Drop start = the `PLAYBACK_START` event; heard = when the far end first hears it loud. A person passes only "
-      "if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict." % steps)
+      "if no drop plays and (amdbeep) they go to an agent within 2 s of the verdict. "
+      "amdbeep also treats an avmd beep inside the first 2 s as a machine whatever mod_amd said (D6). "
+      "`wait ran s` is how long `wait_for_silence` actually ran: reaching its timeout means it gave up and played "
+      "anyway, which on a real mailbox is 30 s of nothing recorded, so a timed-out wait fails the row (D2)." % steps)
     p("")
-    p("| flow | case | runs | verdict (at s) | held s | drop sent at s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
-    p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    p("| flow | case | runs | verdict (at s) | held s | drop sent at s | wait ran s | drop starts at s | heard at s | greeting ends / beep ends s | over greeting | playback | hangup | pass |")
+    p("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     from collections import OrderedDict
     by = OrderedDict()
     for r in drop:
@@ -108,10 +115,13 @@ if drop:
         f = rs[0].get("facts", {})
         ends = "%s / %s" % (f.get("greeting_end", "-"), f.get("beep_end", "-"))
         ok = sum(1 for r in rs if r.get("pass"))
-        p("| %s | %s | %d | %s (%s) | %s | %s | %s | %s | %s | %s | %s | %s | %d/%d |" % (
+        waits = rng([r.get("wait_ran_s") for r in rs])
+        if any(r.get("wait_timed_out") for r in rs):
+            waits += " TIMED OUT"
+        p("| %s | %s | %d | %s (%s) | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d/%d |" % (
             flow, case, len(rs), ",".join(sorted({str(r.get("verdict") or "-") for r in rs})), rng([r.get("t_verdict") for r in rs]),
             rng([r.get("held_s") for r in rs]),
-            rng([r.get("sent_at") for r in rs]), rng([r.get("drop_onset") for r in rs]), rng([r.get("drop_heard_onset") for r in rs]), ends,
+            rng([r.get("sent_at") for r in rs]), waits, rng([r.get("drop_onset") for r in rs]), rng([r.get("drop_heard_onset") for r in rs]), ends,
             ",".join(sorted({str(r.get("drop_over_greeting")) for r in rs})),
             ",".join(sorted({str(r.get("playback_response") or "-")[:22] for r in rs})),
             ",".join(sorted({str(r.get("hangup_cause")) for r in rs})), ok, len(rs)))

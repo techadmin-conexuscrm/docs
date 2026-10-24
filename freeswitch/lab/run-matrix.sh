@@ -42,7 +42,7 @@ git -C "$BE" fetch -q origin 2>/dev/null || true
 BE17=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/voicemail-drop.ts" | python3 -c '
 import re, sys
 m = re.search(r"return `(wait_for_silence[^`]*playback:[^`]*)`", sys.stdin.read())
-print(m.group(1).replace("${link}", "%(link)s").replace("${hostAndPath}", "%(host_and_path)s") if m else "")')
+print(m.group(1).replace("${link}", "%(link)s").replace("${hostAndPath}", "%(host_and_path)s").replace("${ext}", "wav") if m else "")')
 RBS=$(python3 - "$DOCS/freeswitch/tonight-window/RUNBOOK.md" <<'PY'
 import re, sys
 m = re.search(r"droptest\(\).*?uuid_transfer \$U '([^']*)' inline", open(sys.argv[1]).read(), re.S)

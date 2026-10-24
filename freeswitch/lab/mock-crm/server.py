@@ -87,10 +87,40 @@ class Tokenize(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def vm_body(self):
+        return open("/lab/vm/default_voicemail.wav", "rb").read()
+
+    # The shape of a real presigned S3 link: the key carries NO extension
+    # (upload-telephony-file.ts stores telephony files that way) and the
+    # SigV4 query string contains no "." either, so mod_httapi's find_ext()
+    # finds nothing to open the cached file with. Matches
+    # /telephony/<org>/<uuid>?X-Amz-...  (D5).
+    PRESIGNED = re.compile(r"^/telephony/[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}\?X-Amz-")
+
+    def do_HEAD(self):
+        # S3 signs a presigned URL for ONE method. A GET-signed link answers
+        # HEAD with 403, which is what makes mod_httapi's default HEAD probe
+        # report the file unreachable - the reason BE-17 passes nohead=true.
+        if self.path == "/vm/drop.wav" or self.PRESIGNED.match(self.path):
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         # a stand-in for the campaign voicemail "5-minute link" (BE-17 plays an
         # https URL). GET only, like a presigned S3 link (signed for GET: S3
-        # refuses the HEAD mod_httapi sends first; here HEAD gets 501).
+        # refuses the HEAD mod_httapi sends first; HEAD gets 403 above).
+        if self.PRESIGNED.match(self.path):
+            data = self.vm_body()
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path == "/vm/drop.wav":
             data = open("/lab/vm/default_voicemail.wav", "rb").read()
             self.send_response(200)
