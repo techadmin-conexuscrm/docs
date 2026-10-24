@@ -1,0 +1,37 @@
+# The ConexusCRM-BE side of D2, D4 and D5: each test run against the
+# UNFIXED code first (the source reverted, the tests kept), then with the
+# fix. Worktree scratchpad/campaign/be17, branch
+# claude/campaign-be17-voicemail-drop. The *.db.test.ts rows need a real
+# Postgres (TEST_DATABASE_URL); the steps tests do not.
+
+## D5 - voicemail-drop-steps.test.ts, against efa8791a (unfixed)
+ Test Files  1 failed (1)
+      Tests  4 failed | 9 passed (13)
+  x the inline dialplan still sees exactly three steps, and the link survives whole
+  x mod_httapi gets BOTH nohead and the file format from the playback argument
+  x refuses an extension it cannot put in the brackets
+  x the company's recording decides the format   (playbackExtension is not a function)
+
+## D5 - voicemail-drop.db.test.ts, against efa8791a (unfixed)
+      Tests  3 failed | 10 passed (13)
+  x allowed: only the customer leg goes into the drop steps; "Voicemail left" is saved...
+  x a recording the phone system can't open is refused, never played as silence (D5)
+  x the steps only take a plain https link
+
+## D4 - voicemail-drop.db.test.ts with the D5 fix in, guard not yet added
+      Tests  1 failed | 13 passed (14)
+  x refused while the customer is keying a card, and the drop is still possible afterwards (D4)
+    (the drop succeeded: the ESL uuid_transfer was sent on a leg in secure entry)
+
+## D2 - voicemail-drop-steps.test.ts with D5+D4 in, threshold still 200
+      Tests  5 failed | 15 passed (20)
+  x starts the message soon after the greeting on carrier comfort noise      (floor 300)
+  x starts the message soon after the greeting on a mobile in a car          (floor 500)
+  x starts the message soon after the greeting on an office in the background(floor 620)
+  x never falls through its timeout and plays into a mailbox that has stopped
+  x agrees with what mod_amd calls silence on the same line
+    (every floor above 200 reaches the 30 s timeout and plays anyway)
+
+## with all three fixes (39c056c9)
+  voicemail-drop-steps.test.ts   20 passed (20)
+  voicemail-drop.db.test.ts      14 passed (14)

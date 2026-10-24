@@ -1,0 +1,44 @@
+# D5: a presigned-shaped link has no file format, so mod_httapi discards it.
+#
+# Two uuid_transfer ... inline runs on a real parked channel in the lab
+# FreeSWITCH (conexus-fs:lab, FreeSWITCH 1.10.12), same URL shape both
+# times: an extensionless key telephony/<uuid>/<uuid> plus a SigV4 query
+# string, served by the mock CRM. Only the bracket parameters differ.
+#
+# A. what BE-17 sent before the fix: playback:https://(nohead=true)<url>
+#
+# 05ecdff5 NOTICE switch_ivr.c:2303 Transfer null/probe to inline[playback:https://(nohead=true)api.lab.test:8443/telephony/47a780dc-.../924ebddb-...?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAEXAMPLE%2F20261024%2Fus-east-2%2Fs3%2Faws4_request&X-Amz-Date=20261024T013000Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=8c84dd84...,hangup:NORMAL_CLEARING@default]
+# 05ecdff5 EXECUTE [depth=0] null/probe playback(https://(nohead=true)api.lab.test:8443/telephony/...)
+#          02:34:16.463866 [ERR] switch_core_file.c:336 Unknown file Format [/usr/local/freeswitch/var/lib/freeswitch/storage/http_file_cache/ab5bf6193062e9cedec2aa1f8607b2f9]
+#          02:34:16.463866 [ERR] mod_httapi.c:3019 Invalid cache file ...ab5bf619... opening url (nohead=true)api.lab.test:8443/telephony/... Discarding file.
+# 05ecdff5 02:34:16.463866 NOTICE mod_dptools.c:1374 Hangup null/probe [CS_EXECUTE] [NORMAL_CLEARING]
+#
+# playback executed at .443866 and the channel was hung up at .463866:
+# 20 ms. Nothing was played. The object WAS fetched (the cache file
+# exists) - it simply has no extension for switch_core_file_open(), and
+# the content-type fallback lives inside the HEAD branch nohead skips.
+# The next inline step, hangup, ran regardless.
+#
+# B. with the fix: playback:https://(^^;nohead=true;ext=wav)<url>
+#
+# 79258501 NOTICE switch_ivr.c:2303 Transfer null/probe to inline[playback:https://(^^;nohead=true;ext=wav)api.lab.test:8443/telephony/43318753-.../ad327317-...?X-Amz-Algorithm=...&X-Amz-Signature=8a60bea1...,hangup:NORMAL_CLEARING@default]
+# 79258501 EXECUTE [depth=0] null/probe playback(https://(^^;nohead=true;ext=wav)api.lab.test:8443/telephony/...)
+# 79258501 02:34:29.723881 NOTICE mod_dptools.c:1374 Hangup null/probe [CS_EXECUTE] [NORMAL_CLEARING]
+#
+# playback executed at 22.783873 and the hangup followed at 29.723881:
+# 6.94 s, the length of the file. No "Unknown file Format", no discard.
+#
+# C. why the parameters cannot be comma-separated (the obvious spelling)
+#    playback:https://(nohead=true,ext=wav)api.lab.test:8443/vm/noext
+#
+# fc591983 NOTICE switch_ivr.c:2303 Transfer null/probe to inline[playback:https://(nohead=true,ext=wav)api.lab.test:8443/vm/noext,hangup:NORMAL_CLEARING@default]
+# fc591983 EXECUTE [depth=0] null/probe playback(https://(nohead=true)
+#          [WARNING] mod_httapi.c:2679 caching: url:https://(nohead=true to (null) failed with HTTP response code 0
+#          [ERR] mod_httapi.c:2833 File at url [https://(nohead=true] is unreachable!
+# fc591983 [ERR] switch_core_session.c:2766 Invalid Application ext=wav)api.lab.test
+# fc591983 NOTICE switch_core_session.c:2767 Hangup null/probe [CS_EXECUTE] [DESTINATION_OUT_OF_ORDER]
+#
+# The inline dialplan splits the step list on "," before mod_httapi sees
+# the URL. switch_event_create_brackets' "^^" prefix picks the separator
+# (switch_event.c: `if (*vdata == '^' && *(vdata+1) == '^') { vdata += 2;
+# c = *vdata++; }`), which is why the fix uses "^^;".
