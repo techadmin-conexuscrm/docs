@@ -503,6 +503,18 @@ mechanics:
 Each item is a separate PR, for Eric to approve one at a time; none of it is
 done here (the drafts and BE branches belong to the fix loop).
 
+**Applied later the same day (lab sixth pass, `../NOTES.md` items 33-36):**
+8.1 in PR1; 8.2 as PR1's `scripts/campaign_amd.lua` (timed on the wall
+clock, not by counting sleeps); 8.3 items 2 (the button refuses unless
+`avmd_detect` is TRUE: a beep, not MACHINE alone, because BE-17 plays
+without waiting for one) and 3 (`abandon-rate.ts`, `monitor.ts`) on the
+campaign branches; 8.4 in the lab, with every changed row in
+`../EXPECTATIONS-CHANGE.md`. The drop wait from the beep is `400 50 0 3500`
+rather than `640 50 0 3500`: the same 216/216 in the model above, and on
+wait_for_silence's own scale 400 lets a beep hold the drop back (the -6 dB
+lab beeps score 527) where 640 does not. Not done: 8.3 items 1, 4 and 5
+(BE-12's columns and switches).
+
 ### 8.1 FreeSWITCH config (PR1)
 
 `amd.conf.xml`:

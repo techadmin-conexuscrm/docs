@@ -722,3 +722,59 @@ unchanged on purpose, neither touched by this pass's three faults:
 - **6 - BE-17 pressed on a live person** (be17/runbook x human_hello,
   human_long, silent_then_hello): BE-17 is a button with no AMD; the fix is
   BE-12.
+
+### Sixth pass: the AMD strategy, applied and run on real calls
+
+The research (`research/AMD-STRATEGY.md`) replaced the question the lab
+had been asking. mod_amd **only decides who gets an agent** (HUMAN and
+NOTSURE at once, only MACHINE takes the voicemail path); **the mod_avmd beep
+alone decides whether a recording plays**. Applied this pass, each change
+for Eric to approve (`EXPECTATIONS-CHANGE.md` lists every row whose expected
+outcome changed):
+
+- **PR1**: `amd.conf.xml` 1024 / 800 / 1200 / greeting 5000 / 12000 (was
+  640 / 250 / 800 / 5000 / 7000); `avmd.conf.xml` streak 3 -> 8 (both); new
+  `scripts/campaign_amd.lua`, the call flow (decision table 3.2), which the
+  `amdbeep` rows now run on real calls instead of the lab's ESL stand-in.
+- **RUNBOOK F**: `droptest` plays nothing until the beep detector has heard a
+  beep (new F3b: no drop on a person); `amdtest` reads the verdict after the
+  12 s window.
+- **BE**: BE-17's button refuses unless `avmd_detect` is TRUE on the customer
+  leg (campaign-be17, merged up); the abandon rate stops leaving out every
+  MACHINE verdict (campaign-pr11, merged up).
+- **Lab**: rows judged on the strategy's outcome; the 23 research clips are
+  real-call cases in sections 3 and 4.
+
+Found on the way, on real calls:
+
+33. **`avmd <uuid> start` (the API) does not work in FreeSWITCH 1.10.12.**
+    Started that way, mod_avmd logs "Avmd session initialized, [48000]
+    samples/s" on an 8 kHz call and never hears a beep (the app,
+    `avmd_start`, logs 8000 and does). The API path skips the per-session
+    settings that set the rate. So nothing may start the detector with the
+    API: the dialer starts it with the app at answer (`execute_on_answer`
+    or `campaign_amd.lua`), and RUNBOOK F3 uses
+    `uuid_broadcast <leg> avmd_start:: aleg`, which keeps the call bridged.
+    Worth a FreeSWITCH bug report.
+34. **A Lua `session:sleep(20)` is not 20 ms.** The first `campaign_amd.lua`
+    counted its loop to time the 30 s hold for a beep; on a real call each
+    sleep took about 31 ms, so the hold ran 47 s and the lab saw no decision
+    within 45 s (`vm_nobeep_long`). The script now measures from
+    `answer_uepoch` on LuaSocket's clock (PR2 ships LuaSocket);
+    `tests/campaign_amd_test.py` makes each mocked sleep take 1.5x its
+    nominal time and fails on the counting version
+    (`failfirst/AMD-S2-*`).
+35. **BE-17's button is refused on every call until the dialer starts the
+    beep detector at answer.** That is the point of the guard (the six red
+    be17/runbook human rows of the last two passes were this button playing
+    the message to a person), but it means that merging the BE change
+    without BE-12's `execute_on_answer avmd_start` turns the button off in
+    practice: an agent pressing it hears "No answering-machine beep has been
+    heard on this call yet". The call-context endpoint's `drop.allowed` still
+    reports only the database checks; the FE should say the beep is needed.
+36. **The abandon rate now counts a MACHINE verdict nobody was joined to
+    as an abandoned person's call**, because until BE-12 records the beep
+    nothing else proves it was a machine. That over-counts (a real mailbox
+    hung up on after its beep counts too) and never under-counts. Nothing
+    writes `amd_result` today, so no live number changes; BE-12 should add
+    the evidence columns (AMD-STRATEGY.md 8.3 item 1, one migration).
