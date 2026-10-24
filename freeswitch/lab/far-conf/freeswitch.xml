@@ -7,6 +7,8 @@
        cust[_tag]           answer, loop the customer's voice (keypad digits are
                             sent from the lab runner with uuid_send_dtmf)
        agent[_tag]          answer, loop the agent's voice (key "1" sets lab_heard_dtmf)
+       agentq[_tag]         answer, stay quiet (an agent on a campaign call who
+                            listens: anything the customer hears is FreeSWITCH's)
      and records everything it hears under /results/far-rec/. -->
 <document type="freeswitch/xml">
   <X-PRE-PROCESS cmd="set" data="lab_net=10.88.231.0/24"/>
@@ -75,6 +77,15 @@
   </section>
   <section name="dialplan" description="far end">
     <context name="far">
+      <extension name="agentq">
+        <condition field="destination_number" expression="^agentq(_.*)?$">
+          <action application="answer"/>
+          <action application="set" data="RECORD_STEREO=true"/>
+          <action application="record_session" data="/results/far-rec/agentq-${uuid}.wav"/>
+          <action application="sleep" data="60000"/>
+          <action application="hangup"/>
+        </condition>
+      </extension>
       <extension name="agent">
         <condition field="destination_number" expression="^agent(_.*)?$">
           <action application="answer"/>

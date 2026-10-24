@@ -67,10 +67,22 @@ BECC=$(git -C "$BE" show "$BEB:src/components/dialer-campaigns/services/campaign
 import re, sys
 m = re.search(r"ResponseCacheControl:\s*\"([^\"]*)\"", sys.stdin.read())
 print(m.group(1) if m else "")')
+# BE-12: the customer-leg variables a campaign call gets (campaign-amd.ts),
+# only if originate.ts on the branch really adds them; "k=v,k=v"
+BE12=$( { git -C "$BE" show "$BEB:src/components/calls/services/campaign-amd.ts" 2>/dev/null; echo '@@ORIGINATE@@'; \
+  git -C "$BE" show "$BEB:src/components/calls/services/originate.ts" 2>/dev/null; } | python3 -c '
+import re, sys
+amd, _, orig = sys.stdin.read().partition("@@ORIGINATE@@")
+g = lambda n: (re.search(n + r"\s*=\s*\"([^\"]+)\"", amd) or [None, None])[1]
+script, var, mode = g("CAMPAIGN_AMD_SCRIPT"), g("CAMPAIGN_AMD_ON_ANSWER_VAR"), g("CAMPAIGN_AMD_MODE_VAR")
+ok = script and var and mode and "`lua::${CAMPAIGN_AMD_SCRIPT}`" in amd and "campaignAmdBLegVars(" in orig
+print("%s=lua::%s,%s=pilot" % (var, script, mode) if ok else "")')
+printf 'BE-12 customer-leg variables: %s\n' "${BE12:-(none on the branch)}" | tee "$LABRUN/be12-vars.txt"
 printf 'BE-17 dropSteps (%s): %s\nBE-17 refuses unless this is TRUE: %s\nRUNBOOK F3 droptest: %s\nRUNBOOK F3 starts the beep detector, then waits for a beep: %s\nBE-17 link ResponseCacheControl: %s\n' "$(git -C "$BE" rev-parse --short "$BEB")" "$BE17" "${BEG:-(no guard)}" "$RBS" "${RBB:-no}" "${BECC:-(none)}" | tee "$LABRUN/drop-steps.txt"
+cat "$LABRUN/be12-vars.txt" >> "$LABRUN/drop-steps.txt"
 mkdir -p "$LABRUN/results" && cp "$LABRUN/drop-steps.txt" "$LABRUN/results/drop-steps.txt"
 docker exec -e LAB_BE17_STEPS="$BE17" -e LAB_RUNBOOK_STEPS="$RBS" -e LAB_BE17_RESPONSE_CACHE_CONTROL="$BECC" \
-  -e LAB_BE17_GUARD="$BEG" -e LAB_RUNBOOK_BEEP_FIRST="$RBB" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
+  -e LAB_BE17_GUARD="$BEG" -e LAB_RUNBOOK_BEEP_FIRST="$RBB" -e LAB_BE12_VARS="$BE12" fslab-fs python3 /lab/runner/lab.py drop 2 | tee "$LABRUN/drop.log"
 "$LAB/esl-checks.sh" "$WT" "$LABRUN"
 # experiments (not the drafts), after the checks above: X02 turns DEBUG on for a call
 $R pci X01_sensitive_dtmf_experiment X02_global_debug_experiment | tee "$LABRUN/pci-x.log"

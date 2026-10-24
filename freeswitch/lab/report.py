@@ -59,7 +59,12 @@ if amd:
     p("## 3. Voicemail detection (mod_amd + mod_avmd, runbook F1 steps at answer)")
     p("")
     p("`avmd_start,amd,sleep:25000,hangup:NORMAL_CLEARING` on the answered leg; the far end plays the clip. "
-      "Time = seconds from answer. Every row is judged on the **AMD strategy** (`research/AMD-STRATEGY.md`), not on "
+      "Time = seconds from answer. Every row is judged twice, on the same call. **pilot** (the default, Eric "
+      "2026-10-24, counted for every clip): the agent joins at answer and mod_amd only logs its verdict, so the "
+      "detectors must log a verdict, never hear a beep on a person, a dead line or a mailbox with no beep (the drop "
+      "button would then play), and hear a quiet-line mailbox's own beep so the button can leave the message. "
+      "**gate** (\"AMD gates the agent\", the per-company switch for later): counted as before, except the "
+      "research's stress clips, reported and not counted as they always were. Gate is judged on the **AMD strategy** (`research/AMD-STRATEGY.md`), not on "
       "mod_amd's raw verdict: mod_amd only decides who gets an agent (HUMAN and NOTSURE at once, MACHINE takes the "
       "voicemail path), the avmd beep alone decides whether a recording plays (a beep heard before the agent is joined "
       "means a mailbox). `strategy does` applies that to the verdict and beep times measured on the call, with the "
@@ -68,8 +73,8 @@ if amd:
       "the right outcome when no beep was heard. `stress` rows are the research's stress clips: reported, not counted. "
       "Expected outcomes and what changed: `EXPECTATIONS-CHANGE.md`.")
     p("")
-    p("| case | expect | runs | amd_result (cause) | time to verdict s | beep heard | beep at s | strategy does (at s) | wanted | pass |")
-    p("|---|---|---|---|---|---|---|---|---|---|")
+    p("| case | expect | runs | amd_result (cause) | time to verdict s | beep heard | beep at s | pilot | gate: strategy does (at s) | gate wanted | gate | pass |")
+    p("|---|---|---|---|---|---|---|---|---|---|---|---|")
     by = OrderedDict()
     for r in sorted(amd, key=lambda r: (r.get("stress", False), r["case"])):
         by.setdefault(r["case"], []).append(r)
@@ -81,13 +86,18 @@ if amd:
         exp = rs[0].get("expect", "")
         stress = rs[0].get("stress")
         whys = sorted({r.get("why", "") for r in rs if not r.get("pass")})
-        p("| %s%s | %s | %d | %s | %s | %d/%d | %s | %s (%s) | %s | %d/%d%s |" % (
+        pil = sum(1 for r in rs if r.get("pilot_pass"))
+        gat = sum(1 for r in rs if r.get("gate_pass"))
+        gwhy = sorted({r.get("gate_why", "") for r in rs if not r.get("gate_pass")}) if stress else []
+        p("| %s%s | %s | %d | %s | %s | %d/%d | %s | %d/%d | %s (%s) | %s | %d/%d%s | %d/%d%s |" % (
             case, " (stress)" if stress else "", exp, len(rs), ", ".join("%s x%d" % kv for kv in v.items()),
             rng([r.get("t_verdict") for r in rs]), beeps, len(rs), rng([r.get("t_beep") for r in rs]),
+            pil, len(rs),
             ", ".join("%s x%d" % kv for kv in acts.items()), rng([r.get("t_outcome") for r in rs]),
             WANT.get(exp, exp) + (" (noisy line: an agent if no beep is heard)" if case in ("vm_beep_noisy", "vm_carrier_noisy") and exp == "drop" else ""),
+            gat, len(rs), (" (reported, not counted: %s)" % "; ".join(gwhy)) if gwhy else (" (reported, not counted)" if stress else ""),
             ok, len(rs), (": " + "; ".join(whys)) if whys else ""))
-        summary.append(("3 AMD stress" if stress else "3 AMD", case, ok, len(rs)))
+        summary.append(("3 AMD", case + (" (stress: gate reported)" if stress else ""), ok, len(rs)))
     r0 = amd[0]
     p("")
     p("Event plumbing (all runs): amd::info Event-Name = `%s`; received by a `CUSTOM amd::info` subscriber: %s/%d; "
@@ -103,7 +113,17 @@ if drop:
     p("## 4. Voicemail drop")
     p("")
     steps = open(R + "/drop-steps.txt").read().strip().replace("\n", "; ") if os.path.exists(R + "/drop-steps.txt") else "-"
-    p("Flows: **amdbeep** = the strategy's own call flow, PR1's `scripts/campaign_amd.lua`, on the customer leg from "
+    p("Flows: **amdbeep** = PILOT mode (the default): PR1's `scripts/campaign_amd.lua` on the customer leg from answer "
+      "with no `conexus_amd_mode` (and `conexus_drop_ok=true`, to show it plays nothing by itself); it must hand the "
+      "call to an agent within 0.5 s of answer and log mod_amd's verdict (a `conexus::amd` `verdict` event matching "
+      "`amd_result`; calls nothing was dropped on stay up 13.5 s, past the 12 s analysis); then the lab is the agent and "
+      "presses BE-17's button as in be17. **be12** = PILOT on today's real path: the agent's leg first, the customer "
+      "bridged to it as ConexusCRM-BE `originate.ts` builds it, with the recording and BE-12's customer-leg variables "
+      "read from the top campaign branch; the customer must be bridged, and the detectors started, within 1 s of answer, "
+      "the call must stay bridged, the verdict must be logged, and the button (BE-17's guard and steps) may play only "
+      "after a beep. **be12nofs** = the same with the script missing on FreeSWITCH (BE-12 merged before PR1 is "
+      "deployed): the call must go on bridged, nothing played. **amdgate** = GATE mode (`conexus_amd_mode=gate`, the "
+      "per-company switch for later), the strategy's own call flow on the customer leg from "
       "answer (`conexus_drop_ok=true`); the lab plays the CRM around it: on `connect` it waits the 0.3 s bridge, reads "
       "`avmd_detect` once more (a beep in those few hundred ms still means a mailbox) and otherwise \"bridges an agent\". "
       "The script plays the drop itself after a beep: `wait_for_silence:400 50 0 3500`, then playback; that wait may "
@@ -134,7 +154,7 @@ if drop:
         if any(r.get("wait_timed_out") for r in rs):
             waits += " (timed out)"
         vd = ",".join(sorted({"%s/%s" % (r.get("verdict") or "-", r.get("decision") or ("refused" if (r.get("action") or "").startswith(("refused", "no beep")) else "-")) for r in rs}))
-        at = rng([r.get("t_route") if r.get("t_route") is not None else r.get("sent_at") for r in rs]) if flow == "amdbeep" else "-"
+        at = rng([r.get("t_route") if r.get("t_route") is not None else r.get("sent_at") for r in rs]) if flow in ("amdbeep", "amdgate", "be12") else "-"
         presses = ",".join(sorted({"/".join("%.1f" % x for x in (r.get("presses") or [])) for r in rs})) or "-"
         whys = sorted({r.get("why", "") for r in rs if not r.get("pass")})
         stress = rs[0].get("stress")
@@ -143,7 +163,7 @@ if drop:
             rng([r.get("sent_at") for r in rs]), waits, rng([r.get("drop_onset") for r in rs]), rng([r.get("drop_heard_onset") for r in rs]), ends,
             ",".join(sorted({str(r.get("playback_response") or "-")[:22] for r in rs})), ok, len(rs),
             (": " + "; ".join(whys)) if whys else ""))
-        summary.append(("4 drop stress" if stress else "4 drop", "%s %s" % (flow, case), ok, len(rs)))
+        summary.append(("4 drop gate stress" if (stress and flow == "amdgate") else "4 drop", "%s %s%s" % (flow, case, " (stress)" if stress else ""), ok, len(rs)))
     p("")
 
 # ── 5. PCI ──────────────────────────────────────────────────────────────────
@@ -234,11 +254,13 @@ head = ["## Summary", "", "| section | case | passed |", "|---|---|---|"]
 for sec, case, ok, n in summary:
     head.append("| %s | %s | %s %d/%d |" % (sec, case, "PASS" if ok == n else "FAIL", ok, n))
 head.append("")
-NOT_COUNTED = ("5 experiment", "3 AMD stress", "4 drop stress")
+NOT_COUNTED = ("5 experiment", "4 drop gate stress")
 tot = [s for s in summary if s[0] not in NOT_COUNTED]
-extra = [s for s in summary if s[0] in ("3 AMD stress", "4 drop stress")]
-head.insert(2, "**%d of %d matrix rows pass** (experiments not counted; the research's %d stress rows reported, not counted: %d of them pass)."
-            % (sum(1 for s in tot if s[2] == s[3]), len(tot), len(extra), sum(1 for s in extra if s[2] == s[3])))
+extra = [s for s in summary if s[0] == "4 drop gate stress"]
+head.insert(2, "**%d of %d matrix rows pass** (experiments not counted). Every clip, the research's stress clips "
+            "included, is counted in pilot mode, the default. The research's %d stress rows in gate mode (the switch "
+            "for later; section 3 shows the same in its gate column) are reported, not counted, as before: %d of "
+            "them pass." % (sum(1 for s in tot if s[2] == s[3]), len(tot), len(extra), sum(1 for s in extra if s[2] == s[3])))
 head.insert(3, "")
 notes = os.path.join(LAB, "NOTES.md")
 body = out[:5] + head + out[5:]
