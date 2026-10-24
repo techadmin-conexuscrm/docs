@@ -39,6 +39,20 @@ measured). The settings below must be adjustable once we have it.
   carrier the 10 channels are with. The dialer pacer must also cap concurrent calls at the
   channel limit (a setting) so calls are never refused by the carrier.
 
+## Eric's answers, 2026-10-24
+- **Agents dialling at once: about 75.**
+- **Hold messages: both approved.**
+  - While waiting for an agent: "Thanks for answering. This is [Company] about your recent online order; someone will be with you shortly."
+  - After the agent has left: "Thank you for your time. This was [Company]. You can reach us at [number]. Goodbye."
+  - [Company] and [number] are per-company settings.
+
+## Capacity for 75 agents
+- **Auto dial (1 line per agent):** about 75 calls up, plus incoming peak, plus 20% headroom. That is roughly **90-100 channels**.
+- **Predictive later (2-3 lines per agent):** **150-225 channels or more**.
+- The 12 s hold adds a few seconds per short call; the pacer's channel cap must count held calls.
+- **Calls per second:** carriers also cap new calls per second. At 75 agents the pacer must respect that too, as a setting.
+- **The FreeSWITCH server:** 1000 sessions is fine, but CPU per call (AMD + avmd beep detection + recording) must be load-tested before 75 agents. The lab measures per-call cost and extrapolates to the production box size (`nproc`/RAM from Eric's E1 pre-check).
+
 ## Open questions for Eric
 - The carrier's exact duration rule (he is fetching it).
 - Message wording: two variants? "please hold" while an agent is coming, and
