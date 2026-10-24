@@ -24,10 +24,10 @@ index a127afc..0ea9289 100644
          <action application="python" data="api.app"/>
 diff --git a/dialplan/default/10_secure_payment.xml b/dialplan/default/10_secure_payment.xml
 new file mode 100644
-index 0000000..4f8645f
+index 0000000..12e7d2c
 --- /dev/null
 +++ b/dialplan/default/10_secure_payment.xml
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,81 @@
 +<include>
 +  <!--
 +    Silent secure keypad entry (customer leg only).
@@ -54,8 +54,9 @@ index 0000000..4f8645f
 +    and all keys joined into digits_dialed at hang-up, which reaches the json
 +    CDR and CHANNEL_HANGUP_COMPLETE (the API's ESL listens to it). With it, no
 +    key is logged, no DTMF event fires and digits_dialed stays "none" (lab
-+    experiment X01). It is unset again when the entry ends (the script's
-+    last step, and the fallback below): left on, FreeSWITCH would drop every
++    experiment X01). It is unset again when the entry ends - in the script,
++    after its uuid_bridge has put the customer back with the agent, not
++    before the closing prompt - because left on, FreeSWITCH would drop every
 +    key the customer presses across a bridge for the rest of the call. Never
 +    run the box at DEBUG while secure entry is on.
 +
@@ -97,7 +98,10 @@ index 0000000..4f8645f
 +        Verify on staging: docs/dialer/secure-payment-verification.md, drill
 +        "Script fails to load".
 +      -->
-+      <!-- The keys are the customer's again (see the end of the script). -->
++      <!-- The keys are the customer's again (see the end of the script).
++           It has to go here rather than after `intercept`, which blocks for
++           the rest of the call; nothing is played between the two, so the
++           unprotected window is one dialplan step with no media in it. -->
 +      <action application="unset" data="sensitive_dtmf"/>
 +      <action application="event" data="Event-Name=CUSTOM,Event-Subclass=secure_payment::progress,Secure-Payment-Call-Id=${secure_payment_call_id},Secure-Payment-Session=${secure_payment_session},Secure-Payment-State=failed,Secure-Payment-Reason=setup"/>
 +      <action application="intercept" data="${secure_payment_agent_uuid}"/>
@@ -128,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..1fa914f
+index 0000000..ab28b8c
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,745 @@
+@@ -0,0 +1,754 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -863,18 +867,27 @@ index 0000000..1fa914f
 +  log("err", "unhandled error in secure_payment (details withheld)")
 +  result, reason = "failed", "error"
 +end
-+-- The entry is over: the customer's keys are theirs again. sensitive_dtmf
-+-- left on would stay for the rest of the call, and FreeSWITCH drops every
-+-- sensitive key it would pass across a bridge (switch_core_session_send_dtmf),
-+-- so "press 1 to confirm" on an outside line the agent transfers them to
-+-- would never be heard. (uuid_setvar with no value unsets; it works in any
-+-- channel state, also after a transfer away.)
-+if not hung_up then
-+  api:executeString("uuid_setvar " .. CUSTOMER_UUID .. " sensitive_dtmf")
-+end
 +if not hung_up and not transferred then
 +  final(result or "failed", reason)
 +  reconnect()
++end
++-- Only now: the entry is over, the last prompt has finished and the customer
++-- is back with their agent, so their keys are theirs again. sensitive_dtmf
++-- left on would stay for the rest of the call, and FreeSWITCH drops every
++-- sensitive key it would pass across a bridge (switch_core_session_send_dtmf),
++-- so "press 1 to confirm" on an outside line the agent transfers them to
++-- would never be heard.
++-- It is unset here and not before reconnect(), which plays
++-- returning_to_agent.wav for 3-4 s before its uuid_bridge: in an unprotected
++-- window every key becomes a "RECV DTMF" log line, a DTMF event and part of
++-- digits_dialed, which reaches the json CDR and CHANNEL_HANGUP - and
++-- scripts/event/esl_listener.py POSTs that to the CRM in full. A customer
++-- who was still keying their card when the field gave up would finish it
++-- into that window. (uuid_setvar with no value unsets; it works in any
++-- channel state, also after a transfer away, which is why this still runs
++-- for a leg someone else moved out of secure_payment.)
++if not hung_up then
++  api:executeString("uuid_setvar " .. CUSTOMER_UUID .. " sensitive_dtmf")
 +end
 +collectgarbage("collect")
 diff --git a/vars.xml b/vars.xml

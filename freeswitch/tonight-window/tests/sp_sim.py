@@ -406,16 +406,30 @@ def check(results):
         for n in range(1, r["conns"] + 1):
             expect(name, r["closed"].get(n), "connection %d never closed" % n)
         # FreeSWITCH logs keys, fires DTMF events and fills digits_dialed
-        # unless sensitive_dtmf is set before the first key is read
-        # ...and is unset again when the entry ends, before the customer is
-        # bridged back: left on, every key they press for the rest of the
-        # call is dropped at the bridge (switch_core_session_send_dtmf)
+        # unless sensitive_dtmf is set before the first key is read ...and it
+        # must stay set until the entry is really over. It is unset at the
+        # very end, because left on FreeSWITCH drops every key the customer
+        # presses across a bridge for the rest of the call
+        # (switch_core_session_send_dtmf) - but not one moment earlier than
+        # the bridge: returning_to_agent.wav plays for 3-4 s before
+        # uuid_bridge, and a key pressed over it in an unprotected window
+        # becomes a "RECV DTMF" log line, a DTMF event and part of
+        # digits_dialed (json CDR and CHANNEL_HANGUP, which
+        # scripts/event/esl_listener.py POSTs to the CRM in full).
         if name != "customer_hangup_mid_card":
-            calls = [c for _, c in api(r)]
-            unset = [i for i, c in enumerate(calls) if c.strip().endswith(" sensitive_dtmf") and c.startswith("uuid_setvar ")]
-            bridge = [i for i, c in enumerate(calls) if c.startswith("uuid_bridge")]
+            def idx(kind, pred):
+                return [i for i, e in enumerate(r["log"])
+                        if e["kind"] == kind and pred(e["a"])]
+            unset = idx("api", lambda c: c.startswith("uuid_setvar ") and c.strip().endswith(" sensitive_dtmf"))
+            bridge = idx("api", lambda c: c.startswith("uuid_bridge"))
+            played = idx("play", lambda _a: True)
             expect(name, unset, "sensitive_dtmf never unset at the end of the entry")
-            expect(name, not bridge or (unset and unset[0] < bridge[0]), "customer bridged back with sensitive_dtmf still set")
+            expect(name, not (unset and played) or unset[0] > played[-1],
+                   "a prompt plays after sensitive_dtmf was unset: every key pressed over it "
+                   "is logged, evented and appended to digits_dialed")
+            expect(name, not (unset and bridge) or unset[0] > bridge[-1],
+                   "sensitive_dtmf was unset before the customer was bridged back, so the whole "
+                   "reconnect is an unprotected window")
         expect(name, not any(e["kind"] == "flushDigits" for e in r["log"]),
                "session:flushDigits() called: FreeSWITCH copies the dropped keys into digits_dialed "
                "(switch_channel_flush_dtmf ignores sensitive_dtmf); %d key(s) would reach the CDR" % r["digits_dialed"])
