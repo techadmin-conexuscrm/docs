@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..b32b0a0
+index 0000000..9f21631
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,780 @@
+@@ -0,0 +1,788 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -240,12 +240,13 @@ index 0000000..b32b0a0
 +--   timeout    no key in time          invalid  3 invalid entries
 +--   deadline   out of time before the CRM's 3-minute watchdog
 +--   hangup     the channel went away   error    unexpected script error
-+--   transfer   someone else moved this leg out of secure_payment
++-- A customer_hangup sent because someone else moved this leg out of
++-- secure_payment carries the reason "transfer" (see the hook below).
 +-- Never a digit.
 +local function final(state, reason)
 +  if finished then return end
 +  finished = true
-+  progress(state, nil, nil, nil, nil, state == "failed" and (reason or "error") or nil)
++  progress(state, nil, nil, nil, nil, state == "failed" and (reason or "error") or reason)
 +end
 +
 +-- mod_lua calls this once, on hang-up (status "hangup") or when the channel
@@ -253,13 +254,20 @@ index 0000000..b32b0a0
 +-- of this leg such as a voicemail drop.
 +-- Hang-up: tell the CRM, which ends the agent leg so the call settles
 +-- normally ("Customer hung up during payment").
-+-- Transfer: the customer is still on the line, somewhere else. Not a
-+-- hang-up (that would make the CRM kill the agent leg): end the entry as
-+-- failed, and never bridge the customer back from here.
++-- Transfer: the customer is somewhere else now, and is never bridged back
++-- from here. For the agent it is the same as a hang-up: they are parked in
++-- silence on nobody. So it is reported as customer_hangup (reason
++-- "transfer"), the one final state on which the CRM ends the parked agent
++-- leg. Any other state would be wrong: the CRM takes completed, cancelled
++-- and failed alike as "Lua put the customer back itself", skips its own
++-- re-bridge and leaves the agent parked on a dead line, told the customer
++-- is back. And when the transferred leg is hung up before the CRM gets to
++-- this event (a voicemail drop does that), the CRM already ends the agent
++-- leg as a hang-up, so both orders now end the same way.
 +function secure_payment_on_hangup(s, status, arg)
 +  if status == "transfer" then
 +    transferred = true
-+    final("failed", "transfer")
++    final("customer_hangup", "transfer")
 +    return
 +  end
 +  hung_up = true

@@ -337,6 +337,18 @@ SCENARIOS = {
                dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root")])),
 }
 
+# What the CRM does with each final state, as of ConexusCRM-BE main:
+# progress-listener.ts FINAL_STATES, then end-secure-entry.ts. completed,
+# cancelled and failed all mean "Lua reconnected the customer itself": no
+# re-bridge, and the agent leg is only released (two channel variables; it
+# stays in park). customer_hangup hangs the parked agent leg up.
+CRM_ON_FINAL = {
+    "completed": "trusts_lua_reconnected",
+    "cancelled": "trusts_lua_reconnected",
+    "failed": "trusts_lua_reconnected",
+    "customer_hangup": "hangs_up_agent_leg",
+}
+
 WATCHDOG_S = 180     # the CRM's SECURE_ENTRY_MAX_MS, counted from before the transfer
 TRANSFER_MARGIN_S = 2
 
@@ -464,11 +476,20 @@ def check(results):
         expect(n, any("uuid_bridge" in c for _, c in api(results[n])), "customer never reconnected")
     expect("customer_hangup_mid_card", state("customer_hangup_mid_card")[1] == "customer_hangup",
            "hang-up not reported as customer_hangup")
+    # Someone else's uuid_transfer of the customer leg (a voicemail drop, a
+    # transfer from fs_cli). The script must not pull the customer back, so
+    # the CRM has to free the agent, who is parked in silence on nobody - and
+    # it must do that whichever arrives first, this event or the transferred
+    # leg's hang-up (which makes the CRM treat any final state as
+    # customer_hung_up). The CRM folds failed into cancelled
+    # (progress-listener.ts), and cancelled skips the re-bridge and only
+    # releases the agent leg, which leaves it parked (end-secure-entry.ts).
     t = results["transferred_mid_card"]
-    expect("transferred_mid_card", state("transferred_mid_card")[1] != "customer_hangup",
-           "a transfer was reported as customer_hangup (the CRM then kills the agent leg)")
-    expect("transferred_mid_card", state("transferred_mid_card")[1:] == ("failed", "transfer"),
-           "want failed/transfer, got %r" % (state("transferred_mid_card"),))
+    st = state("transferred_mid_card")
+    expect("transferred_mid_card", CRM_ON_FINAL.get(st[1]) == "hangs_up_agent_leg",
+           "a transfer was reported as %r, which the CRM handles as '%s': the agent stays parked "
+           "on a dead line and is told the customer is back" % (st[1:], CRM_ON_FINAL.get(st[1])))
+    expect("transferred_mid_card", st[2] == "transfer", "the transfer is not named as the reason: %r" % (st,))
     expect("transferred_mid_card", not any("uuid_bridge" in c for _, c in api(t)),
            "script pulled a transferred customer back to the agent")
     for n in ("two_declines_human_pace", "slow_typist_one_decline", "human_pace_ok",
