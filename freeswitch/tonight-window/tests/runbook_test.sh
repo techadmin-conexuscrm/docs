@@ -144,6 +144,10 @@ printf '%s\n' "$B" | grep -E '^\| B11b' | grep -qi 'without waiting' && ok "B11b
   || bad "B11b: no test for a customer who types the card ahead, over the prompt"
 printf '%s\n' "$B" | grep -E '^\| B11c' | grep -i 'without waiting' | grep -q '1230' && ok "B11c: keying the next field before its prompt is tested" \
   || bad "B11c: no test for a customer who keys the next field before its prompt starts"
+# a 16-digit card is whole at its 16th digit: no '#', then the expiry at once
+printf '%s\n' "$B" | grep -E '^\| B11d' | grep -i 'no `#`' | grep -i 'straight away' | grep -q '1230' \
+  && ok "B11d: 16 digits with no #, then the expiry straight away, is tested" \
+  || bad "B11d: no test of a 16-digit card with no # followed at once by the expiry"
 # a queue caller keeps app.py's "0 = callback" digit binding; the extension
 # clears it (clear_digit_action all). Tested from a queue, after a transfer,
 # with a card that has a 0.

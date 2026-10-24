@@ -132,10 +132,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..2bcd22b
+index 0000000..6969d38
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,930 @@
+@@ -0,0 +1,962 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -324,6 +324,36 @@ index 0000000..2bcd22b
 +
 +local function is_amex(pan) return pan:sub(1, 2) == "34" or pan:sub(1, 2) == "37" end
 +
++-- A card number keyed so far (one digit per entry) that is already whole:
++-- as long as its first digits say - 15 for American Express (34, 37), 16
++-- for Visa (4), Mastercard (51-55, 2221-2720) and Discover (6011, 644-649,
++-- 65) - and passing the Luhn check. The card prompt asks for "#" only on a
++-- card shorter than sixteen digits, so without this a 16-digit card sat
++-- through the 5 s wait for a 17th digit, and an expiry keyed into that
++-- silence became card digits 17-19. Other prefixes (UnionPay, Maestro, JCB,
++-- Diners) don't fix a length and still end on "#", the wait or 19 digits;
++-- so does a 19-digit Visa or Discover whose first 16 digits fail Luhn. (One
++-- whose first 16 digits pass - about 1 in 10 of those rare cards - is taken
++-- as 16 digits and declined: the agent takes it another way.)
++local function pan_complete(digits, count)
++  if count ~= 15 and count ~= 16 then return false end
++  local n = 0
++  for i = 1, 4 do n = n * 10 + tonumber(digits[i]) end
++  local two, three = math.floor(n / 100), math.floor(n / 10)
++  local length
++  if two == 34 or two == 37 then length = 15
++  elseif math.floor(n / 1000) == 4 or (two >= 51 and two <= 55) or (n >= 2221 and n <= 2720)
++      or n == 6011 or (three >= 644 and three <= 649) or two == 65 then length = 16 end
++  if count ~= length then return false end
++  local sum = 0
++  for i = count, 1, -1 do
++    local d = tonumber(digits[i])
++    if (count - i) % 2 == 1 then d = d * 2; if d > 9 then d = d - 9 end end
++    sum = sum + d
++  end
++  return sum % 10 == 0
++end
++
 +-- ── collection: one digit at a time, nothing stored on the channel ──────────
 +-- A prompt can't be interrupted, so a key pressed while one plays stays
 +-- queued on the channel until the prompt ends. Two different things end up
@@ -429,6 +459,8 @@ index 0000000..2bcd22b
 +      digits[count] = d
 +      progress("collecting", field, count, expected, attempt)
 +      if expected and count == expected and max_len == expected then break end
++      -- a whole card number ends here too, like a full fixed-length field
++      if field == "card" and pan_complete(digits, count) then break end
 +    end
 +  end
 +  local value = table.concat(digits)

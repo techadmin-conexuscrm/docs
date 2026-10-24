@@ -34,7 +34,10 @@ return function(keys)
 end""")
 bad = 0
 for name, keys in [("pound after every field", "4111111111111111#1230#123#12345#"),
-                   ("no pound", "4111111111111111T123012312345"),
+                   # a 16-digit Visa is whole at its 16th digit: no '#', no wait
+                   ("no pound", "4111111111111111123012312345"),
+                   # a prefix that fixes no length: the 5 s wait ("T") ends it
+                   ("no pound, 5 s wait", "6200000000000005T123012312345"),
                    ("pound twice after expiry", "4111111111111111#1230##123#12345")]:
     prompts, ok = fn(keys)
     retries = prompts.count("invalid_try_again")

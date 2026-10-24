@@ -275,8 +275,12 @@ def human(s):
     return keys(s, first=3.0, each=0.8)
 
 
+MC = "5555555555554444"     # a gateway test Mastercard
+V19 = "4111111111111110104"  # 19 digits, Luhn-valid; its first 16 are not
+UP16 = "6200000000000005"    # 16 digits on a prefix that does not fix a length
 GOOD_FAST = keys(VISA + "#") + keys("1230") + keys("123") + keys("78704")
-# 16 digits with no '#': the card field waits out the 5 s inter-digit timeout
+# 16 digits with no '#' (as enter_card_number.wav says): the card ends on its
+# 16th digit, not after a 5 s wait for a 17th
 GOOD_HUMAN = human(VISA) + human("1230") + human("123") + human("78704")
 
 BODY_OK = '{"success":true,"last4":"1111"}'
@@ -341,13 +345,33 @@ SCENARIOS = {
     # (one over a 3-digit code), not the start of a typed-ahead ZIP
     "cvv_extra_key_fast": dict(keys=keys(VISA + "#") + keys("1230") + keys("1234") + keys("78704"),
                                replies=[OK], want=dict(cvv="123", zip="78704")),
-    # expiry keys typed during the 5 s wait after a 16-digit card: they join
-    # the card (19 digits, invalid); the leftover "0" must not start the
-    # retry (a leading 0 still passes Luhn, so "0" + card would be accepted)
+    # A 16-digit card keyed with no '#' (the prompt asks for one only on
+    # shorter cards), then the expiry straight away, without waiting for its
+    # prompt: a Visa, Mastercard or Discover number is whole at 16 digits, so
+    # the expiry keys are the expiry, not card digits 17-19 (which made the
+    # card invalid, or worse, a Luhn-valid 19-digit card for the gateway).
     "expiry_typed_in_card_wait": dict(
         keys=keys(VISA) + [("1", 1.0, False), ("2", 0.3, False), ("3", 0.3, False), ("0", 0.3, False)]
-        + keys(VISA + "#") + keys("1230") + keys("123") + keys("78704"),
-        replies=[OK], want=dict(pan=VISA, expiry="1230")),
+        + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA, expiry="1230", cvv="123", zip="78704"), clean=True),
+    "expiry_straight_after_16_digits": dict(
+        keys=keys(VISA) + [(c, 0.3, False) for c in "1230"] + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA, expiry="1230", cvv="123", zip="78704"), clean=True),
+    # ...or 2.5 s later, over the expiry prompt
+    "expiry_2s_after_16_digits": dict(
+        keys=keys(VISA) + [("1", 2.5, False)] + [(c, 0.3, False) for c in "230"] + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA, expiry="1230", cvv="123", zip="78704"), clean=True),
+    "mastercard_no_pound": dict(keys=human(MC) + human("1230") + human("123") + human("78704"),
+                                replies=[OK], want=dict(pan=MC), clean=True),
+    # an Amex is whole at 15 digits: no '#' needed either
+    "amex_no_pound": dict(keys=human(AMEX) + human("1230") + human("1234") + human("78704"),
+                          replies=[OK], want=dict(pan=AMEX, cvv="1234"), clean=True),
+    # a 19-digit card still goes in whole (its first 16 digits are not a card)
+    "visa_19_digits": dict(keys=human(V19) + human("1230") + human("123") + human("78704"),
+                           replies=[OK], want=dict(pan=V19), clean=True),
+    # a prefix that does not fix the length: ended by '#', as before
+    "unfixed_prefix_16_with_pound": dict(keys=keys(UP16 + "#") + keys("1230") + keys("123") + keys("78704"),
+                                         replies=[OK], want=dict(pan=UP16), clean=True),
     # Keys for the NEXT field, typed straight after a field that filled up,
     # before the next prompt has started. They are that field's digits: the
     # customer believes they have answered it. Swallowing them leaves a field
@@ -700,6 +724,17 @@ def check(results):
            "after a short entry the customer hears nothing at all before the prompt starts "
            "again: %r" % p)
 
+    # No dead air after the last digit of a whole card: the next prompt
+    # starts within about a second (the burst read), not after the 5 s wait
+    # for a 17th digit that does not exist.
+    for n, field_len in (("human_pace_ok", 16), ("mastercard_no_pound", 16), ("amex_no_pound", 15)):
+        r = results[n]
+        last = [e["t"] for e in r["log"] if e["kind"] == "event" and e["a"].get("Secure-Payment-Field") == "card"
+                and e["a"].get("Secure-Payment-Entered") == str(field_len)]
+        nxt = [e["t"] for e in r["log"] if e["kind"] == "play" and e["a"] == "enter_expiry.wav"]
+        gap = (nxt[0] - last[0]) if last and nxt else None
+        expect(n, gap is not None and gap <= 1.5,
+               "%.1f s of silence after the card's last digit before the expiry prompt" % (gap if gap is not None else -1))
     p = plays(results["pause_mid_card"])
     expect("pause_mid_card", p.count("enter_card_number.wav") == 2, "card prompt not replayed after the pause: %r" % p)
     p = plays(results["silent_customer"])
