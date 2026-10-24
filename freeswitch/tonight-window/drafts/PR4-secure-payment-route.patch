@@ -128,10 +128,10 @@ index d32175e..439e0db 100644
              "action": "queue_answered",
 diff --git a/scripts/secure_payment.lua b/scripts/secure_payment.lua
 new file mode 100644
-index 0000000..611205c
+index 0000000..1fa914f
 --- /dev/null
 +++ b/scripts/secure_payment.lua
-@@ -0,0 +1,706 @@
+@@ -0,0 +1,745 @@
 +--[[
 +  secure_payment.lua: silent secure keypad entry, customer leg only.
 +
@@ -401,14 +401,16 @@ index 0000000..611205c
 +--   2. the chain must verify against CA_FILE;
 +--   3. the certificate's subjectAltName DNS names (or CN when it has none)
 +--      must match the URL host;
-+--   4. one certificate in the presented chain (leaf or intermediate) must
-+--      match a configured SHA-256 pin. No pin configured = no tokenize
-+--      (fail closed).
++--   4. the leaf, or the certificate that issued it, must match a configured
++--      SHA-256 pin. A pin matched by a surplus certificate the peer merely
++--      sent along does not count (see pin_matches). No pin configured = no
++--      tokenize (fail closed).
 +-- Pins: crm_secure_payment_tls_pins, a comma-separated list of SHA-256
 +-- certificate fingerprints (hex, colons optional), read from the channel
 +-- first, then the global variables. Pinning the issuing intermediate keeps
-+-- working across certificate renewals; pinning the leaf is stricter but
-+-- must be updated on every renewal. See secure-payment-verification.md.
++-- working across certificate renewals; pinning the leaf is stricter but must
++-- be updated on every renewal, and tokenize fails closed the moment the
++-- certificate is renewed without it. See secure-payment-verification.md.
 +
 +local function read_secret()
 +  local f = io.open(SECRET_FILE, "r")
@@ -477,6 +479,48 @@ index 0000000..611205c
 +  local ok, d = pcall(function() return cert:digest("sha256") end)
 +  if not ok or type(d) ~= "string" then return nil end
 +  return d:gsub(":", ""):lower()
++end
++
++-- A certificate's subject or issuer as one comparable string.
++local function dn_string(cert, which)
++  local ok, dn = pcall(function() return cert[which](cert) end)
++  if not ok or type(dn) ~= "table" then return nil end
++  local parts = {}
++  for _, e in ipairs(dn) do
++    parts[#parts + 1] = tostring(e.oid or e.name or "?") .. "=" .. tostring(e.value)
++  end
++  if #parts == 0 then return nil end
++  return table.concat(parts, "/")
++end
++
++-- The pin must constrain the chain OpenSSL VERIFIED, not the certificates the
++-- peer chose to send. conn:getpeerchain() is SSL_get_peer_cert_chain: whatever
++-- was in the handshake. An attacker holding a certificate for this host
++-- mis-issued by any of the ~140 CAs in CA_FILE can append a copy of one of the
++-- pinned intermediates - public data, downloadable - as a surplus certificate.
++-- OpenSSL path-builds its own chain from the store and ignores the surplus one,
++-- the name check passes because the certificate is for the right host, and a
++-- pin matched anywhere in the presented chain would then match that surplus
++-- certificate. Mis-issuance by a trusted CA is the only thing pinning is here
++-- to stop, so matching that way constrains nothing.
++-- Accepted instead: the leaf itself is pinned, or a certificate that actually
++-- issued the leaf is (its subject is the leaf's issuer, which is also how
++-- OpenSSL built the path it verified). A surplus certificate issued nothing
++-- here, so it matches nothing. The leaf's issuer field cannot be forged: a CA
++-- writes its own subject there, and a leaf naming an issuer that did not sign
++-- it fails chain verification above.
++local function pin_matches(leaf, chain, pins)
++  local d = digest_hex(leaf)
++  if d and pins[d] then return true end
++  local issuer = dn_string(leaf, "issuer")
++  if not issuer then return false end
++  for _, cert in ipairs(chain) do
++    if dn_string(cert, "subject") == issuer then
++      local cd = digest_hex(cert)
++      if cd and pins[cd] then return true end
++    end
++  end
++  return false
 +end
 +
 +-- ── network I/O that never blocks the call ──────────────────────────────────
@@ -557,14 +601,9 @@ index 0000000..611205c
 +    if name_matches(n, host) then name_ok = true; break end
 +  end
 +  if not name_ok then conn:close(); return nil, "transport", "certificate name does not match host" end
-+  local pinned = false
-+  local chain = conn:getpeerchain() or {}
-+  chain[#chain + 1] = leaf
-+  for _, cert in ipairs(chain) do
-+    local d = digest_hex(cert)
-+    if d and pins[d] then pinned = true; break end
++  if not pin_matches(leaf, conn:getpeerchain() or {}, pins) then
++    conn:close(); return nil, "transport", "certificate pin mismatch"
 +  end
-+  if not pinned then conn:close(); return nil, "transport", "certificate pin mismatch" end
 +  return conn
 +end
 +
@@ -839,10 +878,10 @@ index 0000000..611205c
 +end
 +collectgarbage("collect")
 diff --git a/vars.xml b/vars.xml
-index 977ef71..1b574f0 100755
+index 977ef71..e133108 100755
 --- a/vars.xml
 +++ b/vars.xml
-@@ -116,4 +116,15 @@
+@@ -116,4 +116,22 @@
    <X-PRE-PROCESS cmd="set" data="video_mute_png=$${images_dir}/default-mute.png"/>
    <X-PRE-PROCESS cmd="set" data="video_no_avatar_png=$${images_dir}/default-avatar.png"/>
  
@@ -852,7 +891,14 @@ index 977ef71..1b574f0 100755
 +       certificate renewal that switches intermediate keeps working.
 +       Order: YE1 YE2 YE3 YR1 YR2 YR3 (issuing/backup, valid to 2028-09-02),
 +       then E5-E9 R10-R14 (retired, valid to 2027-03-12). If the API ever
-+       moves off Let's Encrypt, these must change. -->
++       moves off Let's Encrypt, these must change.
++       A pin counts only when it is the leaf itself or the certificate that
++       ISSUED the leaf; a pinned certificate merely sent alongside in the
++       handshake does not (the script's pin_matches says why). So these must
++       stay the intermediates that actually sign api.tryconexus.com. Putting
++       the leaf's own fingerprint here instead is stricter, but then tokenize
++       fails closed the moment the certificate is renewed - card entry stops
++       and agents take numbers by voice until this line is updated. -->
 +  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_tokenize_url=https://api.tryconexus.com/api/v1/telephony/secure-payment/tokenize"/>
 +  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_secret_file=/etc/freeswitch/secure_payment.secret"/>
 +  <X-PRE-PROCESS cmd="set" data="crm_secure_payment_prompt_dir=/etc/freeswitch/sounds/secure_payment"/>

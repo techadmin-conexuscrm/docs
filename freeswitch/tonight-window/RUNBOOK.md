@@ -42,7 +42,7 @@ All drafts are in
 | PR1 | `claude/amd-modules` | builds and loads `mod_avmd` (bundled) and `mod_amd` (webitel/mod_amd, pinned `52e6bc69`, grafted like mod_deepgram_transcribe); `avmd.conf.xml`, `amd.conf.xml`. The AMD numbers are set so a person who answers with a sentence is never called a MACHINE; see section F, **AMD is advisory**. | the swap |
 | PR2 | `claude/secure-payment-lua-deps` | LuaSec + LuaSocket in the image | the swap |
 | PR3 | `claude/esl-password-env` | the ESL password comes from a git-ignored `.env`. 7 whole files (a diff would show the old password). | the swap |
-| PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret, and one line in `scripts/api/app.py` so a queue's `0 = callback` binding is dropped when an agent answers, not only on a queue timeout. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. | the swap (would also work live with `reloadxml`) |
+| PR4 | `claude/secure-payment-route` | the `secure_payment` extension, `scripts/secure_payment.lua`, settings, `.gitignore` for the secret, and one line in `scripts/api/app.py` so a queue's `0 = callback` binding is dropped when an agent answers, not only on a queue timeout. The extension's first step is `sensitive_dtmf=true`, so FreeSWITCH never logs, events or stores the keys. The TLS pins are filled in: every Let's Encrypt intermediate, so a certificate renewal can't break it. A pin counts only on the leaf itself or on the certificate that **issued** the leaf, never on a pinned certificate the server merely sends alongside it - otherwise anyone holding a mis-issued certificate for `api.tryconexus.com` could append a (public) Let's Encrypt intermediate and be accepted. | the swap (would also work live with `reloadxml`) |
 | PR5 | `claude/fs-log-hardening` | log level `info`, `dump-cores no`, no debug lines in the file log | the swap |
 
 They merge cleanly together. The XML parses, and the old password appears
@@ -148,7 +148,7 @@ contains a password.
 | `version` | 1.10.12 |
 | avmd / amd | `false` / `false` (expected today) |
 | `show calls count` | just a reading |
-| issuer | contains **Let's Encrypt**. If not, PR4's pins must change before E2. Stop and tell me. |
+| issuer | contains **Let's Encrypt**. If not, PR4's pins must change before E2. Stop and tell me. The pin is matched against the certificate that issued the leaf, so this is the line that has to match the pin list. |
 | the two 8-character hashes | equal |
 
 ### E2. Merge PR1–PR5 on GitHub (5 min)

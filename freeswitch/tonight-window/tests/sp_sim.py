@@ -19,6 +19,36 @@ os.time = function() return 1800000000 + math.floor(S.t) end
 
 local PIN = string.rep("ab", 32)
 
+-- An x509 object as LuaSec hands one back: subject()/issuer() are arrays of
+-- {name, oid, value}, digest("sha256") is the fingerprint, extensions() holds
+-- the SAN. cfg.cert describes what the server presents: the leaf, who issued
+-- it, and the certificates sent alongside it in the handshake (which is what
+-- SSL_get_peer_cert_chain returns - whatever the peer chose to send).
+local function dn(cn)
+  if not cn then return {} end
+  return { { name = "CN", oid = "2.5.4.3", value = cn } }
+end
+
+local function mkcert(spec)
+  local c = {}
+  function c:extensions()
+    if spec.host == false then return {} end
+    return { ["2.5.29.17"] = { dNSName = { spec.host or "api.test" } } }
+  end
+  function c:digest() return spec.digest end
+  function c:subject() return dn(spec.subject) end
+  function c:issuer() return dn(spec.issuer) end
+  return c
+end
+
+local function cert_cfg()
+  local c = S.cfg.cert
+  if c and next(c) then return c end
+  -- default: the leaf itself carries the configured pin
+  return { leaf = { digest = PIN, subject = "api.test", issuer = "Pinned Intermediate" },
+           chain = {} }
+end
+
 local function new_conn(n)
   -- connection 1 is the pre-entry probe (an authenticated request with no
   -- card: the API answers 400 {"issues": ...} when the app is up and the
@@ -29,11 +59,12 @@ local function new_conn(n)
   function c:dohandshake() return true end
   function c:info() return { protocol = "TLSv1.3" } end
   function c:getpeerverification() return true end
-  function c:getpeercertificate()
-    return { extensions = function() return { ["2.5.29.17"] = { dNSName = { "api.test" } } } end,
-             digest = function() return PIN end, subject = function() return {} end }
+  function c:getpeercertificate() return mkcert(cert_cfg().leaf) end
+  function c:getpeerchain()
+    local out = {}
+    for _, spec in ipairs(cert_cfg().chain or {}) do out[#out + 1] = mkcert(spec) end
+    return out
   end
-  function c:getpeerchain() return {} end
   function c:send(data) rec("send", self.n, #data); S.sent[#S.sent + 1] = data; return #data end
   function c:receive(pattern)
     if self.dead then
@@ -274,6 +305,21 @@ SCENARIOS = {
                               + keys("78704", 21, 0.8), replies=[OK]),
     # silence at the card prompt (runbook B6): asked three times, then back
     "silent_customer": dict(keys=[], replies=[]),
+    # The real deployment: the pins are the issuing intermediates, so the leaf
+    # itself is not pinned and is renewed without touching the pin list.
+    "pin_on_the_issuing_intermediate": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
+        leaf=dict(digest="cd" * 32, subject="api.test", issuer="Pinned Intermediate"),
+        chain=[dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root")])),
+    # A certificate for this host mis-issued by any of the ~140 CAs in
+    # CA_FILE, with a copy of one of the pinned intermediates appended to the
+    # handshake chain. That certificate is public and signs nothing here:
+    # OpenSSL path-builds its own chain from the store and ignores it, so a
+    # pin matched anywhere in the PRESENTED chain constrains nothing. Mis-
+    # issuance by a trusted CA is the only thing the pin is there to stop.
+    "mis_issued_cert_with_surplus_pin": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
+        leaf=dict(digest="11" * 32, subject="api.test", issuer="Mis-issuing CA R1"),
+        chain=[dict(digest="22" * 32, subject="Mis-issuing CA R1", issuer="Other Root"),
+               dict(digest="ab" * 32, subject="Pinned Intermediate", issuer="Root")])),
 }
 
 WATCHDOG_S = 180     # the CRM's SECURE_ENTRY_MAX_MS, counted from before the transfer
@@ -310,6 +356,7 @@ def run_all(script_path, secret_path):
         cfg = lua_table(rt, {"keys": [list(k) for k in sc["keys"]],
                              "replies": [[r for r in rep] for rep in sc["replies"]],
                              "probe": list(sc.get("probe", PROBE_OK)),
+                             "cert": sc.get("cert", {}),
                              "globals": globals_, "prompt_s": PROMPT_S})
         out = run(cfg, src)
         log = []
@@ -432,6 +479,23 @@ def check(results):
     expect("silent_customer", state("silent_customer")[1:] == ("failed", "timeout"),
            "want failed/timeout, got %r" % (state("silent_customer"),))
     expect("silent_customer", p[-1:] == ["returning_to_agent.wav"], "not returned to the agent: %r" % p)
+    # pinning
+    r = results["pin_on_the_issuing_intermediate"]
+    expect("pin_on_the_issuing_intermediate", state("pin_on_the_issuing_intermediate")[1] == "completed",
+           "a pin on the certificate that issued the leaf was not accepted: %r (the live pin list is "
+           "the issuing intermediates, so this is the normal case): %r"
+           % (state("pin_on_the_issuing_intermediate"), plays(r)))
+    r = results["mis_issued_cert_with_surplus_pin"]
+    expect("mis_issued_cert_with_surplus_pin", state("mis_issued_cert_with_surplus_pin")[1:] == ("failed", "transport"),
+           "a mis-issued certificate was accepted because a pinned intermediate was appended to the "
+           "handshake chain; the card would be sent to whoever holds it. got %r"
+           % (state("mis_issued_cert_with_surplus_pin"),))
+    expect("mis_issued_cert_with_surplus_pin", not r["sent"],
+           "%d request(s) were sent over a connection the pin should have refused" % len(r["sent"]))
+    expect("mis_issued_cert_with_surplus_pin",
+           "payment_intro.wav" not in plays(r) and "enter_card_number.wav" not in plays(r),
+           "the customer was asked for the card over an unpinned connection: plays=%r" % plays(r))
+
     s = results["secret_file_missing"]
     expect("secret_file_missing", "payment_intro.wav" not in plays(s) and "enter_card_number.wav" not in plays(s),
            "customer was asked for the card with no usable secret: plays=%r" % plays(s))
