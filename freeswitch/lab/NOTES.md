@@ -236,8 +236,10 @@ recording was unmasked on every path where the leg was still up; the
 Let's Encrypt pins refuse a non-LE certificate and a certificate for the
 wrong name before anything is sent; the API being down is caught before the
 customer types anything; `#` after a fixed-length field doesn't spill into
-the next one (B8); typing ahead during the intro works; the dialplan fallback
-(script missing) reconnects the customer at once and unmasks.
+the next one (B8); keys typed ahead during the intro are dropped without
+corrupting the entry that follows (P20 - note this is NOT the same as
+type-ahead working, see item 27); the dialplan fallback (script missing)
+reconnects the customer at once and unmasks.
 
 ### Found by the review of the lab, fixed in the second pass
 

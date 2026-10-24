@@ -274,7 +274,11 @@ def PRESIGNED_SHAPED_LINK():
 # recording at the end of the beep loses the first words): wait for the line
 # to go quiet first (10 quiet 20 ms frames, then wait_for_silence's own
 # 0.5 s countdown; 5 s at most).
-AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:200 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
+# The threshold is 640, not 200: 200 is below the comfort noise a carrier
+# sends, so on a real line no frame counts as silence, the wait runs its
+# whole timeout and plays anyway (D2, the same fault BE-17's steps had).
+# 640 is what mod_amd treats as silence on the same signal.
+AMDBEEP_PLAY = os.environ.get("LAB_AMDBEEP_PLAY", "wait_for_silence:640 10 0 5000,playback:%s,hangup:NORMAL_CLEARING")
 BEEP_WAIT_S = 25
 ROUTE_WITHIN_S = 2.0    # a person must be on their way to an agent this soon after the verdict
 # D6: a beep this early in the call contradicts a HUMAN/NOTSURE verdict. A
@@ -425,7 +429,8 @@ def drop_one(rec, flow, case, run):
     # playback runs anyway, into a mailbox that has usually stopped
     # recording. Measure whether it ended because the line really went
     # quiet or because it gave up.
-    wait_ms = re.search(r"wait_for_silence:\d+ \d+ \d+ (\d+)", steps or "") if flow in ("be17", "runbook", "be17https") else None
+    used = steps if flow in ("be17", "runbook", "be17https") else (AMDBEEP_PLAY if sent_at is not None else None)
+    wait_ms = re.search(r"wait_for_silence:\d+ \d+ \d+ (\d+)", used or "")
     if r["wait_for_silence_done"] is not None and sent_at is not None:
         r["wait_ran_s"] = round(r["wait_for_silence_done"] - sent_at, 2)
         limit = int(wait_ms.group(1)) / 1000.0 if wait_ms else 30.0
