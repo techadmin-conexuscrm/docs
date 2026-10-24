@@ -11,9 +11,14 @@ MAX_ATTEMPTS, FIRST_DIGIT_MS, INTER_DIGIT_MS, PROMPT_DIR = 3, 10000, 5000, "/p"
 Q, PROMPTS = {}, {}
 session = { ready=function() return true end,
   streamFile=function(self, f) PROMPTS[#PROMPTS+1]=f end,
-  -- Q holds the keys pressed after each prompt has ended. A short read is
-  -- the script dropping keys queued while the prompt played: none here.
-  getDigits=function(self, n, t, ms) if ms < 100 or #Q==0 then return "" end local d=table.remove(Q,1) if d=="T" then return "" end return d end }
+  -- Q holds the keys pressed in answer to each prompt, and nothing else:
+  -- this customer presses no extra keys and types nothing ahead. The script
+  -- reads a field with FIRST_DIGIT_MS or INTER_DIGIT_MS and drains with a
+  -- window well below both (DRAIN_MS before the prompt, BURST_MS after a
+  -- field that filled up), so anything shorter than INTER_DIGIT_MS is a
+  -- drain and must come back empty. Type-ahead and leftovers are covered by
+  -- tests/sp_sim.py, which models when each key arrives.
+  getDigits=function(self, n, t, ms) if ms < INTER_DIGIT_MS or #Q==0 then return "" end local d=table.remove(Q,1) if d=="T" then return "" end return d end }
 function progress() end
 function log() end
 """)

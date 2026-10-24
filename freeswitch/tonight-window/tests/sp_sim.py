@@ -305,6 +305,21 @@ SCENARIOS = {
                               + keys("78704", 21, 0.8), replies=[OK]),
     # silence at the card prompt (runbook B6): asked three times, then back
     "silent_customer": dict(keys=[], replies=[]),
+    # Someone who has done this before and keys the card over the prompt
+    # instead of waiting for it to end. The first key lands 5 s into the 6 s
+    # card prompt (14 s intro + 19 s), the rest at their own pace, so eleven
+    # of the sixteen are already on the channel when the prompt ends. They
+    # are this field's digits, not leftovers from anything.
+    "typed_ahead_over_card_prompt": dict(
+        keys=[("4", 19.0, False)] + [(c, 0.1, False) for c in VISA[1:]]
+        + keys("1230") + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA)),
+    # An entry that stops short of the 13-digit minimum. The field gives up,
+    # and the customer has to be told before the prompt starts again - the
+    # alternative is ten seconds of silence and then the same prompt.
+    "short_entry_then_card": dict(
+        keys=keys("41111") + keys(VISA + "#") + keys("1230") + keys("123") + keys("78704"),
+        replies=[OK], want=dict(pan=VISA)),
     # The real deployment: the pins are the issuing intermediates, so the leaf
     # itself is not pinned and is renewed without touching the pin list.
     "pin_on_the_issuing_intermediate": dict(keys=GOOD_FAST, replies=[OK], cert=dict(
@@ -485,6 +500,19 @@ def check(results):
             expect(n, '"%s":"%s"' % (k, v) in body, "tokenize got the wrong %s (want %s)" % (k, v))
     expect("star_during_prompt", state("star_during_prompt")[1] == "cancelled",
            "'*' pressed during a prompt did not go back to the agent: %r" % (state("star_during_prompt"),))
+    r = results["typed_ahead_over_card_prompt"]
+    p = plays(r)
+    expect("typed_ahead_over_card_prompt", p.count("enter_card_number.wav") == 1,
+           "keys pressed while the card prompt played were dropped, so the card was asked for "
+           "%d time(s): %r" % (p.count("enter_card_number.wav"), p))
+    expect("typed_ahead_over_card_prompt", state("typed_ahead_over_card_prompt")[1] == "completed",
+           "a customer who types ahead never gets the card in: %r" % (state("typed_ahead_over_card_prompt"),))
+    p = plays(results["short_entry_then_card"])
+    i = [k for k, v in enumerate(p) if v == "enter_card_number.wav"]
+    expect("short_entry_then_card", len(i) == 2 and "invalid_try_again.wav" in p[i[0] + 1:i[1]],
+           "after a short entry the customer hears nothing at all before the prompt starts "
+           "again: %r" % p)
+
     p = plays(results["pause_mid_card"])
     expect("pause_mid_card", p.count("enter_card_number.wav") == 2, "card prompt not replayed after the pause: %r" % p)
     p = plays(results["silent_customer"])

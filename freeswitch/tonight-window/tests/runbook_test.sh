@@ -138,6 +138,10 @@ printf '%s\n' "$B" | grep -E '^\| B6' | grep -q 'three times' && ok "B6: silence
   || bad "B6: still says silence at the card prompt sends you straight back to the agent"
 printf '%s\n' "$B" | grep -E '^\| B11' | grep -q '122030' && ok "B11: extra keys and a pause are tested" \
   || bad "B11: no test for extra keys (122030 at the expiry) and a pause at the code"
+printf '%s\n' "$B" | grep -E '^\| B6' | grep -qi "wasn't valid" && ok "B6: silence is answered with a prompt, not silence" \
+  || bad "B6: a silent customer is still left with nothing to hear between the retries"
+printf '%s\n' "$B" | grep -E '^\| B11b' | grep -qi 'without waiting' && ok "B11b: keying the card over the prompt is tested" \
+  || bad "B11b: no test for a customer who types the card ahead, over the prompt"
 # a queue caller keeps app.py's "0 = callback" digit binding; the extension
 # clears it (clear_digit_action all). Tested from a queue, after a transfer,
 # with a card that has a 0.
